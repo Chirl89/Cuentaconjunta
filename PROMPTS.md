@@ -15,7 +15,7 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ### Paso 3 (v0.3): Esquema Supabase (PostgreSQL) y Tipos
 **Prompt:**
-> `inicia el siguiente paso: Implementa el esquema SQL en Supabase para users, bank_connections, accounts, transactions, rules, categories y settlements con soporte de estados (pending_assignment, auto_assigned, verified). Genera los tipos TypeScript limpios y el cliente modular de Supabase. Audita redundancias para ahorrar tokens, crea tests unitarios para las interfaces y asegura cero regresiones.`
+> `inicia el siguiente paso: Implementa el esquema SQL en Supabase para users, bank_connections, accounts, transactions, rules, category_learnings, categories y settlements con soporte de estados (pending_assignment, auto_assigned, verified). Genera los tipos TypeScript limpios y el cliente modular de Supabase. Audita redundancias para ahorrar tokens, crea tests unitarios para las interfaces y asegura cero regresiones.`
 
 ---
 
@@ -37,9 +37,9 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ---
 
-### Paso 7 (v0.7): Motor de Reglas Configurables, Auto-Asignación y Reasignación
+### Paso 7 (v0.7): Motor de Categorización Inteligente con IA, Aprendizaje y Reglas
 **Prompt:**
-> `inicia el siguiente paso: Desarrolla el motor de reglas automáticas configurables (por comercio/cuenta/importe), sistema de auto-asignación con marcado para validación y función de reasignación universal de gastos. Refactoriza la lógica para máxima ligereza, corre tests unitarios de reglas y verifica integridad.`
+> `inicia el siguiente paso: Desarrolla el clasificador de categorías con IA ligera, el sistema de aprendizaje continuo basado en el feedback del usuario (memorización de reasignaciones para futuros movimientos del mismo comercio/concepto) y el motor de reglas automáticas de asignación conjunta/individual. Refactoriza para ligereza, corre tests unitarios de categorización y verifica cero regresiones.`
 
 ---
 
@@ -51,13 +51,13 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ### Paso 9 (v0.9): Dashboard Principal: Inbox de Asignación Rápida, Validación de Reglas y Feed UI
 **Prompt:**
-> `inicia el siguiente paso: Crea el Dashboard PWA con el Inbox prioritario de gastos sin asignar (asignar a A, B o Ambos con 1 toque), bandeja de validación rápida de movimientos auto-asignados por regla, balance en vivo y barras de presupuesto. Refactoriza componentes para reutilización de estilos, verifica renderizado y tests de UI sin regresiones.`
+> `inicia el siguiente paso: Crea el Dashboard PWA con el Inbox prioritario de gastos sin asignar (asignar a A, B o Ambos con 1 toque), selector inteligente de categoría con auto-aprendizaje, bandeja de validación rápida de movimientos auto-asignados, balance en vivo y barras de presupuesto. Refactoriza componentes para reutilización de estilos, verifica renderizado y tests de UI sin regresiones.`
 
 ---
 
-### Paso 10 (v0.10): Gestión de Bancos, Tarjetas, Editor de Reglas y Monitor PSD2
+### Paso 10 (v0.10): Gestión de Bancos, Tarjetas, Editor de Reglas/Categorías y Monitor PSD2
 **Prompt:**
-> `inicia el siguiente paso: Desarrolla la pantalla de administración de cuentas/tarjetas, el editor visual de reglas automáticas y el monitor de consentimiento PSD2 (días restantes y re-autorización rápida). Simplifica la gestión de estado, añade tests de expiración de token y valida funcionamiento global.`
+> `inicia el siguiente paso: Desarrolla la pantalla de administración de cuentas/tarjetas, el editor de reglas y patrones aprendidos por IA, y el monitor de consentimiento PSD2 (días restantes y re-autorización rápida). Simplifica la gestión de estado, añade tests de expiración de token y valida funcionamiento global.`
 
 ---
 
