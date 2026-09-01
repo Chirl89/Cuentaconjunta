@@ -15,7 +15,7 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ### Paso 3 (v0.3): Esquema Supabase (PostgreSQL) y Tipos
 **Prompt:**
-> `inicia el siguiente paso: Implementa el esquema SQL en Supabase para users, bank_connections, accounts, transactions, rules, category_learnings, categories y settlements con soporte de estados (pending_assignment, auto_assigned, verified). Genera los tipos TypeScript limpios y el cliente modular de Supabase. Audita redundancias para ahorrar tokens, crea tests unitarios para las interfaces y asegura cero regresiones.`
+> `inicia el siguiente paso: Implementa el esquema SQL en Supabase para users, bank_connections, accounts (con propiedad: A, B, Ambos), transactions, rules, category_learnings, categories y settlements con soporte de estados. Genera los tipos TypeScript limpios y el cliente modular de Supabase. Audita redundancias para ahorrar tokens, crea tests unitarios para las interfaces y asegura cero regresiones.`
 
 ---
 
@@ -25,15 +25,15 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ---
 
-### Paso 5 (v0.5): Conector Open Banking (GoCardless PSD2)
+### Paso 5 (v0.5): Conector Open Banking (GoCardless PSD2) y Titularidad
 **Prompt:**
-> `inicia el siguiente paso: Integra GoCardless Bank Account Data API. Implementa el flujo OAuth de conexión bancaria, selección de entidades y captura segura de cuentas/tarjetas. Optimiza las llamadas API, añade tests unitarios/mocked para la integración y valida que no haya regresiones.`
+> `inicia el siguiente paso: Integra GoCardless Bank Account Data API. Implementa el flujo OAuth de conexión bancaria, selección de entidades, captura segura de cuentas/tarjetas y diálogo de asignación de titularidad (Persona A, Persona B o Ambos). Optimiza las llamadas API, añade tests unitarios/mocked y valida que no haya regresiones.`
 
 ---
 
 ### Paso 6 (v0.6): Sincronización Desatendida de Movimientos
 **Prompt:**
-> `inicia el siguiente paso: Construye el motor de sincronización desatendida en segundo plano para descargar movimientos bancarios, desduplicar por hash y persistir nuevos movimientos en estado pendiente de triage. Limpia código repetido, ejecuta tests de sincronización y desduplicación, y soluciona cualquier fallo al instante.`
+> `inicia el siguiente paso: Construye el motor de sincronización desatendida en segundo plano para descargar movimientos bancarios, desduplicar por hash y persistir nuevos movimientos en estado pendiente de triage asociados a la titularidad de su cuenta. Limpia código repetido, ejecuta tests de sincronización y desduplicación, y soluciona cualquier fallo al instante.`
 
 ---
 
@@ -49,15 +49,15 @@ En cada paso, el agente ejecutará de forma autónoma el ciclo:
 
 ---
 
-### Paso 9 (v0.9): Dashboard Principal: Inbox de Asignación Rápida, Validación de Reglas y Feed UI
+### Paso 9 (v0.9): Dashboard Principal: Inbox Inteligente por Usuario, Validación y Feed UI
 **Prompt:**
-> `inicia el siguiente paso: Crea el Dashboard PWA con el Inbox prioritario de gastos sin asignar (asignar a A, B o Ambos con 1 toque), selector inteligente de categoría con auto-aprendizaje, bandeja de validación rápida de movimientos auto-asignados, balance en vivo y barras de presupuesto. Refactoriza componentes para reutilización de estilos, verifica renderizado y tests de UI sin regresiones.`
+> `inicia el siguiente paso: Crea el Dashboard PWA con el Inbox inteligente filtrado por usuario (muestra gastos de tarjetas propias + comunes aún no catalogadas), selector de categoría con IA/aprendizaje, bandeja de validación rápida de movimientos auto-asignados, balance en vivo y barras de presupuesto. Refactoriza componentes para reutilización de estilos, verifica renderizado y tests de UI sin regresiones.`
 
 ---
 
-### Paso 10 (v0.10): Gestión de Bancos, Tarjetas, Editor de Reglas/Categorías y Monitor PSD2
+### Paso 10 (v0.10): Gestión de Bancos, Titularidad de Tarjetas, Editor de Reglas/Categorías y Monitor PSD2
 **Prompt:**
-> `inicia el siguiente paso: Desarrolla la pantalla de administración de cuentas/tarjetas, el editor de reglas y patrones aprendidos por IA, y el monitor de consentimiento PSD2 (días restantes y re-autorización rápida). Simplifica la gestión de estado, añade tests de expiración de token y valida funcionamiento global.`
+> `inicia el siguiente paso: Desarrolla la pantalla de administración de cuentas/tarjetas y selector de titularidad (A/B/Ambos), el editor de reglas y patrones aprendidos por IA, y el monitor de consentimiento PSD2 (días restantes y re-autorización rápida). Simplifica la gestión de estado, añade tests de expiración de token y valida funcionamiento global.`
 
 ---
 
