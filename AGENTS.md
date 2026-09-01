@@ -1,8 +1,11 @@
 ﻿# Reglas de Comportamiento del Agente & Estándares del Proyecto
 
-## 1. Modo de Trabajo y Autonomía
+## 1. Modo de Trabajo, Autonomía y Calidad
 - **Auto-aprobación**: Avanzar y ejecutar los cambios de forma autónoma. No detenerse a pedir confirmación para tareas ya planificadas o pasos evidentes.
-- Proactividad total en resolución de errores, refactorizaciones y creación de componentes.
+- **Refactorización Continua & Ahorro de Tokens**: Al finalizar cada funcionalidad, auditar el código para eliminar redundancias, simplificar modularidad y mantener el codebase compacto y token-efficient.
+- **Testing Obligatorio (Unitario y Regresión)**:
+  - Al final de cada paso o modificación relevante, ejecutar tests unitarios del nuevo código y tests de regresión para garantizar que los pasos previos siguen funcionando al 100%.
+  - Si se detecta cualquier fallo o regresión, **solucionarlo de inmediato** de forma proactiva.
 
 ## 2. Sistema de Versionado Estricto (FitDuo Standard)
 - **Nueva conversación**: Incrementa la versión menor (ej. 0.1 -> 0.2 -> ... -> 0.11). Coincide exactamente con el número de Paso completado.
