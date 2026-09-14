@@ -7,14 +7,12 @@ En cada paso es obligatorio el ciclo:
 
 ---
 
-### Paso 2 (v0.2): Setup Next.js PWA Cross-Platform (iOS Safari & PC Chrome/Edge) & Versión Visual
+### Paso 2 (v0.2): Setup Next.js PWA, Diseño Fintech Estilo Fintonic & Versión Visual
 **Prompt:**
 ```text
 inicia el siguiente paso:
-1. Inicializa el proyecto base con Next.js 14+ (App Router, TypeScript, Tailwind CSS, Lucide Icons).
-2. Configura soporte PWA y compatibilidad cruzada estricta:
-   - iOS: Safari PWA (manifest.json, iconos apple-touch, viewport-fit=cover, safe-area-insets y altura dinámica con dvh).
-   - PC: Chrome/Edge (soporte de desarrollo local fluido para pruebas en vivo, layout centrado ergonómico).
+1. Inicializa el proyecto base con Next.js 14+ (App Router, TypeScript, Tailwind CSS con paleta estilo Fintonic: fondos slate/navy, acentos menta #00D09C y coral, Lucide Icons y Recharts para visualizaciones).
+2. Configura soporte PWA y compatibilidad cruzada estricta (iOS Safari con viewport dvh y safe-areas; PC Chrome/Edge con soporte de desarrollo ágil en vivo).
 3. Implementa el componente global Header/VersionBadge que lee la versión directamente de version.json y la muestra visiblemente arriba.
 4. Configura el entorno de testing (Vitest + Testing Library).
 5. Refactor: Elimina archivos de ejemplo y boilerplate innecesario de Next.js para dejar el proyecto limpio y compacto.
@@ -33,7 +31,7 @@ inicia el siguiente paso:
    - bank_connections (id, user_id, institution_id, requisition_id, status, expires_at).
    - accounts (id, connection_id, user_id, gocardless_account_id, name, iban_mask, ownership: 'USER_A'|'USER_B'|'JOINT', balance).
    - transactions (id, account_id, user_id, tx_hash, amount, currency, description, booking_date, category_id, is_joint, split_ratio, status: 'pending_assignment'|'auto_assigned'|'verified', origin: 'bank'|'manual'|'cash'|'initial_balance', assigned_by).
-   - categories (id, name, icon, monthly_budget).
+   - categories (id, name, icon, color, monthly_budget).
    - category_learnings (id, household_id, merchant_pattern, category_id, updated_at).
    - rules (id, household_id, pattern, account_id, assign_to: 'USER_A'|'USER_B'|'JOINT', split_ratio, category_id, is_active).
    - settlements (id, household_id, payer_id, receiver_id, amount, date, notes).
@@ -51,7 +49,7 @@ inicia el siguiente paso:
 1. Implementa autenticación con Supabase Auth (Magic Link / Email).
 2. Crea el sistema de vinculación de pareja (creación de Household y código de invitación para unir al segundo usuario).
 3. Añade middleware de Next.js para protección de rutas privadas y gestión de sesiones ligeras.
-4. Desarrolla la pantalla de login/registro minimalista y selector de perfil (Persona A / Persona B).
+4. Desarrolla la pantalla de login/registro minimalista con estética Fintech y selector de perfil (Persona A / Persona B).
 5. Refactor: Centraliza hooks de sesión (useAuth, useHousehold) evitando re-renders y llamadas duplicadas.
 6. Tests: Tests unitarios de middleware de auth, validación de códigos de pareja y redirecciones.
 7. Actualiza version.json a v0.4.0 y haz commit y push a Git.
@@ -123,13 +121,14 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 9 (v0.9): Dashboard Principal Cross-Platform: Inbox Personalizado, Gastos Manuales, Validación y Feed UI
+### Paso 9 (v0.9): Dashboard Principal Estilo Fintonic: Gráficos Donut/Área, Inbox Inteligente y Feed UI
 **Prompt:**
 ```text
 inicia el siguiente paso:
-1. Desarrolla la pantalla principal (Dashboard PWA) garantizando idéntica experiencia en iOS (Safari) y PC (Chrome/Edge):
+1. Desarrolla el Dashboard PWA con estética Fintonic (tarjetas redondeadas, gradientes sutiles, microinteracciones):
+   - Gráfico Donut Central Interactivo (Recharts): Distribución de gasto por categoría con total gastado en el centro del anillo y desglose con porcentajes.
+   - Gráfico de Área Suave: Evolución del gasto conjunto acumulado del mes.
    - Tarjeta de Balance Neto en vivo + botón rápido "Saldar cuentas".
-   - Barras visuales de presupuesto mensual por categoría (gastado vs límite).
    - Botón modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial".
 2. Inbox / Backlog Prioritario al abrir la app con filtrado inteligente:
    - Para Persona A: Muestra gastos de sus tarjetas personales pendientes + gastos de tarjetas comunes pendientes que ninguno haya catalogado.
@@ -137,8 +136,8 @@ inicia el siguiente paso:
    - Triage a 1 toque (botones táctiles en móvil / clics en escritorio): [Persona A] [Persona B] [Ambos (50/50)]. Al catalogar un gasto común, desaparece del backlog de ambos.
    - Selector de categoría con sugerencia IA/Aprendizaje integrado.
 3. Bandeja de Validación de Auto-Asignados: Pestaña para revisar gastos asignados por regla/IA ("Validar todo" o editar puntualmente).
-4. Feed histórico de movimientos con buscador, filtros y reasignación rápida.
-5. Tests: Tests de renderizado de UI, formulario de gasto manual, interacciones de triage y reactividad del backlog en resoluciones móvil y desktop.
+4. Feed histórico de movimientos con buscador, filtros por categoría y reasignación rápida.
+5. Tests: Tests de renderizado de UI, gráficos interactivos, formulario de gasto manual y triage responsive.
 6. Actualiza version.json a v0.9.0 y haz commit y push a Git.
 ```
 
@@ -170,8 +169,8 @@ inicia el siguiente paso:
 1. Configura el despliegue en Vercel con variables de entorno de producción.
 2. Configura Vercel Cron (o Supabase pg_cron) para ejecutar la sincronización desatendida /api/bank/sync de madrugada y a mediodía.
 3. Ejecuta la suite completa de tests de regresión y unitarios de extremo a extremo (E2E / integración).
-4. Verificación Cross-Platform:
-   - iOS: Instalación Safari PWA ("Añadir a pantalla de inicio"), safe-areas y gestos táctiles.
+4. Verificación Cross-Platform y Estética Visual:
+   - iOS: Instalación Safari PWA ("Añadir a pantalla de inicio"), safe-areas y gráficos táctiles interactivos.
    - PC: Chrome y Edge en local/producción con responsive fluido y ergonomía de escritorio.
 5. Genera la documentación de usuario final y walkthrough de la aplicación.
 6. Actualiza version.json a v0.11.0, realiza el commit final y push a la rama main.

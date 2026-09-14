@@ -13,8 +13,8 @@
 - **Paso 1 (v0.1)**: **Reglas del Agente, Arquitectura, Estándar FitDuo y Repositorio Base** *(Completado)*
   - Configuración de `AGENTS.md`, `GEMINI.md`, repositorio Git remoto y hoja de ruta con protocolo de pasos.
   
-- **Paso 2 (v0.2)**: **Setup de la Aplicación Next.js PWA Cross-Platform (iOS Safari & PC Chrome/Edge) & Versión Visual**
-  - Creación del proyecto Next.js (TypeScript, Tailwind CSS, Lucide icons), soporte PWA y compatibilidad multiplataforma total (viewport dinámico `dvh`, safe-areas iOS y soporte Live Server/dev en PC con Chrome/Edge) con componente de versión global.
+- **Paso 2 (v0.2)**: **Setup Next.js PWA, Diseño Visual Fintech Estilo Fintonic & Versión Visual**
+  - Creación del proyecto Next.js (TypeScript, Tailwind CSS con paleta Fintonic, Lucide icons, Recharts/Tremor para gráficos donut/área), soporte PWA cross-platform (iOS Safari & PC Chrome/Edge) y componente de versión global.
 
 - **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL)**
   - Migraciones SQL: tablas `users`, `bank_connections`, `accounts` (titularidad: Persona A, Persona B, Ambos), `transactions` (origen: 'bank'|'manual'|'cash'|'initial_balance'), `rules`, `category_learnings`, `categories` y `settlements` (estados: `pending_assignment`, `auto_assigned`, `verified`), tipos TypeScript y cliente de conexión.
@@ -34,11 +34,11 @@
 - **Paso 8 (v0.8)**: **Motor de Balances en Tiempo Real ("Quién debe a quién") y Ajuste Inicial**
   - Algoritmo de cálculo de saldos entre los miembros, historial de compensaciones, registro de pagos para saldar cuentas y soporte de balance/ajuste inicial de traspaso.
 
-- **Paso 9 (v0.9)**: **Dashboard Principal Cross-Platform: Inbox Inteligente, Gastos Manuales, Validación y Feed UI**
-  - Interfaz de usuario PWA 100% responsiva (iOS Safari y PC Chrome/Edge): Backlog de triage filtrado por usuario, botón modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial", selector de categoría con IA, bandeja de validación, balance en vivo y barras de presupuesto.
+- **Paso 9 (v0.9)**: **Dashboard Principal Estilo Fintonic: Gráfico Donut Central, Inbox Inteligente, Gastos Manuales y Feed**
+  - Interfaz de usuario PWA estilo Fintonic: Gráfico donut interactivo de gastos con total central, curvas de tendencia mensual, Inbox de triage rápido filtrado por usuario, botón modal de gasto manual/efectivo, bandeja de validación y balance en vivo.
 
 - **Paso 10 (v0.10)**: **Gestión de Bancos, Titularidad de Tarjetas, Editor de Reglas/Categorías y Monitor PSD2**
   - Panel de administración de cuentas/tarjetas y cambio de titularidad (A / B / Ambos), editor de reglas y patrones aprendidos por IA, indicador de días restantes del permiso bancario y botón de re-autorización biométrica.
 
 - **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform y Automatización de Cron Jobs**
-  - Despliegue en Vercel, configuración del Cron Job nocturno/diario desatendido en la nube, verificación cruzada en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.
+  - Despliegue en Vercel, configuración del Cron Job nocturno/diario desatendido en la nube, verificación visual en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.
