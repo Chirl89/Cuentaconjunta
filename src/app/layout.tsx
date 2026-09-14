@@ -3,10 +3,12 @@ import "./globals.css";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import Header from "@/components/Header";
 
+const basePath = process.env.GITHUB_ACTIONS === "true" ? "/Cuentaconjunta" : (process.env.NEXT_PUBLIC_BASE_PATH || "");
+
 export const metadata: Metadata = {
   title: "FitDuo - Cuenta Conjunta Inteligente",
   description: "Control de gastos compartidos en pareja estilo Fintonic con sincronización bancaria PSD2",
-  manifest: "/manifest.json",
+  manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -34,7 +36,7 @@ export default function RootLayout({
   return (
     <html lang="es" className="dark">
       <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.svg" />
+        <link rel="apple-touch-icon" href={`${basePath}/icons/icon-192.svg`} />
       </head>
       <body className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
         <UserNamesProvider>
