@@ -25,12 +25,13 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
   transactionToEdit,
 }) => {
   const { memberAName, memberBName } = useUserNames();
-  const { addTransaction, updateTransaction, deleteTransaction } = useTransactions();
+  const { addTransaction, updateTransaction, deleteTransaction, categories } = useTransactions();
+  const availableCategories = categories && categories.length > 0 ? categories : CATEGORIES_LIST;
 
   const [movementType, setMovementType] = useState<"expense" | "transfer_to_joint">("expense");
   const [merchant, setMerchant] = useState("");
   const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState(CATEGORIES_LIST[0].name);
+  const [category, setCategory] = useState(availableCategories[0].name);
   const [payer, setPayer] = useState<PayerType>("joint");
   const [split, setSplit] = useState<SplitType>("50/50");
 
@@ -52,7 +53,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
       setMovementType("expense");
       setMerchant("");
       setAmount("");
-      setCategory(CATEGORIES_LIST[0].name);
+      setCategory(availableCategories[0]?.name || "Supermercado");
       setPayer("joint");
       setSplit("50/50");
     }
@@ -68,7 +69,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
       setSplit("50/50");
     } else {
       setMerchant("");
-      setCategory(CATEGORIES_LIST[0].name);
+      setCategory(availableCategories[0]?.name || "Supermercado");
       setPayer("joint");
       setSplit("50/50");
     }
@@ -268,7 +269,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                   onChange={(e) => setCategory(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
                 >
-                  {CATEGORIES_LIST.map((c) => (
+                  {availableCategories.map((c) => (
                     <option key={c.name} value={c.name}>
                       {c.name}
                     </option>

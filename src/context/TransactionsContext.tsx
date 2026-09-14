@@ -9,17 +9,102 @@ export type PayerType = "memberA" | "memberB" | "joint";
 export interface CategoryInfo {
   name: string;
   color: string;
+  isSystem?: boolean;
 }
 
 export const CATEGORIES_LIST: CategoryInfo[] = [
-  { name: "Supermercado", color: "#00D09C" },
-  { name: "Hogar & Luz", color: "#0EA5E9" },
-  { name: "Restaurantes & Ocio", color: "#F59E0B" },
-  { name: "Transporte & Gasolina", color: "#6366F1" },
-  { name: "Otros Gastos Comunes", color: "#EC4899" },
-  { name: "Aportación Conjunta", color: "#10B981" },
-  { name: "Liquidación / Neteo", color: "#8B5CF6" },
+  { name: "Supermercado", color: "#00D09C", isSystem: true },
+  { name: "Hogar & Luz", color: "#0EA5E9", isSystem: true },
+  { name: "Restaurantes & Ocio", color: "#F59E0B", isSystem: true },
+  { name: "Transporte & Gasolina", color: "#6366F1", isSystem: true },
+  { name: "Otros Gastos Comunes", color: "#EC4899", isSystem: true },
+  { name: "Aportación Conjunta", color: "#10B981", isSystem: true },
+  { name: "Liquidación / Neteo", color: "#8B5CF6", isSystem: true },
 ];
+
+export interface CategoryUsageStatus {
+  isUnused: boolean;
+  unusedText: string | null;
+  lastUsedDate?: string;
+  lastUsedMonthKey?: string;
+}
+
+/**
+ * Checks if a category has been used in the reference month or the previous month.
+ * If not used in either, calculates and returns "No usado en xx tiempo".
+ */
+export function calculateCategoryUsage(
+  categoryName: string,
+  transactions: Transaction[],
+  referenceMonth: string = "2026-09"
+): CategoryUsageStatus {
+  const [refYear, refMonth] = referenceMonth.split("-").map(Number);
+  let prevYear = refYear;
+  let prevMonth = refMonth - 1;
+  if (prevMonth === 0) {
+    prevMonth = 12;
+    prevYear -= 1;
+  }
+  const prevMonthKey = `${prevYear}-${String(prevMonth).padStart(2, "0")}`;
+
+  const catTxs = transactions.filter((t) => t.category === categoryName);
+
+  const hasRecentTx = catTxs.some(
+    (t) => t.monthKey === referenceMonth || t.monthKey === prevMonthKey
+  );
+
+  if (hasRecentTx) {
+    return {
+      isUnused: false,
+      unusedText: null,
+    };
+  }
+
+  if (catTxs.length === 0) {
+    return {
+      isUnused: true,
+      unusedText: "No usado en > 2 meses",
+    };
+  }
+
+  const sorted = [...catTxs].sort((a, b) => {
+    if (a.monthKey !== b.monthKey) {
+      return b.monthKey.localeCompare(a.monthKey);
+    }
+    return (b.createdAt || 0) - (a.createdAt || 0);
+  });
+
+  const mostRecent = sorted[0];
+  const [mostRecentYear, mostRecentMonth] = mostRecent.monthKey.split("-").map(Number);
+  const diffMonths = (refYear - mostRecentYear) * 12 + (refMonth - mostRecentMonth);
+
+  if (diffMonths >= 12) {
+    const years = Math.floor(diffMonths / 12);
+    const remMonths = diffMonths % 12;
+    if (remMonths === 0) {
+      return {
+        isUnused: true,
+        unusedText: `No usado en ${years === 1 ? "1 año" : `${years} años`}`,
+        lastUsedDate: mostRecent.date,
+        lastUsedMonthKey: mostRecent.monthKey,
+      };
+    }
+    return {
+      isUnused: true,
+      unusedText: `No usado en ${years === 1 ? "1 año" : `${years} años`} y ${remMonths} ${remMonths === 1 ? "mes" : "meses"}`,
+      lastUsedDate: mostRecent.date,
+      lastUsedMonthKey: mostRecent.monthKey,
+    };
+  }
+
+  const monthsText = diffMonths <= 1 ? "2 meses" : `${diffMonths} meses`;
+  return {
+    isUnused: true,
+    unusedText: `No usado en ${monthsText}`,
+    lastUsedDate: mostRecent.date,
+    lastUsedMonthKey: mostRecent.monthKey,
+  };
+}
 
 export interface Transaction {
   id: string;
@@ -296,6 +381,10 @@ interface TransactionsContextType {
     creditorName: string;
     method: "direct" | "joint";
   } | null;
+  categories: CategoryInfo[];
+  addCategory: (name: string, color?: string) => { success: boolean; error?: string };
+  deleteCategory: (name: string) => { success: boolean; error?: string };
+  getCategoryUsageStatus: (categoryName: string) => CategoryUsageStatus;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -305,6 +394,68 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
   const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
+  const [categories, setCategories] = useState<CategoryInfo[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("cuentaconjunta_categories");
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {
+        // fallback
+      }
+    }
+    return CATEGORIES_LIST;
+  });
+
+  const addCategory = (name: string, color?: string): { success: boolean; error?: string } => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return { success: false, error: "El nombre del concepto no puede estar vacío" };
+    }
+    if (categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
+      return { success: false, error: "Ya existe un concepto con este nombre" };
+    }
+    const defaultColors = [
+      "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
+      "#EC4899", "#F59E0B", "#F97316", "#14B8A6",
+    ];
+    const chosenColor = color || defaultColors[categories.length % defaultColors.length];
+    const newCat: CategoryInfo = { name: trimmed, color: chosenColor, isSystem: false };
+    const updated = [...categories, newCat];
+    setCategories(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
+      } catch {}
+    }
+    return { success: true };
+  };
+
+  const deleteCategory = (name: string): { success: boolean; error?: string } => {
+    const target = categories.find((c) => c.name === name);
+    if (!target) return { success: false, error: "El concepto no existe" };
+    if (target.isSystem) return { success: false, error: "No se pueden eliminar conceptos predeterminados del sistema" };
+    const inUse = transactions.some((t) => t.category === name);
+    if (inUse) {
+      return { success: false, error: "No se puede eliminar un concepto que contiene transacciones asociadas" };
+    }
+    const updated = categories.filter((c) => c.name !== name);
+    setCategories(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
+      } catch {}
+    }
+    return { success: true };
+  };
+
+  const getCategoryUsageStatus = (categoryName: string): CategoryUsageStatus => {
+    return calculateCategoryUsage(categoryName, transactions, selectedMonth);
+  };
 
   const addTransaction = (data: {
     merchant: string;
@@ -315,7 +466,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     movementType?: "expense" | "transfer_to_joint";
   }) => {
     const isTransfer = data.movementType === "transfer_to_joint";
-    const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
+    const foundCat = categories.find((c) => c.name === data.category) || CATEGORIES_LIST.find((c) => c.name === data.category);
     const color = isTransfer ? "#10B981" : foundCat ? foundCat.color : "#00D09C";
 
     const accountLabel =
@@ -377,7 +528,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // Automated bank transactions can NEVER be edited (amount and payer immutable)
         if (!t.isManual) return t;
 
-        const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
+        const foundCat = categories.find((c) => c.name === data.category) || CATEGORIES_LIST.find((c) => c.name === data.category);
         const color = foundCat ? foundCat.color : "#00D09C";
 
         const accountLabel =
@@ -434,7 +585,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const updateTransactionCategory = (id: string, newCategoryName: string) => {
-    const found = CATEGORIES_LIST.find((c) => c.name === newCategoryName);
+    const found = categories.find((c) => c.name === newCategoryName) || CATEGORIES_LIST.find((c) => c.name === newCategoryName);
     const color = found ? found.color : "#64748B";
 
     setTransactions((prev) =>
@@ -903,6 +1054,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         resetSettlement,
         hasActiveSettlement: !!activeSettlement,
         lastSettlementInfo: activeSettlement,
+        categories,
+        addCategory,
+        deleteCategory,
+        getCategoryUsageStatus,
       }}
     >
       {children}

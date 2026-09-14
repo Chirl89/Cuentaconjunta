@@ -35,6 +35,9 @@ import {
   Plus,
   Users,
   User,
+  Tag,
+  Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -65,11 +68,32 @@ export default function HomePage() {
     resetSettlement,
     hasActiveSettlement,
     lastSettlementInfo,
+    categories,
+    addCategory,
+    deleteCategory,
+    getCategoryUsageStatus,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const [newConceptName, setNewConceptName] = useState("");
+  const [newConceptColor, setNewConceptColor] = useState("#00D09C");
+  const [conceptError, setConceptError] = useState<string | null>(null);
+
+  const handleAddConcept = (e: React.FormEvent) => {
+    e.preventDefault();
+    const res = addCategory(newConceptName, newConceptColor);
+    if (!res.success) {
+      setConceptError(res.error || "Error al añadir el concepto");
+    } else {
+      setNewConceptName("");
+      setConceptError(null);
+      setToastMsg(`Concepto "${newConceptName.trim()}" añadido correctamente`);
+      setTimeout(() => setToastMsg(null), 3000);
+    }
+  };
 
   const truncateConcept = (str: string, maxLength: number = 24) => {
     if (!str) return "";
@@ -696,7 +720,7 @@ export default function HomePage() {
                             onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
                             className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-1.5 pr-3.5 rounded-md border border-amber-300 bg-white text-slate-700 hover:border-amber-500 focus:outline-none leading-none w-full truncate block"
                           >
-                            {CATEGORIES_LIST.map((c) => (
+                            {(categories || CATEGORIES_LIST).map((c) => (
                               <option key={c.name} value={c.name}>
                                 {c.name}
                               </option>
@@ -813,7 +837,7 @@ export default function HomePage() {
                           onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
                           className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-1.5 pr-3.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none leading-none w-full truncate block"
                         >
-                          {CATEGORIES_LIST.map((c) => (
+                          {(categories || CATEGORIES_LIST).map((c) => (
                             <option key={c.name} value={c.name}>
                               {c.name}
                             </option>
@@ -1308,6 +1332,159 @@ export default function HomePage() {
               </form>
             </div>
 
+            {/* Gestión de Conceptos y Categorías */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
+                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <Tag className="w-4 h-4 text-[#00A37A]" />
+                  <span>Gestión de Conceptos y Categorías</span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {categories.length} conceptos disponibles
+                </span>
+              </div>
+
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Añade y personaliza los conceptos para tipificar tus gastos. Aquellos conceptos que no registren ningún gasto ni en el mes en curso ni en el anterior mostrarán a la derecha un aviso con el tiempo exacto que llevan sin utilizarse.
+              </p>
+
+              {/* Formulario Añadir Concepto */}
+              <form onSubmit={handleAddConcept} className="p-4 rounded-xl bg-white border border-slate-200/80 space-y-3 shadow-xs">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-[#00A37A]" />
+                  <span>Crear Nuevo Concepto</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-7 space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 block">
+                      Nombre del concepto:
+                    </label>
+                    <input
+                      type="text"
+                      value={newConceptName}
+                      onChange={(e) => {
+                        setNewConceptName(e.target.value);
+                        setConceptError(null);
+                      }}
+                      placeholder="ej. Mascotas, Suscripciones, Viajes..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="text-[11px] font-semibold text-slate-600 block">
+                      Color identificador:
+                    </label>
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      {[
+                        "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
+                        "#EC4899", "#F59E0B", "#F97316", "#14B8A6"
+                      ].map((col) => (
+                        <button
+                          key={col}
+                          type="button"
+                          onClick={() => setNewConceptColor(col)}
+                          className={`w-5 h-5 rounded-full transition-transform ${
+                            newConceptColor === col ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
+                          }`}
+                          style={{ backgroundColor: col }}
+                          title={col}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      className="w-full py-2 px-3 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Añadir
+                    </button>
+                  </div>
+                </div>
+
+                {conceptError && (
+                  <div className="text-[11px] text-red-600 font-semibold flex items-center gap-1 pt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{conceptError}</span>
+                  </div>
+                )}
+              </form>
+
+              {/* Listado de Conceptos */}
+              <div className="space-y-2">
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1">
+                  Listado de conceptos y estado de uso:
+                </div>
+
+                <div className="divide-y divide-slate-100 bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-xs">
+                  {categories.map((cat) => {
+                    const usage = getCategoryUsageStatus(cat.name);
+                    return (
+                      <div
+                        key={cat.name}
+                        className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {cat.name}
+                          </span>
+                          {cat.isSystem ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
+                              Sistema
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                              Personalizado
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {usage.isUnused ? (
+                            <span
+                              className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5"
+                              title={usage.lastUsedDate ? `Último movimiento registrado: ${usage.lastUsedDate}` : "Sin movimientos registrados"}
+                            >
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>{usage.unusedText}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Activo recientemente</span>
+                            </span>
+                          )}
+
+                          {!cat.isSystem && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const res = deleteCategory(cat.name);
+                                if (!res.success && res.error) {
+                                  alert(res.error);
+                                }
+                              }}
+                              className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
+                              title="Eliminar concepto personalizado"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
             {/* System Info */}
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
@@ -1326,7 +1503,7 @@ export default function HomePage() {
                   <span className="text-slate-500">FitDuo Protocol • Versión v{versionData.version}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                  Paso 2
+                  Paso 3
                 </span>
               </div>
             </div>
