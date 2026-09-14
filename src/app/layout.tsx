@@ -1,7 +1,15 @@
 import type { Metadata, Viewport } from "next";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import AppShell from "@/components/AppShell";
+
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+  variable: "--font-sans",
+});
 
 const basePath = process.env.GITHUB_ACTIONS === "true" ? "/Cuentaconjunta" : (process.env.NEXT_PUBLIC_BASE_PATH || "");
 
@@ -11,7 +19,7 @@ export const metadata: Metadata = {
   manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
     title: "Cuenta Conjunta",
   },
   formatDetection: {
@@ -25,7 +33,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#0f172a",
+  themeColor: "#FFFFFF",
 };
 
 export default function RootLayout({
@@ -34,11 +42,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es" className={plusJakartaSans.variable}>
       <head>
         <link rel="apple-touch-icon" href={`${basePath}/icons/icon-192.svg`} />
       </head>
-      <body className="min-h-screen bg-slate-950 text-slate-100 selection:bg-[#00D09C]/20 selection:text-[#00D09C]">
+      <body className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-[#00D09C]/20 selection:text-[#00A37A]">
         <UserNamesProvider>
           <AppShell>{children}</AppShell>
         </UserNamesProvider>
