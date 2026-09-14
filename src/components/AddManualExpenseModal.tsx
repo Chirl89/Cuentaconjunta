@@ -164,7 +164,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                 }`}
               >
-                50 / 50
+                1/2
               </button>
               <button
                 type="button"
