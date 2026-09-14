@@ -8,16 +8,26 @@
   - Si se detecta cualquier fallo o regresión, **solucionarlo de inmediato** de forma proactiva.
 
 ## 2. Sistema de Versionado Estricto (FitDuo Standard)
-- **Nueva conversación**: Incrementa la versión menor (ej. `v0.1` -> `v0.2` -> ... -> `v0.11`). Coincide exactamente con el número de Paso completado.
-- **Iteración dentro de la misma conversación**: Incrementa la versión parche (ej. `v0.1.1` -> `v0.1.2` -> ... -> `v0.1.11`).
+- **Nueva conversación / Paso principal**: Incrementa la versión menor (ej. `v0.1` -> `v0.2` -> ... -> `v0.11`). Coincide exactamente con el número de Paso completado.
+- **Iteración dentro de la misma conversación**: Incrementa la versión parche (ej. `v0.1.1` -> `v0.1.2` -> ... -> `v0.1.14`).
 - **Visibilidad obligatoria**: En cualquier interfaz visible (WebApp, dashboard, headers, pantallas), se DEBE mostrar arriba de forma clara el **número de versión actual**.
 - El archivo `version.json` en la raíz del proyecto es la fuente de verdad del número de versión.
 
-## 3. Protocolo de Conversaciones
-- **Al finalizar conversación**, el usuario dirá: `paso finalizado`.
-  - Respuesta obligatoria: `El paso X ([Nombre/Titular del paso X]) está finalizado. El siguiente paso es el paso Y: [Nombre/Titular del paso Y].`
-- **Al iniciar nueva conversación**, el usuario dirá: `inicia el siguiente paso`.
-  - Respuesta obligatoria inicial: `Los pasos finalizados son estos: [lista con número y titular], el próximo paso es: [número y titular del paso].` A continuación, comenzar la ejecución autónoma de dicho paso.
+## 3. Protocolo de Conversaciones y Tablas de Progreso
+- **Al iniciar nueva conversación (o al decir `inicia el siguiente paso`):**
+  1. Mostrar una **Tabla de Progreso** detallando:
+     - Pasos completados (con número y titular).
+     - Paso actual que se va a implantar de forma inmediata.
+     - Pasos restantes pendientes.
+  2. Iniciar la ejecución autónoma de dicho paso.
+- **Al finalizar conversación (al decir `paso finalizado`):**
+  1. Mostrar la **Tabla de Progreso** actualizada (lo implantado y lo restante).
+  2. Respuesta de cierre: `El paso X ([Nombre/Titular]) está finalizado. El siguiente paso es el paso Y: [Nombre/Titular].`
 
-## 4. Control de Versiones (Git)
+## 4. Reporte de Impactos y Guía de Pruebas en CADA Iteración
+- **Al final de CADA respuesta/iteración:**
+  - Si se ha corregido un error o modificado código, listar los **posibles impactos derivados**.
+  - Incluir de forma obligatoria una sección clara: **"🧪 Qué deberías probar ahora:"** con los pasos y acciones concretas para que el usuario pueda verificar los cambios en PC (Chrome/Edge) o en iOS (Safari).
+
+## 5. Control de Versiones (Git)
 - Cada paso o iteración relevante se reflejará en commits ordenados y sincronizados con el repositorio remoto.
