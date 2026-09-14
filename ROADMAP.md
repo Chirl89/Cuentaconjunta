@@ -1,4 +1,4 @@
-﻿# Protocolo de Pasos y Roadmap del Proyecto (FitDuo Versioning)
+# Protocolo de Pasos y Roadmap del Proyecto (FitDuo Versioning)
 
 ## Protocolo de Conversaciones
 - **Al finalizar conversación**, el usuario dirá: `paso finalizado`.
@@ -13,7 +13,7 @@
 - **Paso 1 (v0.1)**: **Reglas del Agente, Arquitectura, Estándar FitDuo y Repositorio Base** *(Completado)*
   - Configuración de `AGENTS.md`, `GEMINI.md`, repositorio Git remoto y hoja de ruta con protocolo de pasos.
   
-- **Paso 2 (v0.2)**: **Setup Next.js PWA, Diseño Fintech Fintonic, Estado Global Reactivo de Nombres & Versión Visual**
+- **Paso 2 (v0.2)**: **Setup Next.js PWA, Diseño Fintech Fintonic, Estado Global Reactivo de Nombres & Versión Visual** *(Completado)*
   - Creación del proyecto Next.js (TypeScript, Tailwind CSS con paleta Fintonic, Lucide icons, Recharts), contexto global reactivo para nombres configurables en tiempo real, soporte PWA cross-platform y componente de versión global.
 
 - **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL) con Soporte de Traspasos**
