@@ -18,6 +18,7 @@ export const CATEGORIES_LIST: CategoryInfo[] = [
   { name: "Transporte & Gasolina", color: "#6366F1" },
   { name: "Otros Gastos Comunes", color: "#EC4899" },
   { name: "Aportación Conjunta", color: "#10B981" },
+  { name: "Liquidación / Neteo", color: "#8B5CF6" },
 ];
 
 export interface Transaction {
@@ -33,7 +34,27 @@ export interface Transaction {
   payer: PayerType;
   split: SplitType;
   isManual?: boolean;
-  movementType?: "expense" | "transfer_to_joint";
+  movementType?: "expense" | "transfer_to_joint" | "settlement";
+  createdAt?: number;
+}
+
+export interface DebtMovementItem {
+  id: string;
+  isCarryOver?: boolean;
+  isSettlement?: boolean;
+  merchant: string;
+  date: string;
+  category: string;
+  categoryColor: string;
+  accountLabel: string;
+  ticketAmount: number;
+  payer: PayerType;
+  split: SplitType;
+  typeLabel: string;
+  debtImpact: number;
+  beneficiary: "memberA" | "memberB";
+  isManual?: boolean;
+  rawTransaction?: Transaction;
 }
 
 export interface BankAccount {
@@ -264,6 +285,17 @@ interface TransactionsContextType {
     netDebt: number;
     netDebtToJoint: number;
   };
+  debtContributingMovements: DebtMovementItem[];
+  settleDebt: (method?: "direct" | "joint") => void;
+  resetSettlement: () => void;
+  hasActiveSettlement: boolean;
+  lastSettlementInfo: {
+    date: string;
+    amount: number;
+    debtorName: string;
+    creditorName: string;
+    method: "direct" | "joint";
+  } | null;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -516,40 +548,301 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [memberBClassifiedTransactions]
   );
 
-  // Mathematical Net Balance:
-  // Carlos paid: sum of 50/50 and joint transfers where payer=A
-  // Andrea paid: sum of 50/50 and joint transfers where payer=B
-  // Net debt = |paidByA - paidByB| / 2 (direct settlement between partners)
-  // Net debt to Joint = |paidByA - paidByB| (settlement via joint account transfer)
-  const balanceData = useMemo(() => {
-    let paidByA = 0;
-    let paidByB = 0;
+  // Settlement state per month:
+  const [settlementCutoffs, setSettlementCutoffs] = useState<{
+    [monthKey: string]: {
+      timestamp: number;
+      amount: number;
+      debtorName: string;
+      creditorName: string;
+      method: "direct" | "joint";
+      date: string;
+    };
+  }>({});
 
-    for (const t of classifiedTransactions) {
+  const activeSettlement = settlementCutoffs[selectedMonth] || null;
+
+  const settleDebt = (method: "direct" | "joint" = "direct") => {
+    if (balanceData.netDebt <= 0 || balanceData.debtor === "none") return;
+
+    const info = {
+      timestamp: Date.now(),
+      amount: balanceData.netDebt,
+      debtorName: balanceData.debtorName,
+      creditorName: balanceData.creditorName,
+      method,
+      date: "Hoy",
+    };
+
+    setSettlementCutoffs((prev) => ({
+      ...prev,
+      [selectedMonth]: info,
+    }));
+  };
+
+  const resetSettlement = () => {
+    setSettlementCutoffs((prev) => {
+      const next = { ...prev };
+      delete next[selectedMonth];
+      return next;
+    });
+  };
+
+  // 1. Calculate previous month carry-over debt
+  const prevMonthKey =
+    selectedMonth === "2026-09"
+      ? "2026-08"
+      : selectedMonth === "2026-08"
+      ? "2026-07"
+      : "";
+
+  const prevMonthLabel =
+    selectedMonth === "2026-09"
+      ? "Agosto 2026"
+      : selectedMonth === "2026-08"
+      ? "Julio 2026"
+      : "";
+
+  const previousMonthCarryOverItem = useMemo((): DebtMovementItem | null => {
+    if (!prevMonthKey || activeSettlement) return null;
+
+    // Look at previous month classified transactions
+    const prevTxs = transactions.filter(
+      (t) => t.monthKey === prevMonthKey && t.status === "classified"
+    );
+
+    let prevA = 0; // Carlos credit
+    let prevB = 0; // Andrea credit
+    for (const t of prevTxs) {
+      if (t.payer === "joint") continue;
       if (t.split === "50/50" || t.movementType === "transfer_to_joint") {
-        if (t.payer === "memberA") {
-          paidByA += t.amount;
-        } else if (t.payer === "memberB") {
-          paidByB += t.amount;
-        }
-      } else if (t.split === "memberA" && t.payer === "memberB") {
-        // Andrea paid for Carlos's personal expense
-        paidByB += t.amount * 2;
-      } else if (t.split === "memberB" && t.payer === "memberA") {
-        // Carlos paid for Andrea's personal expense
-        paidByA += t.amount * 2;
-      } else if (t.split === "memberA" && t.payer === "joint") {
-        // Joint account paid for Carlos's personal expense
-        paidByB += t.amount;
-      } else if (t.split === "memberB" && t.payer === "joint") {
-        // Joint account paid for Andrea's personal expense
-        paidByA += t.amount;
+        if (t.payer === "memberA") prevA += t.amount / 2;
+        else if (t.payer === "memberB") prevB += t.amount / 2;
+      } else if (t.payer === "memberA" && t.split === "memberB") {
+        prevA += t.amount;
+      } else if (t.payer === "memberB" && t.split === "memberA") {
+        prevB += t.amount;
       }
     }
 
-    const diff = paidByA - paidByB;
-    const netDebt = Math.abs(diff) / 2;
-    const netDebtToJoint = Math.abs(diff);
+    const prevDiff = prevA - prevB;
+    const prevDebt = Math.round(Math.abs(prevDiff) * 100) / 100;
+    if (prevDebt <= 0.01) return null;
+
+    const prevDebtor = prevDiff < 0 ? "memberA" : "memberB";
+    const beneficiary = prevDebtor === "memberA" ? "memberB" : "memberA";
+
+    return {
+      id: `carryover-${prevMonthKey}`,
+      isCarryOver: true,
+      merchant: `Gasto acumulado mes ${prevMonthLabel}`,
+      date: `Cierre ${prevMonthLabel}`,
+      category: "Deuda Mes Anterior",
+      categoryColor: "#64748B",
+      accountLabel: "Mes anterior",
+      ticketAmount: prevDebt,
+      payer: prevDebtor,
+      split: prevDebtor === "memberA" ? "memberB" : "memberA",
+      typeLabel: `Deuda mes ${prevMonthLabel}`,
+      debtImpact: prevDebt,
+      beneficiary,
+    };
+  }, [transactions, prevMonthKey, prevMonthLabel, activeSettlement]);
+
+  // 2. Compute movements that contribute to current debt:
+  // - Excludes joint account expenses (payer === "joint")
+  // - Excludes personal expenses where payer === split
+  // - If there is an active settlement, only shows movements created AFTER the settlement
+  // - If no active settlement, includes previous month carry-over as a single line
+  const debtContributingMovements = useMemo((): DebtMovementItem[] => {
+    if (activeSettlement) {
+      const items: DebtMovementItem[] = [];
+      const postSettlementTxs = classifiedTransactions.filter(
+        (t) => (t.createdAt ?? 0) > activeSettlement.timestamp
+      );
+
+      for (const t of postSettlementTxs) {
+        if (t.payer === "joint") continue;
+        if (t.payer === "memberA" && t.split === "memberA") continue;
+        if (t.payer === "memberB" && t.split === "memberB") continue;
+
+        if (t.split === "50/50") {
+          items.push({
+            id: t.id,
+            merchant: t.merchant,
+            date: t.date,
+            category: t.category,
+            categoryColor: t.categoryColor,
+            accountLabel: t.accountLabel,
+            ticketAmount: t.amount,
+            payer: t.payer,
+            split: t.split,
+            typeLabel: "50/50 (50%)",
+            debtImpact: t.amount / 2,
+            beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+            isManual: t.isManual,
+            rawTransaction: t,
+          });
+        } else if (t.movementType === "transfer_to_joint") {
+          items.push({
+            id: t.id,
+            merchant: t.merchant,
+            date: t.date,
+            category: t.category,
+            categoryColor: t.categoryColor,
+            accountLabel: t.accountLabel,
+            ticketAmount: t.amount,
+            payer: t.payer,
+            split: t.split,
+            typeLabel: "Aportación Conjunta",
+            debtImpact: t.amount / 2,
+            beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+            isManual: t.isManual,
+            rawTransaction: t,
+          });
+        } else if (t.payer === "memberA" && t.split === "memberB") {
+          items.push({
+            id: t.id,
+            merchant: t.merchant,
+            date: t.date,
+            category: t.category,
+            categoryColor: t.categoryColor,
+            accountLabel: t.accountLabel,
+            ticketAmount: t.amount,
+            payer: t.payer,
+            split: t.split,
+            typeLabel: `Para ${memberBName} (100%)`,
+            debtImpact: t.amount,
+            beneficiary: "memberA",
+            isManual: t.isManual,
+            rawTransaction: t,
+          });
+        } else if (t.payer === "memberB" && t.split === "memberA") {
+          items.push({
+            id: t.id,
+            merchant: t.merchant,
+            date: t.date,
+            category: t.category,
+            categoryColor: t.categoryColor,
+            accountLabel: t.accountLabel,
+            ticketAmount: t.amount,
+            payer: t.payer,
+            split: t.split,
+            typeLabel: `Para ${memberAName} (100%)`,
+            debtImpact: t.amount,
+            beneficiary: "memberB",
+            isManual: t.isManual,
+            rawTransaction: t,
+          });
+        }
+      }
+      return items;
+    }
+
+    const items: DebtMovementItem[] = [];
+
+    // Prepend previous month carry-over if exists
+    if (previousMonthCarryOverItem) {
+      items.push(previousMonthCarryOverItem);
+    }
+
+    for (const t of classifiedTransactions) {
+      if (t.payer === "joint") continue;
+      if (t.payer === "memberA" && t.split === "memberA") continue;
+      if (t.payer === "memberB" && t.split === "memberB") continue;
+
+      if (t.split === "50/50") {
+        items.push({
+          id: t.id,
+          merchant: t.merchant,
+          date: t.date,
+          category: t.category,
+          categoryColor: t.categoryColor,
+          accountLabel: t.accountLabel,
+          ticketAmount: t.amount,
+          payer: t.payer,
+          split: t.split,
+          typeLabel: "50/50 (50%)",
+          debtImpact: t.amount / 2,
+          beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+          isManual: t.isManual,
+          rawTransaction: t,
+        });
+      } else if (t.movementType === "transfer_to_joint") {
+        items.push({
+          id: t.id,
+          merchant: t.merchant,
+          date: t.date,
+          category: t.category,
+          categoryColor: t.categoryColor,
+          accountLabel: t.accountLabel,
+          ticketAmount: t.amount,
+          payer: t.payer,
+          split: t.split,
+          typeLabel: "Aportación Conjunta",
+          debtImpact: t.amount / 2,
+          beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+          isManual: t.isManual,
+          rawTransaction: t,
+        });
+      } else if (t.payer === "memberA" && t.split === "memberB") {
+        // Carlos paid 100% for Andrea
+        items.push({
+          id: t.id,
+          merchant: t.merchant,
+          date: t.date,
+          category: t.category,
+          categoryColor: t.categoryColor,
+          accountLabel: t.accountLabel,
+          ticketAmount: t.amount,
+          payer: t.payer,
+          split: t.split,
+          typeLabel: `Para ${memberBName} (100%)`,
+          debtImpact: t.amount,
+          beneficiary: "memberA",
+          isManual: t.isManual,
+          rawTransaction: t,
+        });
+      } else if (t.payer === "memberB" && t.split === "memberA") {
+        // Andrea paid 100% for Carlos
+        items.push({
+          id: t.id,
+          merchant: t.merchant,
+          date: t.date,
+          category: t.category,
+          categoryColor: t.categoryColor,
+          accountLabel: t.accountLabel,
+          ticketAmount: t.amount,
+          payer: t.payer,
+          split: t.split,
+          typeLabel: `Para ${memberAName} (100%)`,
+          debtImpact: t.amount,
+          beneficiary: "memberB",
+          isManual: t.isManual,
+          rawTransaction: t,
+        });
+      }
+    }
+
+    return items;
+  }, [classifiedTransactions, previousMonthCarryOverItem, activeSettlement, memberAName, memberBName]);
+
+  // 3. Balance & Debt calculation based strictly on debtContributingMovements
+  const balanceData = useMemo(() => {
+    let impactA = 0; // Carlos credit
+    let impactB = 0; // Andrea credit
+
+    for (const item of debtContributingMovements) {
+      if (item.beneficiary === "memberA") {
+        impactA += item.debtImpact;
+      } else if (item.beneficiary === "memberB") {
+        impactB += item.debtImpact;
+      }
+    }
+
+    const diff = impactA - impactB;
+    const netDebt = Math.round(Math.abs(diff) * 100) / 100;
+    const netDebtToJoint = Math.round(netDebt * 2 * 100) / 100;
 
     let debtor: "memberA" | "memberB" | "none" = "none";
     let debtorName = "";
@@ -566,15 +859,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     return {
-      paidByA: Math.round(paidByA * 100) / 100,
-      paidByB: Math.round(paidByB * 100) / 100,
+      paidByA: Math.round(impactA * 100) / 100,
+      paidByB: Math.round(impactB * 100) / 100,
       debtor,
       debtorName,
       creditorName,
-      netDebt: Math.round(netDebt * 100) / 100,
-      netDebtToJoint: Math.round(netDebtToJoint * 100) / 100,
+      netDebt,
+      netDebtToJoint,
     };
-  }, [classifiedTransactions, memberAName, memberBName]);
+  }, [debtContributingMovements, memberAName, memberBName]);
 
   return (
     <TransactionsContext.Provider
@@ -605,6 +898,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         memberACategoriesBreakdown,
         memberBCategoriesBreakdown,
         balanceData,
+        debtContributingMovements,
+        settleDebt,
+        resetSettlement,
+        hasActiveSettlement: !!activeSettlement,
+        lastSettlementInfo: activeSettlement,
       }}
     >
       {children}

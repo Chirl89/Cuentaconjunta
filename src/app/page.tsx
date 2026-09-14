@@ -42,6 +42,7 @@ export default function HomePage() {
   const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
   const { activeTab, setActiveTab } = useNavigation();
   const {
+    transactions,
     accounts,
     classifyTransaction,
     reclassifyTransaction,
@@ -59,6 +60,11 @@ export default function HomePage() {
     memberACategoriesBreakdown,
     memberBCategoriesBreakdown,
     balanceData,
+    debtContributingMovements,
+    settleDebt,
+    resetSettlement,
+    hasActiveSettlement,
+    lastSettlementInfo,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -80,13 +86,27 @@ export default function HomePage() {
   };
 
   const handleTriage = (id: string, split: SplitType, label: string) => {
+    const tx = transactions.find((t) => t.id === id);
     classifyTransaction(id, split);
-    showToast(`Movimiento asignado a "${label}". Balance recalculado.`);
+    if (tx?.payer === "memberA" && split === "memberB") {
+      showToast(`Asignado: Compra para ${memberBName} (100% deuda a favor de ${memberAName}).`);
+    } else if (tx?.payer === "memberB" && split === "memberA") {
+      showToast(`Asignado: Compra para ${memberAName} (100% deuda a favor de ${memberBName}).`);
+    } else {
+      showToast(`Movimiento asignado a "${label}". Balance recalculado.`);
+    }
   };
 
   const handleReclassify = (id: string, split: SplitType, label: string) => {
+    const tx = transactions.find((t) => t.id === id);
     reclassifyTransaction(id, split);
-    showToast(`Reparto reclasificado a "${label}". Balance recalculado.`);
+    if (tx?.payer === "memberA" && split === "memberB") {
+      showToast(`Reclasificado: Compra para ${memberBName} (100% deuda a favor de ${memberAName}).`);
+    } else if (tx?.payer === "memberB" && split === "memberA") {
+      showToast(`Reclasificado: Compra para ${memberAName} (100% deuda a favor de ${memberBName}).`);
+    } else {
+      showToast(`Reparto reclasificado a "${label}". Balance recalculado.`);
+    }
   };
 
   const handleCategoryChange = (id: string, newCategory: string) => {
@@ -687,10 +707,22 @@ export default function HomePage() {
                           </span>
                         </div>
 
-                        {/* Línea 3: Fecha y cuenta */}
-                        <span className="text-[10px] sm:text-[11px] text-slate-500 block truncate leading-tight mt-0.5">
-                          {tx.date} • {getAccountDisplay(tx)}
-                        </span>
+                        {/* Línea 3: Fecha, cuenta y badge */}
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="text-[10px] sm:text-[11px] text-slate-500 truncate leading-tight">
+                            {tx.date} • {getAccountDisplay(tx)}
+                          </span>
+                          {tx.payer === "memberA" && tx.split === "memberB" && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                              Para {memberBName} (100% deuda)
+                            </span>
+                          )}
+                          {tx.payer === "memberB" && tx.split === "memberA" && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-800 border border-red-200">
+                              Para {memberAName} (100% deuda)
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
@@ -792,10 +824,22 @@ export default function HomePage() {
                         </span>
                       </div>
 
-                      {/* Línea 3: Fecha y cuenta */}
-                      <span className="text-[10px] sm:text-[11px] text-slate-400 block truncate leading-tight mt-0.5">
-                        {tx.date} • {getAccountDisplay(tx)}
-                      </span>
+                      {/* Línea 3: Fecha, cuenta y badge */}
+                      <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                        <span className="text-[10px] sm:text-[11px] text-slate-400 truncate leading-tight">
+                          {tx.date} • {getAccountDisplay(tx)}
+                        </span>
+                        {tx.payer === "memberA" && tx.split === "memberB" && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
+                            Para {memberBName} (100% deuda)
+                          </span>
+                        )}
+                        {tx.payer === "memberB" && tx.split === "memberA" && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-800 border border-red-200">
+                            Para {memberAName} (100% deuda)
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
 
@@ -982,59 +1026,162 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Math Table with Round Numbers */}
-            <div className="border border-slate-200/80 rounded-2xl overflow-hidden text-xs">
-              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200/80 font-bold text-slate-700 grid grid-cols-3">
-                <span>Concepto de Balance</span>
-                <span className="text-center text-red-600 font-bold">{memberAName}</span>
-                <span className="text-right text-blue-600 font-bold">{memberBName}</span>
-              </div>
-              <div className="divide-y divide-slate-100">
-                <div className="px-4 py-3 grid grid-cols-3">
-                  <span className="text-slate-600">Aportado a gastos y transferencias</span>
-                  <span className="text-center font-bold text-red-600">
-                    {balanceData.paidByA.toFixed(2)} €
-                  </span>
-                  <span className="text-right font-bold text-blue-600">
-                    {balanceData.paidByB.toFixed(2)} €
-                  </span>
+            {/* Movimientos que componen la deuda actual */}
+            <div className="bg-slate-50/50 border border-slate-200/80 rounded-3xl p-4 sm:p-6 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 pb-3">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <ReceiptText className="w-4 h-4 text-[#00A37A]" />
+                    <span>Movimientos que componen esta deuda</span>
+                  </h2>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Gastos que generan saldo positivo o negativo entre vosotros (excluye gastos pagados con la cuenta conjunta).
+                  </p>
                 </div>
-                <div className="px-4 py-3 grid grid-cols-3">
-                  <span className="text-slate-600">Cuota debida (50% de {totalJointSpent.toFixed(2)} €)</span>
-                  <span className="text-center font-semibold text-slate-700">
-                    {(totalJointSpent / 2).toFixed(2)} €
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-emerald-100/70 text-[#008761]">
+                    {debtContributingMovements.length} {debtContributingMovements.length === 1 ? "movimiento" : "movimientos"}
                   </span>
-                  <span className="text-right font-semibold text-slate-700">
-                    {(totalJointSpent / 2).toFixed(2)} €
-                  </span>
-                </div>
-                <div className="px-4 py-3 bg-slate-50 font-bold text-slate-900 grid grid-cols-3">
-                  <span>Opción 1: Neteo Directo (50%)</span>
-                  <span className="text-center text-red-600">
-                    {balanceData.paidByA >= balanceData.paidByB
-                      ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
-                      : `-${balanceData.netDebt.toFixed(2)} € (debe a ${memberBName})`}
-                  </span>
-                  <span className="text-right text-blue-600">
-                    {balanceData.paidByB >= balanceData.paidByA
-                      ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
-                      : `-${balanceData.netDebt.toFixed(2)} € (debe a ${memberAName})`}
-                  </span>
-                </div>
-                <div className="px-4 py-3 bg-blue-50/50 font-bold text-slate-900 grid grid-cols-3">
-                  <span>Opción 2: Neteo con la Conjunta (100%)</span>
-                  <span className="text-center text-red-600">
-                    {balanceData.paidByA >= balanceData.paidByB
-                      ? `0.00 € (al día)`
-                      : `Ingresar ${balanceData.netDebtToJoint.toFixed(2)} € a Conjunta`}
-                  </span>
-                  <span className="text-right text-blue-600">
-                    {balanceData.paidByB >= balanceData.paidByA
-                      ? `0.00 € (al día)`
-                      : `Ingresar ${balanceData.netDebtToJoint.toFixed(2)} € a Conjunta`}
-                  </span>
+                  {hasActiveSettlement && (
+                    <button
+                      type="button"
+                      onClick={resetSettlement}
+                      className="text-[11px] font-bold text-amber-700 hover:text-amber-900 underline ml-2 cursor-pointer"
+                    >
+                      Deshacer Neteo
+                    </button>
+                  )}
                 </div>
               </div>
+
+              {/* Banner de estado de neteo activo */}
+              {hasActiveSettlement && lastSettlementInfo && (
+                <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-[#00A37A] shrink-0" />
+                    <span>
+                      <strong>Neteo registrado ({lastSettlementInfo.amount.toFixed(2)} € saldados):</strong> Mostrando únicamente los nuevos movimientos registrados a partir del cierre.
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={resetSettlement}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-emerald-300 text-emerald-800 text-[11px] font-bold hover:bg-emerald-100 transition-colors shrink-0 cursor-pointer"
+                  >
+                    Reabrir cuentas
+                  </button>
+                </div>
+              )}
+
+              {/* Lista de movimientos */}
+              {debtContributingMovements.length === 0 ? (
+                <div className="text-center py-10 text-slate-400 space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-[#00D09C] mx-auto opacity-70" />
+                  <p className="text-xs font-bold text-slate-700">¡No hay deuda viva pendiente!</p>
+                  <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+                    Todos los movimientos están equilibrados o han sido liquidados en el último neteo.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-200/70 bg-white rounded-2xl border border-slate-200/80 overflow-hidden shadow-xs">
+                  {debtContributingMovements.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-3.5 sm:px-4 flex items-center justify-between gap-3 transition-colors ${
+                        item.isCarryOver ? "bg-slate-50/80" : "hover:bg-slate-50/50"
+                      }`}
+                    >
+                      {/* Left: Icon & Details */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shrink-0"
+                          style={{
+                            backgroundColor: `${item.categoryColor}18`,
+                            color: item.categoryColor,
+                          }}
+                        >
+                          {item.isCarryOver ? (
+                            <Clock className="w-4 h-4" />
+                          ) : (
+                            <ShoppingCart className="w-4 h-4" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1 overflow-hidden space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                              {item.merchant}
+                            </span>
+                            {item.isCarryOver && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 shrink-0">
+                                Arrastrado
+                              </span>
+                            )}
+                            {item.isManual && !item.isCarryOver && (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Manual
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] sm:text-[11px] text-slate-500">
+                            <span>{item.date}</span>
+                            <span>•</span>
+                            <span>{item.accountLabel}</span>
+                            <span>•</span>
+                            <span className="font-semibold text-slate-700">{item.typeLabel}</span>
+                            <span>•</span>
+                            <span className="text-slate-400">Ticket: {item.ticketAmount.toFixed(2)} €</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Net Debt Impact */}
+                      <div className="text-right shrink-0">
+                        <span
+                          className={`text-sm sm:text-base font-black tracking-tight block ${
+                            item.beneficiary === "memberA" ? "text-red-600" : "text-blue-600"
+                          }`}
+                        >
+                          +{item.debtImpact.toFixed(2)} €
+                        </span>
+                        <span
+                          className={`text-[10px] font-bold block ${
+                            item.beneficiary === "memberA" ? "text-red-500" : "text-blue-500"
+                          }`}
+                        >
+                          a favor de {item.beneficiary === "memberA" ? memberAName : memberBName}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botón de Neteo / Cerrar Cuentas */}
+              {balanceData.debtor !== "none" && balanceData.netDebt > 0 && (
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80">
+                  <div className="text-xs text-slate-600">
+                    <span>Al liquidar, se registra el neteo y la deuda actual queda saldada a <strong>0.00 €</strong>.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `¿Registrar neteo de ${balanceData.netDebt.toFixed(2)} € entre ${balanceData.debtorName} y ${balanceData.creditorName}? La deuda quedará cerrada a 0 €.`
+                        )
+                      ) {
+                        settleDebt("direct");
+                      }
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md shadow-slate-900/15 transition-all flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Registrar Neteo / Cerrar Cuentas</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

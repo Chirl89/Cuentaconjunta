@@ -38,7 +38,11 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
 
   useEffect(() => {
     if (transactionToEdit) {
-      setMovementType(transactionToEdit.movementType || "expense");
+      setMovementType(
+        transactionToEdit.movementType === "transfer_to_joint"
+          ? "transfer_to_joint"
+          : "expense"
+      );
       setMerchant(transactionToEdit.merchant);
       setAmount(String(transactionToEdit.amount));
       setCategory(transactionToEdit.category);
@@ -383,31 +387,109 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                       : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                   }`}
                 >
-                  1/2
+                  1/2 (50%)
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setSplit("memberA")}
-                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
-                    split === "memberA"
-                      ? "bg-red-500 text-white border-red-500 shadow-xs"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  Solo {memberAName}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSplit("memberB")}
-                  className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
-                    split === "memberB"
-                      ? "bg-blue-500 text-white border-blue-500 shadow-xs"
-                      : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
-                  }`}
-                >
-                  Solo {memberBName}
-                </button>
+
+                {payer === "memberA" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberA")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberA"
+                          ? "bg-red-500 text-white border-red-500 shadow-xs"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      Solo {memberAName}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberB")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberB"
+                          ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                          : "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      }`}
+                    >
+                      Para {memberBName} (100%)
+                    </button>
+                  </>
+                )}
+
+                {payer === "memberB" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberB")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberB"
+                          ? "bg-blue-500 text-white border-blue-500 shadow-xs"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      Solo {memberBName}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberA")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberA"
+                          ? "bg-red-600 text-white border-red-600 shadow-xs"
+                          : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                      }`}
+                    >
+                      Para {memberAName} (100%)
+                    </button>
+                  </>
+                )}
+
+                {payer === "joint" && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberA")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberA"
+                          ? "bg-red-500 text-white border-red-500 shadow-xs"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      Para {memberAName}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSplit("memberB")}
+                      className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center truncate ${
+                        split === "memberB"
+                          ? "bg-blue-500 text-white border-blue-500 shadow-xs"
+                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      Para {memberBName}
+                    </button>
+                  </>
+                )}
               </div>
+
+              {/* Explicación de compra para la pareja (100% deuda) */}
+              {payer === "memberA" && split === "memberB" && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-blue-50 border border-blue-200/80 text-[11px] text-blue-900 flex items-start gap-2">
+                  <span className="text-blue-600 font-bold shrink-0">💳 100% Deuda:</span>
+                  <span>
+                    Has pagado tú una compra exclusiva para {memberBName}. {memberBName} te deberá el <strong>100% del importe ({amount ? `${amount} €` : "del gasto"})</strong>.
+                  </span>
+                </div>
+              )}
+
+              {payer === "memberB" && split === "memberA" && (
+                <div className="mt-2.5 p-2.5 rounded-xl bg-red-50 border border-red-200/80 text-[11px] text-red-900 flex items-start gap-2">
+                  <span className="text-red-600 font-bold shrink-0">💳 100% Deuda:</span>
+                  <span>
+                    Ha pagado {memberBName} una compra exclusiva para {memberAName}. {memberAName} le deberá el <strong>100% del importe ({amount ? `${amount} €` : "del gasto"})</strong>.
+                  </span>
+                </div>
+              )}
             </div>
           )}
 

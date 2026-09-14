@@ -17,6 +17,8 @@ const TestComponent = () => {
     totalSpent,
     pendingTransactions,
     classifiedTransactions,
+    settleDebt,
+    resetSettlement,
   } = useTransactions();
 
   const jointAccount = accounts.find((a) => a.ownership === "JOINT");
@@ -147,6 +149,29 @@ const TestComponent = () => {
         }}
       >
         Delete First Manual
+      </button>
+      {/* Add 100% personal purchase for partner */}
+      <button
+        data-testid="btn-add-for-andrea"
+        onClick={() =>
+          addTransaction({
+            merchant: "Libro para Andrea",
+            amount: 50,
+            category: "Otros Gastos Comunes",
+            payer: "memberA",
+            split: "memberB",
+          })
+        }
+      >
+        Buy for Andrea 100%
+      </button>
+
+      {/* Settle debt button */}
+      <button data-testid="btn-settle" onClick={() => settleDebt("direct")}>
+        Settle Debt
+      </button>
+      <button data-testid="btn-reset-settle" onClick={() => resetSettlement()}>
+        Reset Settle
       </button>
     </div>
   );
@@ -300,5 +325,50 @@ describe("TransactionsContext Dynamic Engine", () => {
     const netDebt = Number(screen.getByTestId("debt").textContent);
     const netDebtToJoint = Number(screen.getByTestId("debt-to-joint").textContent);
     expect(netDebtToJoint).toBe(Math.round(netDebt * 2 * 100) / 100);
+  });
+
+  it("adds 100% debt when Carlos buys something exclusively for Andrea", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialDebt = Number(screen.getByTestId("debt").textContent);
+    const initialDebtor = screen.getByTestId("debtor").textContent;
+
+    // Carlos buys a 50€ item for Andrea (100% debt)
+    fireEvent.click(screen.getByTestId("btn-add-for-andrea"));
+
+    const newDebt = Number(screen.getByTestId("debt").textContent);
+    const newDebtor = screen.getByTestId("debtor").textContent;
+
+    // Since Carlos had credit, Andrea owes Carlos 50€ more!
+    expect(newDebtor).toBe("memberB");
+    expect(newDebt).toBe(initialDebt + 50);
+  });
+
+  it("settles debt to 0 when settlement is registered and can be undone", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialDebt = Number(screen.getByTestId("debt").textContent);
+    expect(initialDebt).toBeGreaterThan(0);
+
+    // Settle debt
+    fireEvent.click(screen.getByTestId("btn-settle"));
+    expect(Number(screen.getByTestId("debt").textContent)).toBe(0);
+    expect(screen.getByTestId("debtor").textContent).toBe("none");
+
+    // Reset/undo settlement
+    fireEvent.click(screen.getByTestId("btn-reset-settle"));
+    expect(Number(screen.getByTestId("debt").textContent)).toBe(initialDebt);
   });
 });
