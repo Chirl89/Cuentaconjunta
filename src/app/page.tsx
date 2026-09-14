@@ -10,6 +10,7 @@ import {
 } from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
+import versionData from "../../version.json";
 import {
   TrendingDown,
   ArrowRight,
@@ -116,27 +117,25 @@ export default function HomePage() {
       {activeTab === "resumen_conjunta" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-7 shadow-sm relative overflow-hidden">
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                  <Users className="w-5 h-5 text-[#00A37A]" />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
+                  <Users className="w-5 h-5 text-[#00A37A] shrink-0" />
                   <span>Gastos Conjuntos</span>
                 </h1>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
-                    Reparto 1/2
-                  </span>
-                  <MonthSelector />
-                </div>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold whitespace-nowrap">
+                  Reparto 1/2
+                </span>
+                <MonthSelector />
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between md:justify-end gap-4 min-w-[210px]">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                     Total Conjunto
                   </span>
-                  <span className="text-[11px] text-[#008761] font-semibold flex items-center gap-1 mt-0.5">
+                  <span className="text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
                     <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
                   </span>
                 </div>
@@ -284,27 +283,25 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_carlos" && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-7 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                  <User className="w-5 h-5 text-red-500" />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
+                  <User className="w-5 h-5 text-red-500 shrink-0" />
                   <span>Gastos de {memberAName}</span>
                 </h1>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold">
-                    Individual
-                  </span>
-                  <MonthSelector />
-                </div>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold whitespace-nowrap">
+                  Individual
+                </span>
+                <MonthSelector />
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between md:justify-end gap-4 min-w-[210px]">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                     Total {memberAName}
                   </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                  <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
                     {memberAClassifiedTransactions.length} individuales
                   </span>
                 </div>
@@ -414,27 +411,25 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_andrea" && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-7 shadow-sm">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-                  <User className="w-5 h-5 text-blue-500" />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
+                  <User className="w-5 h-5 text-blue-500 shrink-0" />
                   <span>Gastos de {memberBName}</span>
                 </h1>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold">
-                    Individual
-                  </span>
-                  <MonthSelector />
-                </div>
+                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold whitespace-nowrap">
+                  Individual
+                </span>
+                <MonthSelector />
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between md:justify-end gap-4 min-w-[210px]">
-                <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                     Total {memberBName}
                   </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5">
+                  <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
                     {memberBClassifiedTransactions.length} individuales
                   </span>
                 </div>
@@ -1003,7 +998,7 @@ export default function HomePage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Versión del Sistema</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.8</span>
+                  <span className="text-slate-500">FitDuo Protocol • Versión v{versionData.version}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 2
