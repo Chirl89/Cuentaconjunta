@@ -3,7 +3,11 @@
 import React, { useState } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useNavigation } from "@/context/NavigationContext";
-import { useTransactions, SplitType } from "@/context/TransactionsContext";
+import {
+  useTransactions,
+  SplitType,
+  CATEGORIES_LIST,
+} from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
 import {
   TrendingDown,
@@ -24,28 +28,35 @@ import {
   PieChart as PieIcon,
   Settings as SettingsIcon,
   Check,
-  RotateCcw,
   SlidersHorizontal,
   ReceiptText,
+  Tag,
+  UserCheck,
+  Edit2,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
 export default function HomePage() {
-  const { memberAName, memberBName } = useUserNames();
+  const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
   const { activeTab, setActiveTab } = useNavigation();
   const {
     selectedMonth,
     classifyTransaction,
     reclassifyTransaction,
+    updateTransactionCategory,
+    getAccountDisplay,
     pendingTransactions,
     classifiedTransactions,
-    filteredTransactions,
     totalSpent,
     categoriesBreakdown,
     balanceData,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  // Settings tab temporary edit state
+  const [inputNameA, setInputNameA] = useState(memberAName);
+  const [inputNameB, setInputNameB] = useState(memberBName);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -59,12 +70,24 @@ export default function HomePage() {
 
   const handleReclassify = (id: string, split: SplitType, label: string) => {
     reclassifyTransaction(id, split);
-    showToast(`Reclasificado como "${label}". Balance recalculado.`);
+    showToast(`Reparto reclasificado a "${label}". Balance recalculado.`);
+  };
+
+  const handleCategoryChange = (id: string, newCategory: string) => {
+    updateTransactionCategory(id, newCategory);
+    showToast(`Categoría cambiada a "${newCategory}". Gráfico Donut actualizado.`);
+  };
+
+  const handleSaveNames = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (inputNameA.trim()) setMemberAName(inputNameA.trim());
+    if (inputNameB.trim()) setMemberBName(inputNameB.trim());
+    showToast("¡Nombres del hogar actualizados con éxito!");
   };
 
   return (
     <div className="space-y-6">
-      {/* Dynamic Feedback Toast */}
+      {/* Toast Feedback */}
       {toastMsg && (
         <div className="fixed top-5 right-5 z-50 bg-[#00A37A] text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200">
           <CheckCircle2 className="w-4 h-4" />
@@ -73,11 +96,11 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 1: RESUMEN GASTOS                                        */}
+      {/* TAB 1: RESUMEN GASTOS (DASHBOARD FINTONIC)                    */}
       {/* ============================================================ */}
       {activeTab === "resumen" && (
         <div className="space-y-6">
-          {/* Top Fintonic FinScore Banner + Month Selector */}
+          {/* Top Banner + Month Selector */}
           <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(0,208,156,0.12)] relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
@@ -86,7 +109,6 @@ export default function HomePage() {
                     <Sparkles className="w-3.5 h-3.5 text-[#00A37A]" />
                     <span>FinScore Pareja: 840 • Control Excelente</span>
                   </div>
-                  {/* Month Selector Component */}
                   <MonthSelector />
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
@@ -115,7 +137,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Grid: Dynamic Donut Chart & Balance Debt */}
+          {/* Grid: Donut Chart & Balance Debt */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Dynamic Donut Chart */}
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -319,7 +341,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: MOVIMIENTOS (PENDIENTES ARRIBA + HISTÓRICO RECLASIFICABLE) */}
+      {/* TAB 2: MOVIMIENTOS (CON RECLASIFICACIÓN DE CATEGORÍA Y REPARTO) */}
       {/* ============================================================ */}
       {activeTab === "movimientos" && (
         <div className="space-y-6">
@@ -331,7 +353,8 @@ export default function HomePage() {
                 Movimientos Bancarios
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Clasifica los gastos entrantes arriba y reclasifica cualquier movimiento histórico abajo.
+                Puedes cambiar el <strong className="text-slate-800">reparto</strong> (50/50 o individual) y la{" "}
+                <strong className="text-slate-800">categoría</strong> de cualquier gasto haciendo clic sobre ella.
               </p>
             </div>
             <MonthSelector />
@@ -372,14 +395,30 @@ export default function HomePage() {
                         <ShoppingCart className="w-5 h-5" />
                       </div>
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
-                            {tx.category}
-                          </span>
+
+                          {/* Interactive Category Selector */}
+                          <div className="relative inline-block">
+                            <select
+                              value={tx.category}
+                              onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
+                              className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
+                              title="Haz clic para cambiar la categoría"
+                            >
+                              {CATEGORIES_LIST.map((c) => (
+                                <option key={c.name} value={c.name}>
+                                  {c.name}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
+                              ▼
+                            </span>
+                          </div>
                         </div>
                         <span className="text-xs text-slate-400 block mt-0.5">
-                          {tx.date} • {tx.account}
+                          {tx.date} • {getAccountDisplay(tx)}
                         </span>
                       </div>
                     </div>
@@ -420,16 +459,17 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* SECTION 2: HISTÓRICO DE MOVIMIENTOS RECLASIFICABLE */}
+          {/* SECTION 2: HISTÓRICO DE MOVIMIENTOS RECLASIFICABLE (CATEGORÍA + REPARTO) */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <SlidersHorizontal className="w-4 h-4 text-[#00A37A]" />
-                  Histórico de Movimientos (Reclasificables)
+                  Histórico de Movimientos
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Haz clic en cualquier opción para cambiar el reparto y recalcular la deuda al instante.
+                  Cambia la <strong className="text-slate-800">categoría</strong> o el{" "}
+                  <strong className="text-slate-800">reparto</strong> en cualquier momento:
                 </p>
               </div>
               <span className="text-xs font-bold text-slate-500">
@@ -451,14 +491,30 @@ export default function HomePage() {
                       <ShoppingCart className="w-5 h-5" />
                     </div>
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
-                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                          {tx.category}
-                        </span>
+
+                        {/* Interactive Category Selector in History */}
+                        <div className="relative inline-block">
+                          <select
+                            value={tx.category}
+                            onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
+                            className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
+                            title="Cambiar categoría de este gasto"
+                          >
+                            {CATEGORIES_LIST.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
+                            ▼
+                          </span>
+                        </div>
                       </div>
                       <span className="text-xs text-slate-400 block mt-0.5">
-                        {tx.date} • Pagado con {tx.account}
+                        {tx.date} • {getAccountDisplay(tx)}
                       </span>
                     </div>
                   </div>
@@ -468,7 +524,7 @@ export default function HomePage() {
                       {tx.amount.toFixed(2)} €
                     </span>
 
-                    {/* Reclassification Pill Switcher */}
+                    {/* Reclassification Split Pill Switcher */}
                     <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-[11px]">
                       <button
                         onClick={() => handleReclassify(tx.id, "50/50", "Ambos (50/50)")}
@@ -477,6 +533,7 @@ export default function HomePage() {
                             ? "bg-slate-900 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title="Repartir al 50% entre ambos"
                       >
                         50/50
                       </button>
@@ -487,6 +544,7 @@ export default function HomePage() {
                             ? "bg-[#00D09C] text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title={`Gasto 100% de ${memberAName}`}
                       >
                         {memberAName}
                       </button>
@@ -497,6 +555,7 @@ export default function HomePage() {
                             ? "bg-rose-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title={`Gasto 100% de ${memberBName}`}
                       >
                         {memberBName}
                       </button>
@@ -638,7 +697,7 @@ export default function HomePage() {
                 </p>
               </div>
               <button
-                onClick={() => alert("El flujo oficial OAuth PSD2 se activará en el Paso 5.")}
+                onClick={() => alert("El conector oficial PSD2 GoCardless se activará en el Paso 5.")}
                 className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-1.5"
               >
                 <span>Conectar Banco</span>
@@ -689,7 +748,7 @@ export default function HomePage() {
             </div>
 
             <div className="p-4 rounded-2xl bg-[#E6FAF4] border border-[#00D09C]/30 text-xs text-[#008761] leading-relaxed">
-              💡 <strong>Aprendizaje continuo:</strong> Al reclasificar cualquier gasto en Movimientos, el motor IA adaptará las reglas futuras para esa categoría o comercio.
+              💡 <strong>Aprendizaje continuo:</strong> Al reclasificar cualquier gasto o categoría en Movimientos, el motor adaptará las reglas futuras para ese comercio.
             </div>
 
             <div className="divide-y divide-slate-100 text-xs">
@@ -717,32 +776,73 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 6: CONFIGURACIÓN                                          */}
+      {/* TAB 6: CONFIGURACIÓN (CON FORMULARIO OFICIAL DE NOMBRES)      */}
       {/* ============================================================ */}
       {activeTab === "ajustes" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-6">
             <div className="border-b border-slate-100 pb-4">
               <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                 <SettingsIcon className="w-5 h-5 text-[#00A37A]" />
                 Configuración del Hogar
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Información de los miembros y estado del sistema.
+                Personaliza los nombres de los miembros de la pareja y ajusta preferencias.
               </p>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
-                <div>
-                  <span className="font-bold text-slate-800 block">Miembros Registrados</span>
-                  <span className="text-slate-500">Miembro A: {memberAName} • Miembro B: {memberBName}</span>
-                </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 bg-slate-200 text-slate-700 rounded-full">
-                  Configurado
-                </span>
+            {/* Dedicated Name Customizer Form */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <UserCheck className="w-4 h-4 text-[#00A37A]" />
+                <span>Nombres de la Pareja</span>
               </div>
 
+              <form onSubmit={handleSaveNames} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Nombre Miembro A:</span>
+                    <span className="text-[10px] text-[#00A37A]">Acento Verde</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={inputNameA}
+                    onChange={(e) => setInputNameA(e.target.value)}
+                    placeholder="ej. Carlos"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C] focus:ring-1 focus:ring-[#00D09C]"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
+                    <span>Nombre Miembro B:</span>
+                    <span className="text-[10px] text-rose-500">Acento Rosa</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={inputNameB}
+                    onChange={(e) => setInputNameB(e.target.value)}
+                    placeholder="ej. Andrea"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
+                  />
+                </div>
+
+                <div className="sm:col-span-2 flex items-center justify-between pt-2">
+                  <span className="text-[11px] text-slate-400">
+                    ⚡ Se guardan de forma permanente y se reflejan al instante en toda la app.
+                  </span>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-1.5"
+                  >
+                    <Check className="w-3.5 h-3.5" /> Guardar Nombres
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* System Info & PSD2 Status */}
+            <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Consentimiento Bancario PSD2</span>
@@ -756,7 +856,7 @@ export default function HomePage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Estándar y Versión de la App</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.4</span>
+                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.5</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 2 Completado

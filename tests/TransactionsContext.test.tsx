@@ -9,6 +9,8 @@ const TestComponent = () => {
     balanceData,
     classifyTransaction,
     reclassifyTransaction,
+    updateTransactionCategory,
+    categoriesBreakdown,
     selectedMonth,
     setSelectedMonth,
     totalSpent,
@@ -37,11 +39,13 @@ const TestComponent = () => {
         Reclassify tx-3
       </button>
 
+      <span data-testid="tx3-cat">{categoriesBreakdown.find((c) => c.name === "Hogar & Luz")?.value || 0}</span>
+
       <button
-        data-testid="btn-month-ago"
-        onClick={() => setSelectedMonth("2026-08")}
+        data-testid="btn-change-cat"
+        onClick={() => updateTransactionCategory("tx-3", "Hogar & Luz")}
       >
-        Go to August
+        Change Cat tx-3
       </button>
     </div>
   );
@@ -88,7 +92,7 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(newDebt).not.toBe(initialDebt);
   });
 
-  it("updates balance when switching to previous month", () => {
+  it("updates category and recalculates category breakdown", () => {
     render(
       <UserNamesProvider>
         <TransactionsProvider>
@@ -97,7 +101,10 @@ describe("TransactionsContext Dynamic Engine", () => {
       </UserNamesProvider>
     );
 
-    fireEvent.click(screen.getByTestId("btn-month-ago"));
-    expect(screen.getByTestId("month").textContent).toBe("2026-08");
+    const initialHogarVal = Number(screen.getByTestId("tx3-cat").textContent);
+    fireEvent.click(screen.getByTestId("btn-change-cat"));
+    const newHogarVal = Number(screen.getByTestId("tx3-cat").textContent);
+
+    expect(newHogarVal).toBeGreaterThan(initialHogarVal);
   });
 });

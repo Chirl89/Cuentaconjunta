@@ -6,15 +6,28 @@ import { useUserNames } from "./UserNamesContext";
 export type SplitType = "50/50" | "memberA" | "memberB";
 export type PayerType = "memberA" | "memberB" | "joint";
 
+export interface CategoryInfo {
+  name: string;
+  color: string;
+}
+
+export const CATEGORIES_LIST: CategoryInfo[] = [
+  { name: "Supermercado", color: "#00D09C" },
+  { name: "Hogar & Luz", color: "#0EA5E9" },
+  { name: "Restaurantes & Ocio", color: "#F59E0B" },
+  { name: "Transporte & Gasolina", color: "#6366F1" },
+  { name: "Otros Gastos Comunes", color: "#EC4899" },
+];
+
 export interface Transaction {
   id: string;
   merchant: string;
   date: string;
   monthKey: string; // "2026-09" | "2026-08"
-  amount: number; // positive number representing expense
+  amount: number;
   category: string;
   categoryColor: string;
-  account: string;
+  accountLabel: string; // e.g. "Tarjeta Débito" or "Cuenta Santander"
   status: "pending" | "classified";
   payer: PayerType;
   split: SplitType;
@@ -30,7 +43,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 64.2,
     category: "Supermercado",
     categoryColor: "#00D09C",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "pending",
     payer: "memberA",
     split: "50/50",
@@ -43,7 +56,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 89.4,
     category: "Hogar & Luz",
     categoryColor: "#0EA5E9",
-    account: "Cuenta Santander (Laura)",
+    accountLabel: "Cuenta Santander",
     status: "pending",
     payer: "memberB",
     split: "50/50",
@@ -56,7 +69,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 54.0,
     category: "Restaurantes & Ocio",
     categoryColor: "#F59E0B",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -69,7 +82,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 45.0,
     category: "Transporte & Gasolina",
     categoryColor: "#6366F1",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -82,7 +95,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 32.5,
     category: "Otros Gastos Comunes",
     categoryColor: "#EC4899",
-    account: "Cuenta Santander (Laura)",
+    accountLabel: "Cuenta Santander",
     status: "classified",
     payer: "memberB",
     split: "50/50",
@@ -95,7 +108,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 128.0,
     category: "Supermercado",
     categoryColor: "#00D09C",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -109,7 +122,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 95.3,
     category: "Supermercado",
     categoryColor: "#00D09C",
-    account: "Cuenta Santander (Laura)",
+    accountLabel: "Cuenta Santander",
     status: "classified",
     payer: "memberB",
     split: "50/50",
@@ -122,7 +135,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 22.0,
     category: "Restaurantes & Ocio",
     categoryColor: "#F59E0B",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -135,7 +148,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 68.4,
     category: "Hogar & Luz",
     categoryColor: "#0EA5E9",
-    account: "Cuenta Santander (Laura)",
+    accountLabel: "Cuenta Santander",
     status: "classified",
     payer: "memberB",
     split: "50/50",
@@ -148,7 +161,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     amount: 140.0,
     category: "Transporte & Gasolina",
     categoryColor: "#6366F1",
-    account: "Tarjeta Débito (Carlos)",
+    accountLabel: "Tarjeta Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -167,6 +180,8 @@ interface TransactionsContextType {
   setSelectedMonth: (month: string) => void;
   classifyTransaction: (id: string, split: SplitType, payer?: PayerType) => void;
   reclassifyTransaction: (id: string, split: SplitType) => void;
+  updateTransactionCategory: (id: string, newCategoryName: string) => void;
+  getAccountDisplay: (tx: Transaction) => string;
   filteredTransactions: Transaction[];
   pendingTransactions: Transaction[];
   classifiedTransactions: Transaction[];
@@ -208,6 +223,33 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setTransactions((prev) =>
       prev.map((t) => (t.id === id ? { ...t, split, status: "classified" } : t))
     );
+  };
+
+  const updateTransactionCategory = (id: string, newCategoryName: string) => {
+    const found = CATEGORIES_LIST.find((c) => c.name === newCategoryName);
+    const color = found ? found.color : "#64748B";
+
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              category: newCategoryName,
+              categoryColor: color,
+            }
+          : t
+      )
+    );
+  };
+
+  const getAccountDisplay = (tx: Transaction): string => {
+    if (tx.payer === "memberA") {
+      return `${tx.accountLabel} (${memberAName})`;
+    }
+    if (tx.payer === "memberB") {
+      return `${tx.accountLabel} (${memberBName})`;
+    }
+    return "Cuenta Conjunta BBVA ••8491";
   };
 
   // Transactions filtered by selected month
@@ -266,19 +308,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } else if (t.split === "memberA") {
         // Personal expense of Member A
         if (t.payer === "memberB") {
-          // B paid for A's personal expense -> A owes B 100% of it
-          paidByB += t.amount * 2; // Equivalent mathematical shift
+          paidByB += t.amount * 2;
         }
       } else if (t.split === "memberB") {
         // Personal expense of Member B
         if (t.payer === "memberA") {
-          // A paid for B's personal expense -> B owes A 100% of it
           paidByA += t.amount * 2;
         }
       }
     }
 
-    // When expenses are shared 50/50: Net debt = |paidByA - paidByB| / 2
     const diff = paidByA - paidByB;
     const netDebt = Math.abs(diff) / 2;
 
@@ -314,6 +353,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setSelectedMonth,
         classifyTransaction,
         reclassifyTransaction,
+        updateTransactionCategory,
+        getAccountDisplay,
         filteredTransactions,
         pendingTransactions,
         classifiedTransactions,
