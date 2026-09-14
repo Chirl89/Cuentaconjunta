@@ -17,7 +17,7 @@
   - Creación del proyecto Next.js (TypeScript, Tailwind CSS, Lucide icons), soporte PWA para móviles y componente de cabecera que muestra la versión actual en todo momento.
 
 - **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL)**
-  - Migraciones SQL: tablas `users`, `bank_connections`, `accounts` (con titularidad: Persona A, Persona B, Ambos), `transactions`, `rules`, `category_learnings`, `categories` y `settlements` (con estados: `pending_assignment`, `auto_assigned`, `verified`), tipos TypeScript y cliente de conexión.
+  - Migraciones SQL: tablas `users`, `bank_connections`, `accounts` (titularidad: Persona A, Persona B, Ambos), `transactions` (bancarias y manuales/efectivo, origen: 'bank'|'manual'), `rules`, `category_learnings`, `categories` y `settlements` (con estados: `pending_assignment`, `auto_assigned`, `verified`), tipos TypeScript y cliente de conexión.
 
 - **Paso 4 (v0.4)**: **Autenticación Multi-Usuario y Perfiles de Pareja**
   - Sistema de acceso seguro con Supabase Auth (Magic Link / Email) para los 2 miembros del hogar y vinculación de perfiles.
@@ -31,11 +31,11 @@
 - **Paso 7 (v0.7)**: **Motor de Categorización Inteligente con IA, Aprendizaje por Feedback y Reglas de Asignación**
   - Clasificador inteligente de categorías inicial, sistema de auto-aprendizaje cuando el usuario corrige una categoría para futuros movimientos, motor de reglas por comercio/cuenta y soporte de splits 50/50 o personalizados.
 
-- **Paso 8 (v0.8)**: **Motor de Balances en Tiempo Real ("Quién debe a quién")**
-  - Algoritmo de cálculo de saldos entre los miembros, historial de compensaciones y registro de pagos para saldar cuentas.
+- **Paso 8 (v0.8)**: **Motor de Balances en Tiempo Real ("Quién debe a quién") y Ajuste Inicial**
+  - Algoritmo de cálculo de saldos entre los miembros, historial de compensaciones, registro de pagos para saldar cuentas y soporte de balance/ajuste inicial de traspaso.
 
-- **Paso 9 (v0.9)**: **Dashboard Principal: Inbox Inteligente por Usuario (Propias + Comunes Pendientes), Validación y Feed UI**
-  - Interfaz de usuario PWA: Backlog de triage filtrado por usuario (gastos de tarjetas propias + comunes aún no catalogadas), selector rápido de categoría con IA/aprendizaje, bandeja de validación de auto-asignados, balance en vivo y barras de presupuesto.
+- **Paso 9 (v0.9)**: **Dashboard Principal: Inbox Inteligente, Registro de Gastos Manuales/Efectivo, Validación y Feed UI**
+  - Interfaz de usuario PWA: Backlog de triage filtrado por usuario (gastos de tarjetas propias + comunes aún no catalogadas), botón flotante/modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial", selector rápido de categoría con IA/aprendizaje, bandeja de validación de auto-asignados, balance en vivo y barras de presupuesto.
 
 - **Paso 10 (v0.10)**: **Gestión de Bancos, Titularidad de Tarjetas, Editor de Reglas/Categorías y Monitor PSD2**
   - Panel de administración de cuentas/tarjetas y cambio de titularidad (A / B / Ambos), editor de reglas y patrones aprendidos por IA, indicador de días restantes del permiso bancario y botón de re-autorización biométrica.

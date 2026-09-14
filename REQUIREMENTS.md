@@ -1,4 +1,4 @@
-﻿# Requisitos Funcionales y UX: Flujo de Asignación, Titularidad de Cuentas, Reglas e IA
+﻿# Requisitos Funcionales y UX: Flujo de Asignación, Titularidad de Cuentas, Reglas, IA y Gastos Manuales
 
 ## 1. Titularidad y Asignación de Cuentas / Tarjetas
 - Al vincular o registrar cualquier cuenta bancaria o tarjeta, se define su **propiedad**:
@@ -16,7 +16,15 @@
 - **Triage Rápido (1 toque):**
   - Botones directos para asignar a **Persona A**, **Persona B** o **Ambos (Conjunto con split 50/50 o configurable)**.
 
-## 3. Motor de Categorización Inteligente con IA y Aprendizaje Continuo (Feedback Loop)
+## 3. Añadir Gasto Manual / Pagos en Efectivo / Traspaso de Saldo Inicial
+- **Modal "Añadir Gasto Manual":**
+  - Permite registrar gastos que no provienen de un banco conectado:
+    - Pagos en efectivo (Cash).
+    - Gastos omitidos o de cuentas no conectadas.
+    - **Punto de situación / Ajuste inicial:** Permite registrar un gasto o saldo inicial para traspasar deudas/histórico de su sistema anterior directamente a la nueva app.
+  - Campos: Importe, Concepto, Fecha, Pagado por (Persona A / Persona B), Tipo (Personal A / Personal B / Conjunto con split), Categoría, Método (Efectivo / Transferencia / Tarjeta no vinculada).
+
+## 4. Motor de Categorización Inteligente con IA y Aprendizaje Continuo (Feedback Loop)
 - **Clasificación Inicial por IA:**
   - Modelo ligero/rápido de categorización (vía modelo semántico / Gemini Flash API ultraligera o clasificador NLP) que sugiere la categoría correspondiente a partir del concepto del extracto bancario (ej. "Iberdrola" -> Facturas/Luz).
 - **Aprendizaje Activo por Corrección del Usuario:**
@@ -24,7 +32,7 @@
   - Para los futuros movimientos con ese mismo concepto o comercio, el sistema aplica automáticamente la categoría corregida por el usuario con máxima prioridad.
 - **Categorización 100% editable:** Cualquier categoría asignada puede cambiarse en cualquier momento con un clic.
 
-## 4. Motor de Reglas Configurables
+## 5. Motor de Reglas Configurables
 - Los usuarios pueden crear y editar reglas automáticas basadas en:
   - Texto del comercio / descripción (ej. `MERCADONA`, `IBERDROLA`, `NETFLIX`).
   - Tarjeta o cuenta bancaria origen.
@@ -32,6 +40,6 @@
 - **Acciones de la regla:** Asignar automáticamente a Persona A, Persona B o Ambos (con split definido) y asignar categoría.
 - **Reversibilidad total:** Cualquier gasto (incluso asignado automáticamente por regla o IA) se puede **reasignar manualmente** en cualquier momento.
 
-## 5. Bandeja de Validación de Auto-Asignaciones
+## 6. Bandeja de Validación de Auto-Asignaciones
 - Apartado específico en la app para auditar los gastos que entraron y se asignaron automáticamente por regla o IA.
 - Permite a la pareja hacer un repaso rápido ("Validar todo" o modificar alguno con 1 clic si en esa ocasión fue un gasto especial).

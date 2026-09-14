@@ -30,13 +30,13 @@ inicia el siguiente paso:
    - users (id, email, display_name, avatar_url, household_id).
    - bank_connections (id, user_id, institution_id, requisition_id, status, expires_at).
    - accounts (id, connection_id, user_id, gocardless_account_id, name, iban_mask, ownership: 'USER_A'|'USER_B'|'JOINT', balance).
-   - transactions (id, account_id, user_id, tx_hash, amount, currency, description, booking_date, category_id, is_joint, split_ratio, status: 'pending_assignment'|'auto_assigned'|'verified', assigned_by).
+   - transactions (id, account_id, user_id, tx_hash, amount, currency, description, booking_date, category_id, is_joint, split_ratio, status: 'pending_assignment'|'auto_assigned'|'verified', origin: 'bank'|'manual'|'cash'|'initial_balance', assigned_by).
    - categories (id, name, icon, monthly_budget).
    - category_learnings (id, household_id, merchant_pattern, category_id, updated_at).
    - rules (id, household_id, pattern, account_id, assign_to: 'USER_A'|'USER_B'|'JOINT', split_ratio, category_id, is_active).
    - settlements (id, household_id, payer_id, receiver_id, amount, date, notes).
 2. Define los tipos TypeScript fuertemente tipados e inmutables (Database types) y el cliente Supabase singleton (server/client).
-3. Tests: Tests unitarios de validación de tipos, esquemas e inserciones mockeadas. Cero regresiones.
+3. Tests: Tests unitarios de validación de tipos, esquemas e inserciones mockeadas (tanto transacciones bancarias como manuales). Cero regresiones.
 4. Actualiza version.json a v0.3.0 y haz commit y push a Git.
 ```
 
@@ -81,7 +81,7 @@ inicia el siguiente paso:
    - Recorre las cuentas activas de GoCardless de ambos miembros.
    - Descarga transacciones recientes.
    - Calcula tx_hash (SHA-256 de account_id + booking_date + amount + description) para desduplicación estricta.
-   - Inserta los nuevos movimientos en transactions con status = 'pending_assignment'.
+   - Inserta los nuevos movimientos en transactions con status = 'pending_assignment' y origin = 'bank'.
 2. Soporte para ejecución manual con botón "Sincronizar ahora" y ejecución desatendida vía API key/Bearer token para crons.
 3. Tests: Tests de desduplicación, tolerancia a fallos en respuestas bancarias y consistencia de datos.
 4. Actualiza version.json a v0.6.0 y haz commit y push a Git.
@@ -105,29 +105,30 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 8 (v0.8): Motor Matemático de Balances y Liquidaciones
+### Paso 8 (v0.8): Motor Matemático de Balances, Liquidaciones y Ajustes Iniciales
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Desarrolla el motor de cálculo de balances compartidos:
-   - Suma total de gastos marcados como conjuntos pagados por Persona A vs Persona B.
+   - Suma total de gastos marcados como conjuntos (bancarios y manuales/efectivo) pagados por Persona A vs Persona B.
    - Aplica porcentajes de reparto (50/50 por defecto o splits personalizados por gasto).
-   - Deduce pagos de compensación registrados en settlements.
+   - Deduce pagos de compensación registrados en settlements y ajustes iniciales de traspaso de saldo histórico.
    - Determina el saldo neto en tiempo real: "Persona A debe X € a Persona B" o "Cuentas saldadas".
-2. Implementa endpoint y servicio para registrar liquidaciones/pagos ("Saldar deuda").
-3. Tests: Suite exhaustiva de tests matemáticos con múltiples escenarios de gastos, tarjetas compartidas, splits asimétricos y liquidaciones parciales/totales.
+2. Implementa endpoint y servicio para registrar liquidaciones/pagos ("Saldar deuda") y saldos iniciales de traspaso.
+3. Tests: Suite exhaustiva de tests matemáticos con múltiples escenarios de gastos, tarjetas compartidas, pagos en efectivo, splits asimétricos y liquidaciones parciales/totales.
 4. Actualiza version.json a v0.8.0 y haz commit y push a Git.
 ```
 
 ---
 
-### Paso 9 (v0.9): Dashboard Principal: Inbox Personalizado, Validación y Feed UI
+### Paso 9 (v0.9): Dashboard Principal: Inbox Personalizado, Gastos Manuales/Efectivo, Validación y Feed UI
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Desarrolla la pantalla principal (Dashboard PWA):
    - Tarjeta de Balance Neto en vivo + botón rápido "Saldar cuentas".
    - Barras visuales de presupuesto mensual por categoría (gastado vs límite).
+   - Botón de Acción Rápida (FAB / modal): "Añadir Gasto Manual" (para pagos en efectivo, gastos fuera de banco o ajuste de saldo inicial de traspaso).
 2. Inbox / Backlog Prioritario al abrir la app con filtrado inteligente:
    - Para Persona A: Muestra gastos de sus tarjetas personales pendientes + gastos de tarjetas comunes pendientes que ninguno haya catalogado.
    - Para Persona B: Muestra sus tarjetas personales pendientes + comunes pendientes.
@@ -135,7 +136,7 @@ inicia el siguiente paso:
    - Selector de categoría con sugerencia IA/Aprendizaje integrado.
 3. Bandeja de Validación de Auto-Asignados: Pestaña para revisar gastos asignados por regla/IA ("Validar todo" o editar puntualmente).
 4. Feed histórico de movimientos con buscador, filtros y reasignación rápida.
-5. Tests: Tests de renderizado de UI, interacciones de triage y reactividad del backlog.
+5. Tests: Tests de renderizado de UI, formulario de gasto manual, interacciones de triage y reactividad del backlog.
 6. Actualiza version.json a v0.9.0 y haz commit y push a Git.
 ```
 
