@@ -13,11 +13,11 @@
 - **Paso 1 (v0.1)**: **Reglas del Agente, Arquitectura, Estándar FitDuo y Repositorio Base** *(Completado)*
   - Configuración de `AGENTS.md`, `GEMINI.md`, repositorio Git remoto y hoja de ruta con protocolo de pasos.
   
-- **Paso 2 (v0.2)**: **Setup de la Aplicación Next.js PWA & Sistema de Versión Visual**
-  - Creación del proyecto Next.js (TypeScript, Tailwind CSS, Lucide icons), soporte PWA para móviles y componente de cabecera que muestra la versión actual en todo momento.
+- **Paso 2 (v0.2)**: **Setup de la Aplicación Next.js PWA Cross-Platform (iOS Safari & PC Chrome/Edge) & Versión Visual**
+  - Creación del proyecto Next.js (TypeScript, Tailwind CSS, Lucide icons), soporte PWA y compatibilidad multiplataforma total (viewport dinámico `dvh`, safe-areas iOS y soporte Live Server/dev en PC con Chrome/Edge) con componente de versión global.
 
 - **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL)**
-  - Migraciones SQL: tablas `users`, `bank_connections`, `accounts` (titularidad: Persona A, Persona B, Ambos), `transactions` (bancarias y manuales/efectivo, origen: 'bank'|'manual'), `rules`, `category_learnings`, `categories` y `settlements` (con estados: `pending_assignment`, `auto_assigned`, `verified`), tipos TypeScript y cliente de conexión.
+  - Migraciones SQL: tablas `users`, `bank_connections`, `accounts` (titularidad: Persona A, Persona B, Ambos), `transactions` (origen: 'bank'|'manual'|'cash'|'initial_balance'), `rules`, `category_learnings`, `categories` y `settlements` (estados: `pending_assignment`, `auto_assigned`, `verified`), tipos TypeScript y cliente de conexión.
 
 - **Paso 4 (v0.4)**: **Autenticación Multi-Usuario y Perfiles de Pareja**
   - Sistema de acceso seguro con Supabase Auth (Magic Link / Email) para los 2 miembros del hogar y vinculación de perfiles.
@@ -34,11 +34,11 @@
 - **Paso 8 (v0.8)**: **Motor de Balances en Tiempo Real ("Quién debe a quién") y Ajuste Inicial**
   - Algoritmo de cálculo de saldos entre los miembros, historial de compensaciones, registro de pagos para saldar cuentas y soporte de balance/ajuste inicial de traspaso.
 
-- **Paso 9 (v0.9)**: **Dashboard Principal: Inbox Inteligente, Registro de Gastos Manuales/Efectivo, Validación y Feed UI**
-  - Interfaz de usuario PWA: Backlog de triage filtrado por usuario (gastos de tarjetas propias + comunes aún no catalogadas), botón flotante/modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial", selector rápido de categoría con IA/aprendizaje, bandeja de validación de auto-asignados, balance en vivo y barras de presupuesto.
+- **Paso 9 (v0.9)**: **Dashboard Principal Cross-Platform: Inbox Inteligente, Gastos Manuales, Validación y Feed UI**
+  - Interfaz de usuario PWA 100% responsiva (iOS Safari y PC Chrome/Edge): Backlog de triage filtrado por usuario, botón modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial", selector de categoría con IA, bandeja de validación, balance en vivo y barras de presupuesto.
 
 - **Paso 10 (v0.10)**: **Gestión de Bancos, Titularidad de Tarjetas, Editor de Reglas/Categorías y Monitor PSD2**
   - Panel de administración de cuentas/tarjetas y cambio de titularidad (A / B / Ambos), editor de reglas y patrones aprendidos por IA, indicador de días restantes del permiso bancario y botón de re-autorización biométrica.
 
-- **Paso 11 (v0.11)**: **Despliegue en Producción y Automatización de Cron Jobs**
-  - Despliegue en Vercel, configuración del Cron Job nocturno/diario desatendido en la nube, verificación PWA en iOS/Android y entrega final.
+- **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform y Automatización de Cron Jobs**
+  - Despliegue en Vercel, configuración del Cron Job nocturno/diario desatendido en la nube, verificación cruzada en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.

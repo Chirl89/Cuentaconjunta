@@ -7,15 +7,17 @@ En cada paso es obligatorio el ciclo:
 
 ---
 
-### Paso 2 (v0.2): Setup Next.js PWA & Sistema de Versión Visual
+### Paso 2 (v0.2): Setup Next.js PWA Cross-Platform (iOS Safari & PC Chrome/Edge) & Versión Visual
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Inicializa el proyecto base con Next.js 14+ (App Router, TypeScript, Tailwind CSS, Lucide Icons).
-2. Configura soporte PWA completo (manifest.json, iconos, metatags para iOS/Android y offline fallback).
+2. Configura soporte PWA y compatibilidad cruzada estricta:
+   - iOS: Safari PWA (manifest.json, iconos apple-touch, viewport-fit=cover, safe-area-insets y altura dinámica con dvh).
+   - PC: Chrome/Edge (soporte de desarrollo local fluido para pruebas en vivo, layout centrado ergonómico).
 3. Implementa el componente global Header/VersionBadge que lee la versión directamente de version.json y la muestra visiblemente arriba.
 4. Configura el entorno de testing (Vitest + Testing Library).
-5. Refactor: Elimina archivos de ejemplo y boilerplate de Next.js para dejar el proyecto limpio y compacto.
+5. Refactor: Elimina archivos de ejemplo y boilerplate innecesario de Next.js para dejar el proyecto limpio y compacto.
 6. Tests: Ejecuta tests unitarios del componente de versión y verificación de build. Resuelve cualquier error al vuelo.
 7. Actualiza version.json a v0.2.0 y haz commit y push a Git.
 ```
@@ -121,22 +123,22 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 9 (v0.9): Dashboard Principal: Inbox Personalizado, Gastos Manuales/Efectivo, Validación y Feed UI
+### Paso 9 (v0.9): Dashboard Principal Cross-Platform: Inbox Personalizado, Gastos Manuales, Validación y Feed UI
 **Prompt:**
 ```text
 inicia el siguiente paso:
-1. Desarrolla la pantalla principal (Dashboard PWA):
+1. Desarrolla la pantalla principal (Dashboard PWA) garantizando idéntica experiencia en iOS (Safari) y PC (Chrome/Edge):
    - Tarjeta de Balance Neto en vivo + botón rápido "Saldar cuentas".
    - Barras visuales de presupuesto mensual por categoría (gastado vs límite).
-   - Botón de Acción Rápida (FAB / modal): "Añadir Gasto Manual" (para pagos en efectivo, gastos fuera de banco o ajuste de saldo inicial de traspaso).
+   - Botón modal "Añadir Gasto Manual / Efectivo / Ajuste Inicial".
 2. Inbox / Backlog Prioritario al abrir la app con filtrado inteligente:
    - Para Persona A: Muestra gastos de sus tarjetas personales pendientes + gastos de tarjetas comunes pendientes que ninguno haya catalogado.
    - Para Persona B: Muestra sus tarjetas personales pendientes + comunes pendientes.
-   - Triage a 1 toque: botones directos [Persona A] [Persona B] [Ambos (50/50)]. Al catalogar un gasto común, desaparece del backlog de ambos.
+   - Triage a 1 toque (botones táctiles en móvil / clics en escritorio): [Persona A] [Persona B] [Ambos (50/50)]. Al catalogar un gasto común, desaparece del backlog de ambos.
    - Selector de categoría con sugerencia IA/Aprendizaje integrado.
 3. Bandeja de Validación de Auto-Asignados: Pestaña para revisar gastos asignados por regla/IA ("Validar todo" o editar puntualmente).
 4. Feed histórico de movimientos con buscador, filtros y reasignación rápida.
-5. Tests: Tests de renderizado de UI, formulario de gasto manual, interacciones de triage y reactividad del backlog.
+5. Tests: Tests de renderizado de UI, formulario de gasto manual, interacciones de triage y reactividad del backlog en resoluciones móvil y desktop.
 6. Actualiza version.json a v0.9.0 y haz commit y push a Git.
 ```
 
@@ -161,14 +163,16 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 11 (v0.11): Despliegue en Producción y Automatización de Cron Jobs
+### Paso 11 (v0.11): Despliegue en Producción, Verificación Cross-Platform y Cron Automatizado
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Configura el despliegue en Vercel con variables de entorno de producción.
 2. Configura Vercel Cron (o Supabase pg_cron) para ejecutar la sincronización desatendida /api/bank/sync de madrugada y a mediodía.
 3. Ejecuta la suite completa de tests de regresión y unitarios de extremo a extremo (E2E / integración).
-4. Audita accesibilidad móvil y compatibilidad PWA para instalación en iOS (Safari "Añadir a pantalla de inicio") y Android.
+4. Verificación Cross-Platform:
+   - iOS: Instalación Safari PWA ("Añadir a pantalla de inicio"), safe-areas y gestos táctiles.
+   - PC: Chrome y Edge en local/producción con responsive fluido y ergonomía de escritorio.
 5. Genera la documentación de usuario final y walkthrough de la aplicación.
 6. Actualiza version.json a v0.11.0, realiza el commit final y push a la rama main.
 ```
