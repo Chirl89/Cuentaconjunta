@@ -1,18 +1,18 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { UserNamesProvider } from "@/context/UserNamesContext";
-import Header from "@/components/Header";
+import AppShell from "@/components/AppShell";
 
 const basePath = process.env.GITHUB_ACTIONS === "true" ? "/Cuentaconjunta" : (process.env.NEXT_PUBLIC_BASE_PATH || "");
 
 export const metadata: Metadata = {
-  title: "FitDuo - Cuenta Conjunta Inteligente",
-  description: "Control de gastos compartidos en pareja estilo Fintonic con sincronización bancaria PSD2",
+  title: "Cuenta Conjunta - Finanzas en Pareja",
+  description: "Gestión financiera compartida en pareja estilo Fintonic con sincronización bancaria PSD2",
   manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "FitDuo",
+    title: "Cuenta Conjunta",
   },
   formatDetection: {
     telephone: false,
@@ -38,12 +38,9 @@ export default function RootLayout({
       <head>
         <link rel="apple-touch-icon" href={`${basePath}/icons/icon-192.svg`} />
       </head>
-      <body className="min-h-screen bg-slate-950 text-slate-100 flex flex-col antialiased selection:bg-emerald-500/20 selection:text-emerald-300">
+      <body className="min-h-screen bg-slate-950 text-slate-100 selection:bg-[#00D09C]/20 selection:text-[#00D09C]">
         <UserNamesProvider>
-          <Header />
-          <main className="flex-1 w-full max-w-4xl mx-auto px-4 py-5 pb-safe-bottom">
-            {children}
-          </main>
+          <AppShell>{children}</AppShell>
         </UserNamesProvider>
       </body>
     </html>

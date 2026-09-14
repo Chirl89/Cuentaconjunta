@@ -1,280 +1,367 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
 import {
-  Wallet,
   TrendingDown,
-  ArrowRightLeft,
-  CheckCircle2,
-  PieChart as PieIcon,
-  ShieldCheck,
-  Sparkles,
-  Smartphone,
-  Layers,
+  ArrowRight,
+  ShoppingCart,
+  Zap,
+  Utensils,
+  Fuel,
+  Receipt,
+  CheckCircle,
+  Clock,
   ArrowUpRight,
+  ShieldCheck,
+  Building2,
+  Sparkles,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
-const MOCK_CATEGORIES = [
-  { name: "Supermercado & Alimentación", value: 420, color: "#00D09C" },
-  { name: "Hogar & Suministros", value: 280, color: "#38BDF8" },
-  { name: "Restaurantes & Ocio", value: 190, color: "#F59E0B" },
-  { name: "Transporte & Gasolina", value: 95, color: "#A855F7" },
-  { name: "Mascotas & Salud", value: 65, color: "#FF6B6B" },
+// Fintonic official category color scheme
+const FINTONIC_CATEGORIES = [
+  { name: "Supermercado", icon: ShoppingCart, value: 450.3, color: "#00D09C", count: 8 },
+  { name: "Hogar & Luz", icon: Zap, value: 215.8, color: "#38BDF8", count: 3 },
+  { name: "Restaurantes & Ocio", icon: Utensils, value: 185.0, color: "#F59E0B", count: 5 },
+  { name: "Transporte & Combustible", icon: Fuel, value: 110.4, color: "#818CF8", count: 4 },
+  { name: "Otros Gastos Comunes", icon: Receipt, value: 88.5, color: "#EC4899", count: 2 },
+];
+
+const RECENT_TRANSACTIONS = [
+  {
+    id: "tx-1",
+    merchant: "Mercadona Gran Vía",
+    date: "Hoy, 11:42",
+    amount: -64.2,
+    category: "Supermercado",
+    categoryColor: "#00D09C",
+    icon: ShoppingCart,
+    account: "BBVA Conjunta ••8491",
+    status: "pending",
+  },
+  {
+    id: "tx-2",
+    merchant: "Iberdrola Clientes",
+    date: "Ayer, 09:15",
+    amount: -89.4,
+    category: "Hogar & Luz",
+    categoryColor: "#38BDF8",
+    icon: Zap,
+    account: "Santander Mixta ••2104",
+    status: "pending",
+  },
+  {
+    id: "tx-3",
+    merchant: "Restaurante La Tagliatella",
+    date: "12 Sep, 21:30",
+    amount: -54.0,
+    category: "Restaurantes & Ocio",
+    categoryColor: "#F59E0B",
+    icon: Utensils,
+    account: "Revolut A ••5932",
+    status: "triaged",
+  },
 ];
 
 export default function HomePage() {
-  const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
+  const { memberAName, memberBName } = useUserNames();
+  const [activeFilter, setActiveFilter] = useState<"all" | "pending">("all");
 
-  const totalSpent = MOCK_CATEGORIES.reduce((acc, curr) => acc + curr.value, 0);
+  const totalSpent = FINTONIC_CATEGORIES.reduce((sum, item) => sum + item.value, 0);
 
   return (
-    <div className="space-y-6 pb-12">
-      {/* Welcome Banner */}
-      <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-7 relative overflow-hidden shadow-xl">
-        <div className="absolute -right-12 -top-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-6">
+      {/* Top Fintonic FinScore & Health Header */}
+      <section className="bg-gradient-to-br from-slate-900 via-[#131E33] to-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl relative overflow-hidden">
+        {/* Glow Accents */}
+        <div className="absolute top-0 right-0 w-80 h-80 bg-[#00D09C]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-60 h-60 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-3">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>Fintech Fintonic Standard • PWA Ready</span>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/25 text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5 text-[#00D09C]" />
+              <span>FinScore Pareja: 820 • Excelente Control</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Gastos compartidos de <span className="text-emerald-400">{memberAName}</span> y{" "}
-              <span className="text-rose-400">{memberBName}</span>
+              Gastos de Septiembre
             </h1>
-            <p className="text-sm text-slate-300 mt-1 max-w-xl">
-              Equilibrio financiero transparente en pareja sin fricción, con detección automática de
-              traspasos y nombres 100% dinámicos en tiempo real.
+            <p className="text-xs sm:text-sm text-slate-400">
+              Economía compartida de{" "}
+              <strong className="text-[#00D09C] font-semibold">{memberAName}</strong> y{" "}
+              <strong className="text-rose-400 font-semibold">{memberBName}</strong>
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="bg-slate-950/80 border border-slate-700/60 rounded-2xl p-3.5 flex flex-col items-center justify-center min-w-[130px] shadow-sm">
-              <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-                Total del Mes
-              </span>
-              <span className="text-xl font-bold text-emerald-400 mt-0.5">{totalSpent.toFixed(2)} €</span>
-              <span className="text-[10px] text-slate-400 mt-0.5">5 categorías</span>
+          {/* Large Fintonic Spent Metric */}
+          <div className="bg-slate-950/80 border border-slate-800/90 rounded-2xl p-4 sm:p-5 flex flex-col sm:items-end justify-center min-w-[200px] shadow-lg">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Total Compartido del Mes
+            </span>
+            <div className="text-3xl sm:text-4xl font-black text-white mt-1 tracking-tight">
+              {totalSpent.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <span className="text-xl text-[#00D09C] ml-1 font-bold">€</span>
             </div>
+            <span className="text-[11px] text-[#00D09C] flex items-center gap-1 mt-1 font-medium">
+              <TrendingDown className="w-3.5 h-3.5" /> -12% vs el mes pasado
+            </span>
           </div>
         </div>
       </section>
 
-      {/* Live Name Customizer & Multi-window Sync Test */}
-      <section className="bg-slate-900 border border-slate-800/80 rounded-2xl p-5 shadow-lg">
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-            <Smartphone className="w-4 h-4 text-emerald-400" />
-            <span>Personalización Reactiva de Nombres (Test Multi-Ventana)</span>
-          </h2>
-          <span className="text-[11px] text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-full font-medium">
-            Sincronización en Vivo
-          </span>
-        </div>
-        <p className="text-xs text-slate-300 mb-4">
-          Escribe abajo y observa cómo los nombres cambian al instante en todos los botones, tarjetas,
-          gráficos y en cualquier otra pestaña del navegador que tengas abierta:
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-emerald-400 flex items-center justify-between">
-              <span>Nombre Miembro A:</span>
-              <span className="text-[10px] text-slate-400 font-normal">Color Identificador Verde Menta</span>
-            </label>
-            <input
-              type="text"
-              value={memberAName}
-              onChange={(e) => setMemberAName(e.target.value)}
-              placeholder="Persona A"
-              className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-colors"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-rose-400 flex items-center justify-between">
-              <span>Nombre Miembro B:</span>
-              <span className="text-[10px] text-slate-400 font-normal">Color Identificador Coral</span>
-            </label>
-            <input
-              type="text"
-              value={memberBName}
-              onChange={(e) => setMemberBName(e.target.value)}
-              placeholder="Persona B"
-              className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400 transition-colors"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* Grid: Donut Chart & Balance Preview */}
+      {/* Main Grid: Fintonic Donut Chart & Balance Card */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Donut Chart (Fintonic style) */}
-        <section className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <PieIcon className="w-4 h-4 text-emerald-400" />
-                <span>Desglose por Categorías (Gráfico Donut)</span>
+        {/* Fintonic Donut Chart */}
+        <section className="lg:col-span-7 bg-slate-900/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col justify-between">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-[#00D09C]" />
+                Distribución por Categorías
               </h2>
-              <span className="text-xs text-slate-400">Septiembre 2026</span>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                5 categorías activas sincronizadas
+              </p>
             </div>
-            <p className="text-xs text-slate-300 mb-4">
-              Visualización con total central y colores representativos de gastos comunes.
-            </p>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300">
+              Septiembre 2026
+            </span>
           </div>
 
-          <div className="relative h-64 w-full flex items-center justify-center my-2">
+          {/* Donut Graphic with Large Total in Center */}
+          <div className="relative h-64 w-full flex items-center justify-center my-3">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={MOCK_CATEGORIES}
-                  innerRadius={70}
-                  outerRadius={95}
-                  paddingAngle={4}
+                  data={FINTONIC_CATEGORIES}
+                  innerRadius={76}
+                  outerRadius={100}
+                  paddingAngle={3}
                   dataKey="value"
                   stroke="none"
+                  animationDuration={800}
                 >
-                  {MOCK_CATEGORIES.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  {FINTONIC_CATEGORIES.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(value: number) => [`${value} €`, "Gasto"]}
+                  formatter={(value: number) => [
+                    `${value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`,
+                    "Gasto",
+                  ]}
                   contentStyle={{
-                    backgroundColor: "#0F172A",
+                    backgroundColor: "#0B1120",
                     borderColor: "#334155",
-                    borderRadius: "0.75rem",
-                    color: "#F8FAFC",
+                    borderRadius: "1rem",
+                    color: "#FFFFFF",
                     fontSize: "12px",
+                    boxShadow: "0 10px 25px -5px rgba(0,0,0,0.5)",
                   }}
                 />
               </PieChart>
             </ResponsiveContainer>
-            {/* Center Total in Donut */}
+
+            {/* Total in Center (Authentic Fintonic layout) */}
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total</span>
-              <span className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
-                {totalSpent} €
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                Gasto Total
+              </span>
+              <span className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                {totalSpent.toFixed(0)} €
+              </span>
+              <span className="text-[10px] text-[#00D09C] font-semibold mt-0.5">
+                Equilibrio 50/50
               </span>
             </div>
           </div>
 
-          {/* Legend */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-3 border-t border-slate-800 text-xs">
-            {MOCK_CATEGORIES.map((cat) => (
-              <div key={cat.name} className="flex items-center justify-between py-1">
-                <span className="flex items-center gap-2 text-slate-300">
-                  <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: cat.color }} />
-                  <span className="truncate max-w-[150px]">{cat.name}</span>
-                </span>
-                <span className="font-semibold text-slate-200">{cat.value} €</span>
-              </div>
-            ))}
+          {/* Categories Grid List */}
+          <div className="space-y-2 pt-2 border-t border-slate-800/80">
+            {FINTONIC_CATEGORIES.map((cat) => {
+              const Icon = cat.icon;
+              const percent = Math.round((cat.value / totalSpent) * 100);
+              return (
+                <div
+                  key={cat.name}
+                  className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-800/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-xl flex items-center justify-center"
+                      style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-semibold text-white block">{cat.name}</span>
+                      <span className="text-[10px] text-slate-400">{cat.count} movimientos</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-xs font-bold text-white block">
+                      {cat.value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                    </span>
+                    <span className="text-[10px] font-medium text-slate-400">{percent}%</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
 
-        {/* Balance Card & Triage Button Preview */}
+        {/* Right Column: Balance Status & Quick Triage Box */}
         <section className="lg:col-span-5 flex flex-col gap-6">
-          {/* Balance card */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
-                <ArrowRightLeft className="w-4 h-4 text-emerald-400" />
-                <span>Estado del Balance Compartido</span>
+          {/* Balance Status ("Quién debe a quién") */}
+          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                Liquidación de Cuentas
               </h2>
-              <span className="text-[11px] font-semibold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-full">
-                Pendiente de Ajuste
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-full uppercase">
+                Pendiente
               </span>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center justify-between">
-              <div>
-                <span className="text-xs text-slate-400 block">Quién debe a quién:</span>
-                <p className="text-sm font-bold text-white mt-1">
+            {/* Couple Debt Callout */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-950 to-slate-900 border border-slate-800 flex items-center justify-between">
+              <div className="space-y-1">
+                <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+                  Saldo Neto Calculado
+                </span>
+                <p className="text-sm font-bold text-white">
                   <span className="text-rose-400">{memberBName}</span> debe a{" "}
-                  <span className="text-emerald-400">{memberAName}</span>:
+                  <span className="text-[#00D09C]">{memberAName}</span>:
                 </p>
               </div>
               <div className="text-right">
-                <span className="text-2xl font-black text-emerald-400">115.00 €</span>
-                <span className="text-[10px] text-slate-400 block">Cálculo 50/50</span>
+                <span className="text-2xl sm:text-3xl font-black text-[#00D09C]">115,00 €</span>
+                <span className="text-[10px] block text-slate-400">Reparto equitativo</span>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-                <span className="text-slate-400 block">Aportado por {memberAName}:</span>
-                <span className="text-base font-bold text-emerald-400 mt-1 block">625.00 €</span>
+            {/* Contribution Breakdown */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[11px] text-slate-400 block truncate">Pagado por {memberAName}</span>
+                <span className="text-lg font-black text-[#00D09C] block">625,00 €</span>
+                <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                  <div className="bg-[#00D09C] h-full w-[61%]" />
+                </div>
               </div>
-              <div className="p-3 bg-slate-950/50 rounded-xl border border-slate-800">
-                <span className="text-slate-400 block">Aportado por {memberBName}:</span>
-                <span className="text-base font-bold text-rose-400 mt-1 block">395.00 €</span>
+
+              <div className="p-3.5 bg-slate-950/60 rounded-2xl border border-slate-800/80 space-y-1">
+                <span className="text-[11px] text-slate-400 block truncate">Pagado por {memberBName}</span>
+                <span className="text-lg font-black text-rose-400 block">395,00 €</span>
+                <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden">
+                  <div className="bg-rose-400 h-full w-[39%]" />
+                </div>
               </div>
             </div>
+
+            <button className="w-full py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-xs font-semibold text-white transition-all flex items-center justify-center gap-2">
+              <span>Saldar cuentas vía Bizum o Transferencia</span>
+              <ArrowRight className="w-3.5 h-3.5 text-[#00D09C]" />
+            </button>
           </div>
 
-          {/* Quick Triage Buttons Simulation */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Simulación de Botones de Triage de Gastos</span>
-            </h3>
+          {/* Quick Triage Preview (Read-only dynamic buttons) */}
+          <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#00D09C]" />
+                <span>Inbox de Clasificación Inmediata</span>
+              </h3>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#00D09C]/10 text-[#00D09C] border border-[#00D09C]/20">
+                2 pendientes
+              </span>
+            </div>
+
             <p className="text-xs text-slate-300">
-              En el Inbox diario, cada gasto no asignado se cataloga con 1 toque utilizando los nombres
-              reales:
+              Asignación con un toque con los nombres de la pareja para computar los saldos:
             </p>
-            <div className="flex flex-col gap-2 pt-1">
-              <button className="w-full py-2 px-3 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold transition-all flex items-center justify-between">
-                <span>Pagado por {memberAName}</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-400" />
-              </button>
-              <button className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-xs font-semibold transition-all flex items-center justify-between">
-                <span>Pagado por {memberBName}</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-rose-400" />
-              </button>
-              <button className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-xs font-semibold transition-all flex items-center justify-between">
-                <span>Compartido Ambos (50 / 50)</span>
-                <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
-              </button>
+
+            <div className="space-y-2 pt-1">
+              <div className="p-3 bg-slate-950/70 border border-slate-800 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-[#00D09C]/20 text-[#00D09C] flex items-center justify-center text-xs">
+                      <ShoppingCart className="w-3.5 h-3.5" />
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-white block">Mercadona Gran Vía</span>
+                      <span className="text-[10px] text-slate-400">Hoy • Tarjeta BBVA</span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-bold text-white">-64,20 €</span>
+                </div>
+
+                {/* Triage buttons labeled with read-only member names */}
+                <div className="grid grid-cols-3 gap-1.5 pt-1">
+                  <button className="py-1.5 px-2 rounded-lg bg-[#00D09C]/10 hover:bg-[#00D09C]/20 border border-[#00D09C]/30 text-[#00D09C] text-[11px] font-semibold truncate transition-colors text-center">
+                    {memberAName}
+                  </button>
+                  <button className="py-1.5 px-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 text-[11px] font-semibold truncate transition-colors text-center">
+                    {memberBName}
+                  </button>
+                  <button className="py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-slate-200 text-[11px] font-semibold truncate transition-colors text-center">
+                    50 / 50
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </section>
       </div>
 
-      {/* Step 2 Checklist */}
-      <section className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-emerald-400" />
-          <span>Hitos Completados del Paso 2 (FitDuo Standard v0.2.0)</span>
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 text-xs text-slate-300">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Next.js 14+ App Router & TypeScript configurados</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Paleta Fintech Fintonic (Navy, Menta #00D09C, Coral)</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Contexto reactivo de nombres con sync multi-ventana</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Componente de versión visible leyendo version.json</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>PWA Manifest, Safe-Areas iOS dvh y Cross-Platform</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-            <span>Entorno de testeo con Vitest + React Testing Library</span>
-          </div>
+      {/* Recent Movements List (Fintonic transaction feed style) */}
+      <section className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+          <h2 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+            <Building2 className="w-4 h-4 text-[#00D09C]" />
+            Movimientos Recientes
+          </h2>
+          <span className="text-xs text-slate-400">Actualizado vía PSD2</span>
+        </div>
+
+        <div className="divide-y divide-slate-800/60">
+          {RECENT_TRANSACTIONS.map((tx) => {
+            const Icon = tx.icon;
+            return (
+              <div key={tx.id} className="py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: `${tx.categoryColor}20`, color: tx.categoryColor }}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-xs sm:text-sm font-semibold text-white block">
+                      {tx.merchant}
+                    </span>
+                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
+                      <span>{tx.date}</span>
+                      <span>•</span>
+                      <span>{tx.account}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-right flex-shrink-0">
+                  <span className="text-sm sm:text-base font-bold text-white block">
+                    {tx.amount.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                  </span>
+                  <span className="text-[10px] font-medium text-[#00D09C]">
+                    {tx.status === "pending" ? "Pendiente asignación" : "Asignado 50/50"}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>
