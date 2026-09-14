@@ -129,7 +129,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                 onClick={() => setPayer("memberA")}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
                   payer === "memberA"
-                    ? "bg-[#E6FAF4] text-[#008761] border-[#00D09C] shadow-xs"
+                    ? "bg-red-50 text-red-600 border-red-300 shadow-xs"
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                 }`}
               >
@@ -140,7 +140,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                 onClick={() => setPayer("memberB")}
                 className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
                   payer === "memberB"
-                    ? "bg-rose-50 text-rose-600 border-rose-300 shadow-xs"
+                    ? "bg-blue-50 text-blue-600 border-blue-300 shadow-xs"
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                 }`}
               >
@@ -171,7 +171,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                 onClick={() => setSplit("memberA")}
                 className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center ${
                   split === "memberA"
-                    ? "bg-[#00D09C] text-white border-[#00D09C] shadow-xs"
+                    ? "bg-red-500 text-white border-red-500 shadow-xs"
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                 }`}
               >
@@ -182,7 +182,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
                 onClick={() => setSplit("memberB")}
                 className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all text-center ${
                   split === "memberB"
-                    ? "bg-rose-500 text-white border-rose-500 shadow-xs"
+                    ? "bg-blue-500 text-white border-blue-500 shadow-xs"
                     : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                 }`}
               >

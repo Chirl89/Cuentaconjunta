@@ -116,11 +116,11 @@ export default function HomePage() {
       {activeTab === "resumen_conjunta" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(0,208,156,0.12)] relative overflow-hidden">
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-sm relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
                     <Users className="w-3.5 h-3.5 text-[#00A37A]" />
                     <span>Gastos Compartidos (50 / 50)</span>
                   </div>
@@ -130,13 +130,13 @@ export default function HomePage() {
                   Economía Compartida del Hogar
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Gastos comunes divididos entre{" "}
-                  <strong className="text-[#00A37A] font-bold">{memberAName}</strong> y{" "}
-                  <strong className="text-rose-500 font-bold">{memberBName}</strong>
+                  Gastos comunes divididos al 50% entre{" "}
+                  <strong className="text-red-600 font-bold">{memberAName}</strong> y{" "}
+                  <strong className="text-blue-600 font-bold">{memberBName}</strong>
                 </p>
               </div>
 
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col sm:items-end justify-center min-w-[210px] shadow-sm">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 flex flex-col sm:items-end justify-center min-w-[210px]">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Gastos Conjuntos
                 </span>
@@ -151,7 +151,7 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Grid: Donut Chart & Balance Debt */}
+          {/* Grid: Donut Chart & Latest Joint Movements */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Joint Donut Chart */}
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -160,7 +160,7 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
                   Categorías de Gastos Conjuntos
                 </h2>
-                <MonthSelector />
+                <span className="text-xs font-bold text-[#008761]">Reparto 50/50</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
@@ -225,66 +225,56 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Quick Balance Summary */}
-            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5 flex flex-col justify-between">
-              <div className="space-y-4">
+            {/* Latest Joint Movements (igual que en las otras vistas) */}
+            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
+              <div>
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Balance de Cuentas
+                    Últimos Movimientos Conjuntos
                   </h2>
-                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full uppercase">
-                    Neto
+                  <span className="text-xs font-bold text-[#008761]">
+                    {jointClassifiedTransactions.length} comunes
                   </span>
                 </div>
 
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
-                      Quién debe a quién:
-                    </span>
-                    {balanceData.debtor !== "none" ? (
-                      <p className="text-sm font-extrabold text-slate-800 mt-1">
-                        <span className="text-rose-600">{balanceData.debtorName}</span> debe a{" "}
-                        <span className="text-[#008761]">{balanceData.creditorName}</span>:
-                      </p>
-                    ) : (
-                      <p className="text-sm font-extrabold text-[#008761] mt-1">
-                        ¡Cuentas equilibradas!
-                      </p>
-                    )}
+                {jointClassifiedTransactions.length === 0 ? (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    No hay movimientos conjuntos registrados en este mes.
                   </div>
-                  <div className="text-right">
-                    <span className="text-3xl font-black text-[#008761]">
-                      {balanceData.netDebt.toFixed(2)} €
-                    </span>
-                    <span className="text-[10px] block text-slate-400 font-medium">50/50</span>
+                ) : (
+                  <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
+                    {jointClassifiedTransactions.map((tx) => (
+                      <div key={tx.id} className="py-3 flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                            <span
+                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                tx.payer === "memberA"
+                                  ? "bg-red-50 text-red-600 border-red-200"
+                                  : "bg-blue-50 text-blue-600 border-blue-200"
+                              }`}
+                            >
+                              Pagó {tx.payer === "memberA" ? memberAName : memberBName}
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
+                      </div>
+                    ))}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block truncate">Pagado por {memberAName}:</span>
-                    <span className="text-base font-black text-[#008761] mt-1 block">
-                      {balanceData.paidByA.toFixed(2)} €
-                    </span>
-                  </div>
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-slate-400 block truncate">Pagado por {memberBName}:</span>
-                    <span className="text-base font-black text-rose-600 mt-1 block">
-                      {balanceData.paidByB.toFixed(2)} €
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => setActiveTab("balances")}
-                  className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-all flex items-center justify-center gap-2 shadow-sm"
+                  onClick={() => setActiveTab("movimientos")}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <span>Ver cálculo detallado de deudas</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-[#00D09C]" />
+                  <span>Ver todos los movimientos</span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
                 </button>
               </div>
             </section>
@@ -297,12 +287,12 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_carlos" && (
         <div className="space-y-6">
-          <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-sm">
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
-                    <User className="w-3.5 h-3.5 text-[#00A37A]" />
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold">
+                    <User className="w-3.5 h-3.5 text-red-500" />
                     <span>Gastos Personales de {memberAName}</span>
                   </div>
                   <MonthSelector />
@@ -315,11 +305,11 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right shadow-sm">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Personal de {memberAName}
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-[#008761] mt-1 tracking-tight">
+                <div className="text-3xl sm:text-4xl font-black text-red-600 mt-1 tracking-tight">
                   {totalMemberASpent.toFixed(2)} €
                 </div>
                 <span className="text-[11px] text-slate-400 block mt-1">
@@ -333,10 +323,11 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   Distribución Personal de {memberAName}
                 </h2>
-                <span className="text-xs font-bold text-[#008761]">100% Individual</span>
+                <span className="text-xs font-bold text-red-600">100% Individual</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
@@ -367,7 +358,7 @@ export default function HomePage() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Total {memberAName}
                       </span>
-                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                      <span className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight">
                         {totalMemberASpent.toFixed(0)} €
                       </span>
                     </div>
@@ -391,15 +382,21 @@ export default function HomePage() {
 
             {/* List of Carlos's personal expenses */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">
-                Movimientos Propios de {memberAName}
-              </h2>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                  Movimientos Propios de {memberAName}
+                </h2>
+                <span className="text-xs font-bold text-red-600">
+                  {memberAClassifiedTransactions.length}
+                </span>
+              </div>
               {memberAClassifiedTransactions.length === 0 ? (
                 <div className="text-center text-slate-400 text-xs py-8">
                   No hay movimientos personales asignados a {memberAName}.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
                   {memberAClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
@@ -421,12 +418,12 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_andrea" && (
         <div className="space-y-6">
-          <section className="bg-gradient-to-br from-rose-50 via-white to-pink-50 border border-rose-200 rounded-3xl p-6 sm:p-7 shadow-sm">
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-7 shadow-sm">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold">
-                    <User className="w-3.5 h-3.5 text-rose-500" />
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold">
+                    <User className="w-3.5 h-3.5 text-blue-500" />
                     <span>Gastos Personales de {memberBName}</span>
                   </div>
                   <MonthSelector />
@@ -439,11 +436,11 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right shadow-sm">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   Total Personal de {memberBName}
                 </span>
-                <div className="text-3xl sm:text-4xl font-black text-rose-600 mt-1 tracking-tight">
+                <div className="text-3xl sm:text-4xl font-black text-blue-600 mt-1 tracking-tight">
                   {totalMemberBSpent.toFixed(2)} €
                 </div>
                 <span className="text-[11px] text-slate-400 block mt-1">
@@ -457,10 +454,11 @@ export default function HomePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                   Distribución Personal de {memberBName}
                 </h2>
-                <span className="text-xs font-bold text-rose-600">100% Individual</span>
+                <span className="text-xs font-bold text-blue-600">100% Individual</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
@@ -491,7 +489,7 @@ export default function HomePage() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
                         Total {memberBName}
                       </span>
-                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                      <span className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight">
                         {totalMemberBSpent.toFixed(0)} €
                       </span>
                     </div>
@@ -515,15 +513,21 @@ export default function HomePage() {
 
             {/* List of Andrea's personal expenses */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">
-                Movimientos Propios de {memberBName}
-              </h2>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                  Movimientos Propios de {memberBName}
+                </h2>
+                <span className="text-xs font-bold text-blue-600">
+                  {memberBClassifiedTransactions.length}
+                </span>
+              </div>
               {memberBClassifiedTransactions.length === 0 ? (
                 <div className="text-center text-slate-400 text-xs py-8">
                   No hay movimientos personales asignados a {memberBName}.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
                   {memberBClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
@@ -645,13 +649,13 @@ export default function HomePage() {
                         </button>
                         <button
                           onClick={() => handleTriage(tx.id, "memberA", `Solo ${memberAName}`)}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#E6FAF4] text-[#008761] text-xs font-bold border border-slate-200 hover:border-[#00D09C]"
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-red-50 text-red-600 text-xs font-bold border border-slate-200 hover:border-red-300"
                         >
                           {memberAName}
                         </button>
                         <button
                           onClick={() => handleTriage(tx.id, "memberB", `Solo ${memberBName}`)}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold border border-slate-200 hover:border-rose-300"
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-blue-600 text-xs font-bold border border-slate-200 hover:border-blue-300"
                         >
                           {memberBName}
                         </button>
@@ -741,7 +745,7 @@ export default function HomePage() {
                         onClick={() => handleReclassify(tx.id, "memberA", `Solo ${memberAName}`)}
                         className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
                           tx.split === "memberA"
-                            ? "bg-[#00D09C] text-white shadow-xs"
+                            ? "bg-red-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
@@ -751,7 +755,7 @@ export default function HomePage() {
                         onClick={() => handleReclassify(tx.id, "memberB", `Solo ${memberBName}`)}
                         className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
                           tx.split === "memberB"
-                            ? "bg-rose-500 text-white shadow-xs"
+                            ? "bg-blue-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
                       >
@@ -794,8 +798,13 @@ export default function HomePage() {
                 {balanceData.debtor !== "none" ? (
                   <>
                     <h3 className="text-2xl font-black text-slate-900 mt-1">
-                      <span className="text-rose-600">{balanceData.debtorName}</span> debe a{" "}
-                      <span className="text-[#008761]">{balanceData.creditorName}</span>
+                      <span className={balanceData.debtor === "memberA" ? "text-red-600" : "text-blue-600"}>
+                        {balanceData.debtorName}
+                      </span>{" "}
+                      debe a{" "}
+                      <span className={balanceData.debtor === "memberA" ? "text-blue-600" : "text-red-600"}>
+                        {balanceData.creditorName}
+                      </span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
                       Saldo exacto para equilibrar al 50% todos los gastos compartidos.
@@ -837,16 +846,16 @@ export default function HomePage() {
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden text-xs">
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200/80 font-bold text-slate-700 grid grid-cols-3">
                 <span>Concepto</span>
-                <span className="text-center">{memberAName}</span>
-                <span className="text-right">{memberBName}</span>
+                <span className="text-center text-red-600 font-bold">{memberAName}</span>
+                <span className="text-right text-blue-600 font-bold">{memberBName}</span>
               </div>
               <div className="divide-y divide-slate-100">
                 <div className="px-4 py-3 grid grid-cols-3">
                   <span className="text-slate-600">Aportado a gastos comunes (50/50)</span>
-                  <span className="text-center font-bold text-[#008761]">
+                  <span className="text-center font-bold text-red-600">
                     {balanceData.paidByA.toFixed(2)} €
                   </span>
-                  <span className="text-right font-bold text-rose-600">
+                  <span className="text-right font-bold text-blue-600">
                     {balanceData.paidByB.toFixed(2)} €
                   </span>
                 </div>
@@ -861,12 +870,12 @@ export default function HomePage() {
                 </div>
                 <div className="px-4 py-3 bg-slate-50 font-bold text-slate-900 grid grid-cols-3">
                   <span>Diferencia Neta</span>
-                  <span className="text-center text-[#008761]">
+                  <span className="text-center text-red-600">
                     {balanceData.paidByA >= balanceData.paidByB
                       ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
                       : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
                   </span>
-                  <span className="text-right text-rose-600">
+                  <span className="text-right text-blue-600">
                     {balanceData.paidByB >= balanceData.paidByA
                       ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
                       : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
@@ -914,10 +923,10 @@ export default function HomePage() {
                   : `Titularidad: ${memberBName}`;
 
                 const badgeStyle = isJoint
-                  ? "bg-[#E6FAF4] text-[#008761]"
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                   : isA
-                  ? "bg-slate-100 text-slate-800"
-                  : "bg-rose-50 text-rose-600";
+                  ? "bg-red-50 text-red-600 border border-red-200"
+                  : "bg-blue-50 text-blue-600 border border-blue-200";
 
                 return (
                   <div key={acc.id} className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
@@ -968,28 +977,28 @@ export default function HomePage() {
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                     <span>Nombre Miembro A:</span>
-                    <span className="text-[10px] text-[#00A37A]">Acento Verde</span>
+                    <span className="text-[10px] text-red-600 font-bold">Acento Rojo</span>
                   </label>
                   <input
                     type="text"
                     value={inputNameA}
                     onChange={(e) => setInputNameA(e.target.value)}
                     placeholder="ej. Carlos"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-red-400"
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-700 flex items-center justify-between">
                     <span>Nombre Miembro B:</span>
-                    <span className="text-[10px] text-rose-500">Acento Rosa</span>
+                    <span className="text-[10px] text-blue-600 font-bold">Acento Azul</span>
                   </label>
                   <input
                     type="text"
                     value={inputNameB}
                     onChange={(e) => setInputNameB(e.target.value)}
                     placeholder="ej. Andrea"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-rose-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-blue-400"
                   />
                 </div>
 
@@ -1022,7 +1031,7 @@ export default function HomePage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Versión del Sistema</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.6</span>
+                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.7</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 2

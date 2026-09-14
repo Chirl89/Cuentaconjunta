@@ -35,9 +35,9 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
       {/* Right side: Read-only Couple Badge & VersionBadge */}
       <div className="flex items-center gap-2">
         <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
-          <span className="text-[#00A37A]">{memberAName}</span>
+          <span className="text-red-600">{memberAName}</span>
           <span className="text-slate-400">&</span>
-          <span className="text-rose-500">{memberBName}</span>
+          <span className="text-blue-600">{memberBName}</span>
         </div>
         <VersionBadge showDetails={false} />
       </div>

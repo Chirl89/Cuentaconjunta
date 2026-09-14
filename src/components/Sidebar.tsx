@@ -31,10 +31,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
   const pendingCount = pendingTransactions.length;
 
-  const graphItems: { key: TabKey; name: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
-    { key: "resumen_conjunta", name: "Gastos Conjuntos", icon: Users, color: "text-[#00A37A]" },
-    { key: "resumen_carlos", name: `Gastos de ${memberAName}`, icon: User, color: "text-[#00A37A]" },
-    { key: "resumen_andrea", name: `Gastos de ${memberBName}`, icon: User, color: "text-rose-500" },
+  const graphItems: {
+    key: TabKey;
+    name: string;
+    icon: React.ComponentType<{ className?: string }>;
+    color: string;
+    activeClass: string;
+  }[] = [
+    {
+      key: "resumen_conjunta",
+      name: "Gastos Conjuntos",
+      icon: Users,
+      color: "text-[#00A37A]",
+      activeClass: "bg-emerald-50 text-emerald-700 font-bold shadow-xs border border-emerald-200",
+    },
+    {
+      key: "resumen_carlos",
+      name: `Gastos de ${memberAName}`,
+      icon: User,
+      color: "text-red-500",
+      activeClass: "bg-red-50 text-red-700 font-bold shadow-xs border border-red-200",
+    },
+    {
+      key: "resumen_andrea",
+      name: `Gastos de ${memberBName}`,
+      icon: User,
+      color: "text-blue-500",
+      activeClass: "bg-blue-50 text-blue-700 font-bold shadow-xs border border-blue-200",
+    },
   ];
 
   const managementItems: {
@@ -110,13 +134,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
               Hogar
             </div>
             <div className="flex items-center justify-between text-xs font-bold">
-              <span className="flex items-center gap-1.5 text-[#00A37A]">
-                <span className="w-2 h-2 rounded-full bg-[#00D09C]" />
+              <span className="flex items-center gap-1.5 text-red-600">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
                 <span className="truncate max-w-[85px]">{memberAName}</span>
               </span>
               <span className="text-slate-300 text-[10px]">&</span>
-              <span className="flex items-center gap-1.5 text-rose-500">
-                <span className="w-2 h-2 rounded-full bg-rose-500" />
+              <span className="flex items-center gap-1.5 text-blue-600">
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
                 <span className="truncate max-w-[85px]">{memberBName}</span>
               </span>
             </div>
@@ -141,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                   onClick={() => handleSelectTab(item.key)}
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
                     isActive
-                      ? "bg-[#E6FAF4] text-[#008761] font-bold shadow-xs border border-[#00D09C]/30"
+                      ? item.activeClass
                       : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
                   title={isCollapsed && !isMobileOpen ? item.name : undefined}
