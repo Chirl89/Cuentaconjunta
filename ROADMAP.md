@@ -25,8 +25,9 @@
 - **Paso 5 (v0.5)**: **Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y Titularidad de Cuentas)**
   - Flujo de autenticación OAuth bancario oficial: selección de banco, registro de cuentas/tarjetas y asignación de titularidad inicial (Persona A, Persona B o Ambos).
 
-- **Paso 6 (v0.6)**: **Motor de Sincronización Desatendida y Detector de Traspasos Internos vs Entre Pareja**
+- **Paso 6 (v0.6)**: **Motor de Sincronización, Detector de Traspasos y Reconciliación de Brechas (Catch-Up Gap Sync)**
   - Endpoint de sincronización: descarga de movimientos, desduplicación por hash SHA-256, detección automática de traspasos entre cuentas propias (movimientos neutros) y transferencias entre miembros de la pareja (categorizadas como 'Traspaso/Liquidación').
+  - **Reconciliación de Brechas (Catch-Up Sync):** Detección automática al abrir la app o recuperar red/credenciales; descarga retrospectiva de hasta 90 días para recuperar movimientos perdidos sin duplicidades.
 
 - **Paso 7 (v0.7)**: **Motor de Categorización Inteligente con IA, Aprendizaje por Feedback y Reglas de Asignación**
   - Clasificador inteligente de categorías inicial, sistema de auto-aprendizaje cuando el usuario corrige una categoría para futuros movimientos, motor de reglas por comercio/cuenta y soporte de splits 50/50 o personalizados.
@@ -37,8 +38,12 @@
 - **Paso 9 (v0.9)**: **Dashboard Principal Estilo Fintonic: Nombres Reactivos, Gráfico Donut, Inbox y Feed**
   - Interfaz PWA con nombres configurados en tiempo real: Gráfico donut interactivo con total central, Inbox de triage rápido filtrado por usuario con nombres dinámicos en los botones, modal de gasto manual, bandeja de validación y balance en vivo.
 
-- **Paso 10 (v0.10)**: **Gestión de Cuentas, Edición de Nombres, Reglas/Categorías y Monitor PSD2**
-  - Panel de administración: cambio de nombres de usuario con reflejo instantáneo en toda la app, reasignación de titularidad de cuentas/tarjetas, editor de reglas/patrones y monitor de consentimiento bancario.
+- **Paso 10 (v0.10)**: **Gestión de Cuentas, Monitor PSD2, Respaldo/Restauración Local y Editor de Reglas**
+  - Panel de administración: cambio de nombres de usuario con reflejo instantáneo en toda la app, reasignación de titularidad de cuentas/tarjetas, editor de reglas/patrones.
+  - **Monitor de Consentimiento Bancario (PSD2):** Contador de días de validez y botón de renovación en 1 clic que dispara reconciliación retrospectiva.
+  - **Respaldo y Restauración de Datos (Local):** Exportación e importación/restauración de copia completa en JSON/CSV estructurado para soberanía total de la información.
 
-- **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform y Automatización de Cron Jobs**
-  - Despliegue en Vercel, configuración del Cron Job nocturno/diario desatendido en la nube, verificación visual en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.
+- **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform, Cron Jobs y Respaldo Continuo en la Nube**
+  - Despliegue en Vercel, configuración de Cron Jobs para sincronización periódica desatendida.
+  - **Respaldo Continuo Cloud:** Configuración de Point-in-Time Recovery (PITR) en base de datos y snapshots cifrados automatizados en almacenamiento en la nube para máxima seguridad y cero pérdida de datos.
+  - Verificación visual en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.

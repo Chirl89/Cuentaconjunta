@@ -1,4 +1,4 @@
-﻿# Requisitos Funcionales, UX, Detección de Traspasos, Nombres Reactivos y Estilo Fintonic
+# Requisitos Funcionales, UX, Detección de Traspasos, Nombres Reactivos y Estilo Fintonic
 
 ## 1. Nombres de Usuario Configurables y Reactividad en Tiempo Real
 - **Personalización Inmediata:** Desde el primer momento (onboarding y ajustes), los nombres de ambos miembros (ej. "Carlos" y "Laura" en lugar de "Persona A" y "Persona B") son editables.
@@ -39,3 +39,23 @@
 
 ## 8. Bandeja de Validación de Auto-Asignaciones
 - Apartado dedicado para validar con 1 clic los gastos asignados por regla/IA.
+
+## 9. Reconciliación y Recuperación de Movimientos Perdidos (Catch-Up & Gap Sync)
+- **Detección Automática de Brechas Temporales:** Al abrir la aplicación en primer plano, al recuperar la conexión a internet tras modo offline o tras renovar credenciales bancarias caducadas (PSD2), el sistema compara la fecha del último movimiento registrado con la fecha actual.
+- **Sincronización Retrospectiva ("Catch-Up"):** Si existe un periodo sin sincronizar, el conector consulta a la API bancaria retrospectivamente (abarcando hasta 90 días atrás, límite estándar PSD2) para descargar cualquier movimiento producido durante la desconexión o desactualización.
+- **Consolidación Idempotente y Anti-Duplicados:**
+  - Cada movimiento bancario se identifica unívocamente mediante un hash criptográfico SHA-256 (`tx_hash`) basado en cuenta, fecha, importe y concepto.
+  - Inserciones idempotentes en base de datos (`ON CONFLICT DO NOTHING`) que garantizan cero duplicados sin importar cuántas veces se ejecute la reconciliación.
+- **Conciliación Inteligente con Gastos Manuales Creados Offline:**
+  - Si durante el corte de red o credenciales el usuario registró un gasto manual con datos coincidentes (mismo importe, fecha aproximada ±48h y cuenta), el sistema ofrece o asocia automáticamente dicho gasto al movimiento bancario oficial, evitando computar dos veces el mismo gasto.
+
+## 10. Respaldo Seguro y Recuperación de Información Multi-Capa (Cloud & Local)
+- **Capa 1: Respaldo Automatizado Continuo en la Nube (Cloud Snapshot & PITR)**
+  - Base de datos PostgreSQL en Supabase protegida con Point-in-Time Recovery (PITR) y backups diarios automáticos gestionados.
+  - Job programado desatendido (cron diario/nocturno) que genera un volcado cifrado y versionado de la base de datos a almacenamiento redundante seguro en la nube (Supabase Storage / Cloud Object Storage con cifrado en reposo).
+- **Capa 2: Respaldo y Restauración Controlada por el Usuario (Export/Import Local)**
+  - Desde la sección de Ajustes, el usuario puede descargar con 1 clic una **Copia de Seguridad Completa** en formato JSON estructurado / CSV cifrado que incluye: gastos manuales, clasificaciones, reglas aprendidas por IA, liquidaciones de deuda y saldos históricos.
+  - Funcionalidad de **Restaurar Copia de Seguridad**: Permite restablecer los datos en caso de contingencia o migración mediante carga de archivo con validación previa de integridad de esquema.
+- **Monitor de Expiración de Credenciales Bancarias (PSD2 Alert):**
+  - Monitor proactivo en Ajustes con indicador visual de días de validez restante de las credenciales bancarias.
+  - Alerta preventiva (a falta de 15 días) y botón de re-autorización en 1 toque que dispara inmediatamente el proceso de reconciliación retrospectiva (Catch-Up Sync).

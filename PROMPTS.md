@@ -1,4 +1,4 @@
-﻿# Master Guide de Prompts Token-Optimized por Paso
+# Master Guide de Prompts Token-Optimized por Paso
 
 Esta guía contiene la especificación técnica exacta, exhaustiva y compacta para cada paso. Cada prompt está diseñado para que el agente ejecute el trabajo de forma **100% autónoma**, sin dudas ni ambigüedades, ahorrando tokens de exploración.
 
@@ -75,19 +75,22 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 6 (v0.6): Motor de Sincronización y Detector de Traspasos Internos vs Entre Pareja
+### Paso 6 (v0.6): Motor de Sincronización, Detección de Traspasos y Reconciliación de Brechas (Catch-Up Gap Sync)
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Desarrolla el endpoint backend POST /api/bank/sync:
    - Recorre las cuentas activas de GoCardless de ambos miembros.
-   - Descarga transacciones recientes y calcula tx_hash (SHA-256) para desduplicación.
-2. Motor de Detección de Traspasos:
+   - Reconciliación de Brechas (Catch-Up Gap Sync): Detecta la fecha del último movimiento registrado (o última sincronización). Si hay brecha por offline o desconexión temporal de credenciales, calcula date_from retrospectivo (hasta 90 días atrás) para descargar todos los movimientos omitidos.
+   - Descarga transacciones y calcula tx_hash criptográfico (SHA-256) único por cuenta, fecha, importe y concepto para desduplicación absoluta (ON CONFLICT DO NOTHING).
+2. Motor de Detección de Traspasos y Conciliación:
    - Traspaso Interno (Misma Persona): Si el movimiento es entre dos cuentas de la misma persona, márcalo como origin = 'transfer_internal' y status = 'neutral_transfer' (oculto de gastos/deudas).
    - Traspaso Entre Pareja: Si es una transferencia/Bizum entre Persona A y Persona B, asígnalo a category = 'Traspaso' y origin = 'transfer_settlement' para computar como abono de saldo directo.
+   - Conciliación de Gastos Manuales Offline: Si existe un gasto manual creado durante la desconexión con importe, cuenta y fecha coincidente (±48h), asociarlo/consolidarlo para evitar doble cómputo.
    - Otros gastos: Inserción normal con status = 'pending_assignment'.
-3. Tests: Tests de detección de transferencias propias (neutras), transferencias entre miembros y desduplicación.
-4. Actualiza version.json a v0.6.0 y haz commit y push a Git.
+3. Hook reactivo / trigger al abrir la app (visibility change / online event) para disparar consolidación desatendida si hay brecha pendiente.
+4. Tests: Tests de reconciliación de brechas retrospectivas, desduplicación estricta, transferencias neutras y transferencias entre miembros.
+5. Actualiza version.json a v0.6.0 y haz commit y push a Git.
 ```
 
 ---
@@ -145,7 +148,7 @@ inicia el siguiente paso:
 
 ---
 
-### Paso 10 (v0.10): Gestión de Cuentas, Editor de Nombres/Reglas/Categorías y Monitor PSD2
+### Paso 10 (v0.10): Gestión de Cuentas, Monitor PSD2, Respaldo/Restauración Local y Editor de Reglas
 **Prompt:**
 ```text
 inicia el siguiente paso:
@@ -155,24 +158,30 @@ inicia el siguiente paso:
    - Visualización de saldos y fecha de última sincronización.
 2. Monitor de Consentimiento Bancario (PSD2):
    - Contador de días restantes de validez del consentimiento bancario (alerta visual si quedan < 15 días).
-   - Botón de re-autorización biométrica directa con 1 toque.
-3. Editor de reglas y gestor de patrones aprendidos por IA.
-4. Tests: Tests unitarios de cambio reactivo de nombres, cálculo de expiración PSD2 y CRUD de reglas.
-5. Actualiza version.json a v0.10.0 y haz commit y push a Git.
+   - Botón de re-autorización biométrica directa con 1 toque que, tras validarse, ejecuta automáticamente el Catch-Up Gap Sync para recuperar movimientos del lapso desconectado.
+3. Módulo de Respaldo y Restauración de Datos (Local):
+   - Botón "Exportar Copia de Seguridad Completa": genera y descarga archivo JSON/CSV estructurado con gastos manuales, clasificaciones, reglas aprendidas por IA y liquidaciones de deuda.
+   - Botón "Restaurar Copia de Seguridad": subida de archivo con validación de esquema, comprobación de integridad y restauración guiada sin pérdida accidental.
+4. Editor de reglas y gestor de patrones aprendidos por IA.
+5. Tests: Tests unitarios de cambio reactivo de nombres, cálculo de expiración PSD2, exportación/importación de backup y CRUD de reglas.
+6. Actualiza version.json a v0.10.0 y haz commit y push a Git.
 ```
 
 ---
 
-### Paso 11 (v0.11): Despliegue en Producción, Verificación Cross-Platform y Cron Automatizado
+### Paso 11 (v0.11): Despliegue en Producción, Verificación Cross-Platform, Cron Jobs y Respaldo Continuo en la Nube
 **Prompt:**
 ```text
 inicia el siguiente paso:
 1. Configura el despliegue en Vercel con variables de entorno de producción.
 2. Configura Vercel Cron (o Supabase pg_cron) para ejecutar la sincronización desatendida /api/bank/sync de madrugada y a mediodía.
-3. Ejecuta la suite completa de tests de regresión y unitarios de extremo a extremo (E2E / integración).
-4. Verificación Cross-Platform y Reactividad de Nombres:
+3. Respaldo Continuo Automatizado en la Nube:
+   - Habilita y documenta la política de Point-in-Time Recovery (PITR) en Supabase/PostgreSQL.
+   - Cron job nocturno para exportación de snapshot cifrado de la base de datos a almacenamiento seguro en la nube (Cloud Object Storage con cifrado en reposo) para máxima resiliencia.
+4. Ejecuta la suite completa de tests de regresión y unitarios de extremo a extremo (E2E / integración).
+5. Verificación Cross-Platform y Reactividad de Nombres:
    - iOS: Instalación Safari PWA ("Añadir a pantalla de inicio"), safe-areas y gráficos táctiles.
    - PC: Chrome y Edge en local/producción con responsive fluido y ergonomía de escritorio.
-5. Genera la documentación de usuario final y walkthrough de la aplicación.
-6. Actualiza version.json a v0.11.0, realiza el commit final y push a la rama main.
+6. Genera la documentación de usuario final y walkthrough de la aplicación.
+7. Actualiza version.json a v0.11.0, realiza el commit final y push a la rama main.
 ```
