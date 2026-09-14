@@ -250,14 +250,23 @@ export default function HomePage() {
                     {jointClassifiedTransactions.map((tx) => (
                       <div key={tx.id} className="py-3 flex items-center justify-between">
                         <div>
-                          <button
-                            type="button"
-                            onClick={() => setEditingTransaction(tx)}
-                            className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
-                            title="Pulsar para editar o eliminar gasto"
-                          >
-                            {truncateConcept(tx.merchant, 24)}
-                          </button>
+                          {tx.isManual ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingTransaction(tx)}
+                              className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                              title="Gasto manual: Pulsar para editar o eliminar"
+                            >
+                              <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Manual
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
+                              {truncateConcept(tx.merchant, 24)}
+                            </span>
+                          )}
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                             <span
@@ -409,14 +418,23 @@ export default function HomePage() {
                   {memberAClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingTransaction(tx)}
-                          className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
-                          title="Pulsar para editar o eliminar gasto"
-                        >
-                          {truncateConcept(tx.merchant, 24)}
-                        </button>
+                        {tx.isManual ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingTransaction(tx)}
+                            className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                            title="Gasto manual: Pulsar para editar o eliminar"
+                          >
+                            <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                            <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                              Manual
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
+                            {truncateConcept(tx.merchant, 24)}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                       </div>
                       <span className="text-sm font-black text-slate-900 whitespace-nowrap">{tx.amount.toFixed(2)} €</span>
@@ -544,14 +562,23 @@ export default function HomePage() {
                   {memberBClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <button
-                          type="button"
-                          onClick={() => setEditingTransaction(tx)}
-                          className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
-                          title="Pulsar para editar o eliminar gasto"
-                        >
-                          {truncateConcept(tx.merchant, 24)}
-                        </button>
+                        {tx.isManual ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingTransaction(tx)}
+                            className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                            title="Gasto manual: Pulsar para editar o eliminar"
+                          >
+                            <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                            <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                              Manual
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
+                            {truncateConcept(tx.merchant, 24)}
+                          </span>
+                        )}
                         <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                       </div>
                       <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
@@ -623,15 +650,24 @@ export default function HomePage() {
                         <ShoppingCart className="w-4 h-4" />
                       </div>
                       <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
-                        {/* Línea 1: Concepto con límite de caracteres y clic para editar */}
-                        <button
-                          type="button"
-                          onClick={() => setEditingTransaction(tx)}
-                          className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-amber-800 hover:underline transition-colors block truncate w-full leading-tight cursor-pointer"
-                          title="Pulsar para editar o eliminar gasto"
-                        >
-                          {truncateConcept(tx.merchant, 28)}
-                        </button>
+                        {/* Línea 1: Concepto con límite de caracteres */}
+                        {tx.isManual ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingTransaction(tx)}
+                            className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-amber-800 hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer"
+                            title="Gasto manual: Pulsar para editar o eliminar"
+                          >
+                            <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
+                            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 shrink-0">
+                              Manual
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate w-full leading-tight">
+                            {truncateConcept(tx.merchant, 28)}
+                          </span>
+                        )}
 
                         {/* Línea 2: Categoría */}
                         <div className="relative inline-block max-w-[125px] xs:max-w-[145px] sm:max-w-none">
@@ -719,15 +755,24 @@ export default function HomePage() {
                       <ShoppingCart className="w-4 h-4" />
                     </div>
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
-                      {/* Línea 1: Concepto alineado a la izquierda con clic para editar */}
-                      <button
-                        type="button"
-                        onClick={() => setEditingTransaction(tx)}
-                        className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-[#00A37A] hover:underline transition-colors block truncate w-full leading-tight cursor-pointer"
-                        title="Pulsar para editar o eliminar gasto"
-                      >
-                        {truncateConcept(tx.merchant, 28)}
-                      </button>
+                      {/* Línea 1: Concepto alineado a la izquierda */}
+                      {tx.isManual ? (
+                        <button
+                          type="button"
+                          onClick={() => setEditingTransaction(tx)}
+                          className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer"
+                          title="Gasto manual: Pulsar para editar o eliminar"
+                        >
+                          <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
+                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
+                            Manual
+                          </span>
+                        </button>
+                      ) : (
+                        <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate w-full leading-tight">
+                          {truncateConcept(tx.merchant, 28)}
+                        </span>
+                      )}
 
                       {/* Línea 2: Categoría */}
                       <div className="relative inline-block max-w-[125px] xs:max-w-[145px] sm:max-w-none">
@@ -818,69 +863,135 @@ export default function HomePage() {
               <MonthSelector />
             </div>
 
-            {/* Big summary card */}
-            <div className="p-6 rounded-3xl bg-gradient-to-r from-[#E6FAF4] to-white border border-[#00D09C]/30 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-[#008761]">
-                  Estado de Liquidación
-                </span>
-                {balanceData.debtor !== "none" ? (
-                  <>
-                    <h3 className="text-2xl font-black text-slate-900 mt-1">
-                      <span className={balanceData.debtor === "memberA" ? "text-red-600" : "text-blue-600"}>
-                        {balanceData.debtorName}
-                      </span>{" "}
-                      debe a{" "}
-                      <span className={balanceData.debtor === "memberA" ? "text-blue-600" : "text-red-600"}>
-                        {balanceData.creditorName}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      Saldo exacto para equilibrar al 50% todos los gastos compartidos.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-2xl font-black text-[#008761] mt-1">
-                      ¡Cuentas al día y saldadas!
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-1">
-                      No hay deudas pendientes entre vosotros este mes.
-                    </p>
-                  </>
-                )}
+            {/* Opciones de Liquidación / Neteo */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Opción 1: Neteo Directo entre Miembros */}
+              <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-emerald-50/70 via-white to-slate-50 border border-emerald-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#008761] bg-emerald-100/60 px-2.5 py-0.5 rounded-full">
+                      Opción 1: Neteo Directo
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">Bizum / Transferencia</span>
+                  </div>
+                  {balanceData.debtor !== "none" ? (
+                    <div className="mt-3">
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+                        <span className={balanceData.debtor === "memberA" ? "text-red-600" : "text-blue-600"}>
+                          {balanceData.debtorName}
+                        </span>{" "}
+                        paga a{" "}
+                        <span className={balanceData.debtor === "memberA" ? "text-blue-600" : "text-red-600"}>
+                          {balanceData.creditorName}
+                        </span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Cada miembro asume el 50% exacto de su bolsillo.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-3">
+                      <h3 className="text-lg sm:text-xl font-black text-[#008761]">
+                        ¡Cuentas equilibradas!
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        No hay deudas personales pendientes entre vosotros.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Importe a transferir</span>
+                    <span className="text-3xl font-black text-[#008761]">
+                      {balanceData.netDebt.toFixed(2)} €
+                    </span>
+                  </div>
+                  {balanceData.debtor !== "none" && (
+                    <button
+                      onClick={() =>
+                        alert(
+                          `Bizum directo: ${balanceData.debtorName} transfiere ${balanceData.netDebt.toFixed(2)} € a ${balanceData.creditorName}. Las cuentas personales quedan saldadas al 100%.`
+                        )
+                      }
+                      className="px-4 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/25 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Saldar por Bizum</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="text-left sm:text-right">
-                <span className="text-4xl font-black text-[#008761] block">
-                  {balanceData.netDebt.toFixed(2)} €
-                </span>
-                {balanceData.debtor !== "none" && (
-                  <button
-                    onClick={() =>
-                      alert(
-                        `Bizum simulado: Enlace preparado para que ${balanceData.debtorName} envíe ${balanceData.netDebt.toFixed(2)} € a ${balanceData.creditorName}.`
-                      )
-                    }
-                    className="mt-2 px-4 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/25 transition-all inline-flex items-center gap-1.5"
-                  >
-                    <span>Saldar por Bizum</span>
-                    <ArrowUpRight className="w-4 h-4" />
-                  </button>
-                )}
+              {/* Opción 2: Neteo con la Cuenta Conjunta */}
+              <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-blue-50/60 via-white to-slate-50 border border-blue-200/80 shadow-xs flex flex-col justify-between space-y-4">
+                <div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-blue-700 bg-blue-100/70 px-2.5 py-0.5 rounded-full">
+                      Opción 2: Neteo con la Conjunta
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">Fondo común</span>
+                  </div>
+                  {balanceData.debtor !== "none" ? (
+                    <div className="mt-3">
+                      <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+                        <span className={balanceData.debtor === "memberA" ? "text-red-600" : "text-blue-600"}>
+                          {balanceData.debtorName}
+                        </span>{" "}
+                        aporta a la{" "}
+                        <span className="text-[#008761]">Cuenta Conjunta</span>
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Ingresa el importe en la cuenta común para igualar las aportaciones totales sin traspasos personales.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-3">
+                      <h3 className="text-lg sm:text-xl font-black text-blue-700">
+                        ¡Aportaciones niveladas!
+                      </h3>
+                      <p className="text-xs text-slate-500 mt-1">
+                        Ambos habéis aportado exactamente la misma cantidad este mes.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-slate-400 block">Ingreso a la Conjunta</span>
+                    <span className="text-3xl font-black text-blue-600">
+                      {balanceData.netDebtToJoint.toFixed(2)} €
+                    </span>
+                  </div>
+                  {balanceData.debtor !== "none" && (
+                    <button
+                      onClick={() =>
+                        alert(
+                          `Transferencia a Conjunta: ${balanceData.debtorName} transfiere ${balanceData.netDebtToJoint.toFixed(2)} € a la BBVA Cuenta Conjunta. Ambas aportaciones totales quedarán igualadas.`
+                        )
+                      }
+                      className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md shadow-slate-900/20 transition-all inline-flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Landmark className="w-3.5 h-3.5" />
+                      <span>Ingresar a Conjunta</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
             {/* Math Table with Round Numbers */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden text-xs">
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200/80 font-bold text-slate-700 grid grid-cols-3">
-                <span>Concepto</span>
+                <span>Concepto de Balance</span>
                 <span className="text-center text-red-600 font-bold">{memberAName}</span>
                 <span className="text-right text-blue-600 font-bold">{memberBName}</span>
               </div>
               <div className="divide-y divide-slate-100">
                 <div className="px-4 py-3 grid grid-cols-3">
-                  <span className="text-slate-600">Aportado a gastos comunes (50/50)</span>
+                  <span className="text-slate-600">Aportado a gastos y transferencias</span>
                   <span className="text-center font-bold text-red-600">
                     {balanceData.paidByA.toFixed(2)} €
                   </span>
@@ -898,16 +1009,29 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="px-4 py-3 bg-slate-50 font-bold text-slate-900 grid grid-cols-3">
-                  <span>Diferencia Neta</span>
+                  <span>Opción 1: Neteo Directo (50%)</span>
                   <span className="text-center text-red-600">
                     {balanceData.paidByA >= balanceData.paidByB
                       ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
-                      : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
+                      : `-${balanceData.netDebt.toFixed(2)} € (debe a ${memberBName})`}
                   </span>
                   <span className="text-right text-blue-600">
                     {balanceData.paidByB >= balanceData.paidByA
                       ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
-                      : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
+                      : `-${balanceData.netDebt.toFixed(2)} € (debe a ${memberAName})`}
+                  </span>
+                </div>
+                <div className="px-4 py-3 bg-blue-50/50 font-bold text-slate-900 grid grid-cols-3">
+                  <span>Opción 2: Neteo con la Conjunta (100%)</span>
+                  <span className="text-center text-red-600">
+                    {balanceData.paidByA >= balanceData.paidByB
+                      ? `0.00 € (al día)`
+                      : `Ingresar ${balanceData.netDebtToJoint.toFixed(2)} € a Conjunta`}
+                  </span>
+                  <span className="text-right text-blue-600">
+                    {balanceData.paidByB >= balanceData.paidByA
+                      ? `0.00 € (al día)`
+                      : `Ingresar ${balanceData.netDebtToJoint.toFixed(2)} € a Conjunta`}
                   </span>
                 </div>
               </div>

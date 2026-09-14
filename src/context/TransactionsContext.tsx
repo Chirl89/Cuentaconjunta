@@ -17,6 +17,7 @@ export const CATEGORIES_LIST: CategoryInfo[] = [
   { name: "Restaurantes & Ocio", color: "#F59E0B" },
   { name: "Transporte & Gasolina", color: "#6366F1" },
   { name: "Otros Gastos Comunes", color: "#EC4899" },
+  { name: "Aportación Conjunta", color: "#10B981" },
 ];
 
 export interface Transaction {
@@ -31,6 +32,8 @@ export interface Transaction {
   status: "pending" | "classified";
   payer: PayerType;
   split: SplitType;
+  isManual?: boolean;
+  movementType?: "expense" | "transfer_to_joint";
 }
 
 export interface BankAccount {
@@ -57,6 +60,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "pending",
     payer: "memberA",
     split: "50/50",
+    isManual: false,
   },
   {
     id: "tx-2",
@@ -70,6 +74,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "pending",
     payer: "memberB",
     split: "50/50",
+    isManual: false,
   },
   {
     id: "tx-3",
@@ -83,6 +88,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberA",
     split: "50/50",
+    isManual: false,
   },
   {
     id: "tx-4",
@@ -96,6 +102,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberA",
     split: "50/50",
+    isManual: false,
   },
   {
     id: "tx-5",
@@ -109,6 +116,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberB",
     split: "50/50",
+    isManual: false,
   },
   // Personal expense of Member A (no 50/50 duplication)
   {
@@ -123,6 +131,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberA",
     split: "memberA",
+    isManual: false,
   },
   // Personal expense of Member B (no 50/50 duplication)
   {
@@ -137,6 +146,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberB",
     split: "memberB",
+    isManual: false,
   },
 
   // Agosto 2026 (Mes anterior)
@@ -152,6 +162,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberB",
     split: "50/50",
+    isManual: false,
   },
   {
     id: "tx-9",
@@ -165,6 +176,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     status: "classified",
     payer: "memberA",
     split: "50/50",
+    isManual: false,
   },
 ];
 
@@ -212,6 +224,7 @@ interface TransactionsContextType {
     category: string;
     payer: PayerType;
     split: SplitType;
+    movementType?: "expense" | "transfer_to_joint";
   }) => void;
   updateTransaction: (
     id: string,
@@ -249,6 +262,7 @@ interface TransactionsContextType {
     debtorName: string;
     creditorName: string;
     netDebt: number;
+    netDebtToJoint: number;
   };
 }
 
@@ -257,7 +271,7 @@ const TransactionsContext = createContext<TransactionsContextType | undefined>(u
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [accounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
+  const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
 
   const addTransaction = (data: {
@@ -266,9 +280,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     category: string;
     payer: PayerType;
     split: SplitType;
+    movementType?: "expense" | "transfer_to_joint";
   }) => {
+    const isTransfer = data.movementType === "transfer_to_joint";
     const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
-    const color = foundCat ? foundCat.color : "#00D09C";
+    const color = isTransfer ? "#10B981" : foundCat ? foundCat.color : "#00D09C";
 
     const accountLabel =
       data.payer === "memberA"
@@ -279,19 +295,38 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const newTx: Transaction = {
       id: `tx-${Date.now()}`,
-      merchant: data.merchant.trim() || "Gasto Manual",
+      merchant: data.merchant.trim() || (isTransfer ? "Aportación Cuenta Conjunta" : "Gasto Manual"),
       date: "Hoy, Manual",
       monthKey: selectedMonth,
       amount: Math.abs(data.amount),
-      category: data.category,
+      category: isTransfer ? "Aportación Conjunta" : data.category,
       categoryColor: color,
       accountLabel,
       status: "classified",
       payer: data.payer,
-      split: data.split,
+      split: isTransfer ? "50/50" : data.split,
+      isManual: true,
+      movementType: data.movementType || "expense",
     };
 
     setTransactions((prev) => [newTx, ...prev]);
+
+    if (isTransfer) {
+      setAccounts((prev) =>
+        prev.map((acc) => {
+          if (acc.ownership === "JOINT") {
+            return { ...acc, balance: acc.balance + Math.abs(data.amount) };
+          }
+          if (data.payer === "memberA" && acc.ownership === "USER_A") {
+            return { ...acc, balance: acc.balance - Math.abs(data.amount) };
+          }
+          if (data.payer === "memberB" && acc.ownership === "USER_B") {
+            return { ...acc, balance: acc.balance - Math.abs(data.amount) };
+          }
+          return acc;
+        })
+      );
+    }
   };
 
   const updateTransaction = (
@@ -304,36 +339,45 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       split: SplitType;
     }
   ) => {
-    const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
-    const color = foundCat ? foundCat.color : "#00D09C";
-
-    const accountLabel =
-      data.payer === "memberA"
-        ? "Santander Débito"
-        : data.payer === "memberB"
-        ? "CaixaBank Débito"
-        : "BBVA Conjunta";
-
     setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              merchant: data.merchant.trim() || "Gasto",
-              amount: Math.abs(data.amount),
-              category: data.category,
-              categoryColor: color,
-              accountLabel,
-              payer: data.payer,
-              split: data.split,
-            }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        // Automated bank transactions can NEVER be edited (amount and payer immutable)
+        if (!t.isManual) return t;
+
+        const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
+        const color = foundCat ? foundCat.color : "#00D09C";
+
+        const accountLabel =
+          data.payer === "memberA"
+            ? "Santander Débito"
+            : data.payer === "memberB"
+            ? "CaixaBank Débito"
+            : "BBVA Conjunta";
+
+        return {
+          ...t,
+          merchant: data.merchant.trim() || "Gasto",
+          amount: Math.abs(data.amount),
+          category: data.category,
+          categoryColor: color,
+          accountLabel,
+          payer: data.payer,
+          split: data.split,
+        };
+      })
     );
   };
 
   const deleteTransaction = (id: string) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
+    // Automated bank transactions can NEVER be deleted!
+    setTransactions((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (!target || !target.isManual) {
+        return prev;
+      }
+      return prev.filter((t) => t.id !== id);
+    });
   };
 
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
@@ -400,9 +444,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [filteredTransactions]
   );
 
-  // 1. Joint Shared 50/50 expenses
+  // 1. Joint Shared 50/50 expenses (excluding internal fund transfers)
   const jointClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "50/50"),
+    () =>
+      classifiedTransactions.filter(
+        (t) => t.split === "50/50" && t.movementType !== "transfer_to_joint"
+      ),
     [classifiedTransactions]
   );
 
@@ -470,15 +517,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   // Mathematical Net Balance:
-  // Carlos paid: sum of 50/50 where payer=A
-  // Andrea paid: sum of 50/50 where payer=B
-  // Net debt = |paidByA - paidByB| / 2
+  // Carlos paid: sum of 50/50 and joint transfers where payer=A
+  // Andrea paid: sum of 50/50 and joint transfers where payer=B
+  // Net debt = |paidByA - paidByB| / 2 (direct settlement between partners)
+  // Net debt to Joint = |paidByA - paidByB| (settlement via joint account transfer)
   const balanceData = useMemo(() => {
     let paidByA = 0;
     let paidByB = 0;
 
     for (const t of classifiedTransactions) {
-      if (t.split === "50/50") {
+      if (t.split === "50/50" || t.movementType === "transfer_to_joint") {
         if (t.payer === "memberA") {
           paidByA += t.amount;
         } else if (t.payer === "memberB") {
@@ -501,6 +549,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const diff = paidByA - paidByB;
     const netDebt = Math.abs(diff) / 2;
+    const netDebtToJoint = Math.abs(diff);
 
     let debtor: "memberA" | "memberB" | "none" = "none";
     let debtorName = "";
@@ -523,6 +572,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       debtorName,
       creditorName,
       netDebt: Math.round(netDebt * 100) / 100,
+      netDebtToJoint: Math.round(netDebtToJoint * 100) / 100,
     };
   }, [classifiedTransactions, memberAName, memberBName]);
 

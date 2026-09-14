@@ -12,21 +12,25 @@ const TestComponent = () => {
     balanceData,
     classifyTransaction,
     reclassifyTransaction,
-    updateTransactionCategory,
-    categoriesBreakdown,
+    accounts,
     selectedMonth,
-    setSelectedMonth,
     totalSpent,
     pendingTransactions,
+    classifiedTransactions,
   } = useTransactions();
+
+  const jointAccount = accounts.find((a) => a.ownership === "JOINT");
 
   return (
     <div>
       <span data-testid="month">{selectedMonth}</span>
       <span data-testid="debt">{balanceData.netDebt}</span>
+      <span data-testid="debt-to-joint">{balanceData.netDebtToJoint}</span>
       <span data-testid="debtor">{balanceData.debtor}</span>
       <span data-testid="total-spent">{totalSpent}</span>
       <span data-testid="pending-count">{pendingTransactions.length}</span>
+      <span data-testid="joint-balance">{jointAccount?.balance || 0}</span>
+      <span data-testid="classified-count">{classifiedTransactions.length}</span>
 
       <button
         data-testid="btn-classify"
@@ -41,8 +45,6 @@ const TestComponent = () => {
       >
         Reclassify tx-3
       </button>
-
-      <span data-testid="tx3-cat">{categoriesBreakdown.find((c) => c.name === "Hogar & Luz")?.value || 0}</span>
 
       <button
         data-testid="btn-add-manual"
@@ -74,26 +76,77 @@ const TestComponent = () => {
         Add Joint
       </button>
 
+      {/* Attempt to edit automated bank transaction tx-3 */}
       <button
-        data-testid="btn-update-tx3"
+        data-testid="btn-update-automated-tx3"
         onClick={() =>
           updateTransaction("tx-3", {
-            merchant: "Restaurante Actualizado",
-            amount: 100,
+            merchant: "Intento Editar Banco",
+            amount: 999,
             category: "Restaurantes & Ocio",
-            payer: "memberA",
+            payer: "memberB",
             split: "50/50",
           })
         }
       >
-        Update tx-3
+        Update Automated tx-3
       </button>
 
+      {/* Attempt to delete automated bank transaction tx-3 */}
       <button
-        data-testid="btn-delete-tx3"
+        data-testid="btn-delete-automated-tx3"
         onClick={() => deleteTransaction("tx-3")}
       >
-        Delete tx-3
+        Delete Automated tx-3
+      </button>
+
+      {/* Add contribution to joint account */}
+      <button
+        data-testid="btn-transfer-to-joint"
+        onClick={() =>
+          addTransaction({
+            merchant: "Aportación 100 Carlos",
+            amount: 100,
+            category: "Aportación Conjunta",
+            payer: "memberA",
+            split: "50/50",
+            movementType: "transfer_to_joint",
+          })
+        }
+      >
+        Transfer 100 to Joint
+      </button>
+
+      {/* Helper to update first manual transaction */}
+      <button
+        data-testid="btn-update-first-manual"
+        onClick={() => {
+          const manual = classifiedTransactions.find((t) => t.isManual);
+          if (manual) {
+            updateTransaction(manual.id, {
+              merchant: "Manual Editado",
+              amount: 50,
+              category: "Supermercado",
+              payer: "memberA",
+              split: "50/50",
+            });
+          }
+        }}
+      >
+        Update First Manual
+      </button>
+
+      {/* Helper to delete first manual transaction */}
+      <button
+        data-testid="btn-delete-first-manual"
+        onClick={() => {
+          const manual = classifiedTransactions.find((t) => t.isManual);
+          if (manual) {
+            deleteTransaction(manual.id);
+          }
+        }}
+      >
+        Delete First Manual
       </button>
     </div>
   );
@@ -176,7 +229,7 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(Number(screen.getByTestId("debt").textContent)).toBe(initialDebt);
   });
 
-  it("updates an existing transaction and recalculates totals", () => {
+  it("strictly prevents editing or deleting automated bank transactions", () => {
     render(
       <UserNamesProvider>
         <TransactionsProvider>
@@ -186,12 +239,19 @@ describe("TransactionsContext Dynamic Engine", () => {
     );
 
     const initialSpent = Number(screen.getByTestId("total-spent").textContent);
-    // tx-3 was 40€, updated to 100€ -> difference is +60€
-    fireEvent.click(screen.getByTestId("btn-update-tx3"));
-    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent + 60);
+    const initialClassifiedCount = Number(screen.getByTestId("classified-count").textContent);
+
+    // Attempting to edit tx-3 (bank movement) has NO effect
+    fireEvent.click(screen.getByTestId("btn-update-automated-tx3"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent);
+
+    // Attempting to delete tx-3 (bank movement) has NO effect
+    fireEvent.click(screen.getByTestId("btn-delete-automated-tx3"));
+    expect(Number(screen.getByTestId("classified-count").textContent)).toBe(initialClassifiedCount);
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent);
   });
 
-  it("deletes an existing transaction and recalculates totals", () => {
+  it("allows editing and deleting manual transactions", () => {
     render(
       <UserNamesProvider>
         <TransactionsProvider>
@@ -201,8 +261,44 @@ describe("TransactionsContext Dynamic Engine", () => {
     );
 
     const initialSpent = Number(screen.getByTestId("total-spent").textContent);
-    // tx-3 is 40€ -> deleting it reduces total spent by 40€
-    fireEvent.click(screen.getByTestId("btn-delete-tx3"));
-    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent - 40);
+    const initialCount = Number(screen.getByTestId("classified-count").textContent);
+
+    // 1. Add manual expense (+20€)
+    fireEvent.click(screen.getByTestId("btn-add-manual"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent + 20);
+    expect(Number(screen.getByTestId("classified-count").textContent)).toBe(initialCount + 1);
+
+    // 2. Edit manual expense from 20€ to 50€ (+30€)
+    fireEvent.click(screen.getByTestId("btn-update-first-manual"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent + 50);
+
+    // 3. Delete manual expense
+    fireEvent.click(screen.getByTestId("btn-delete-first-manual"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent);
+    expect(Number(screen.getByTestId("classified-count").textContent)).toBe(initialCount);
+  });
+
+  it("correctly handles contribution to joint account with dual net settlement options", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialJointBalance = Number(screen.getByTestId("joint-balance").textContent);
+
+    // Carlos contributes 100€ to joint account
+    fireEvent.click(screen.getByTestId("btn-transfer-to-joint"));
+
+    // Joint account balance increases by 100€
+    const newJointBalance = Number(screen.getByTestId("joint-balance").textContent);
+    expect(newJointBalance).toBe(initialJointBalance + 100);
+
+    // Dual net settlement: netDebtToJoint is exactly double netDebt
+    const netDebt = Number(screen.getByTestId("debt").textContent);
+    const netDebtToJoint = Number(screen.getByTestId("debt-to-joint").textContent);
+    expect(netDebtToJoint).toBe(Math.round(netDebt * 2 * 100) / 100);
   });
 });
