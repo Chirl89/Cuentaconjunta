@@ -7,6 +7,8 @@ import { TransactionsProvider, useTransactions } from "@/context/TransactionsCon
 const TestComponent = () => {
   const {
     addTransaction,
+    updateTransaction,
+    deleteTransaction,
     balanceData,
     classifyTransaction,
     reclassifyTransaction,
@@ -55,6 +57,43 @@ const TestComponent = () => {
         }
       >
         Add Manual
+      </button>
+
+      <button
+        data-testid="btn-add-joint"
+        onClick={() =>
+          addTransaction({
+            merchant: "Gasto Conjunta Test",
+            amount: 40,
+            category: "Supermercado",
+            payer: "joint",
+            split: "50/50",
+          })
+        }
+      >
+        Add Joint
+      </button>
+
+      <button
+        data-testid="btn-update-tx3"
+        onClick={() =>
+          updateTransaction("tx-3", {
+            merchant: "Restaurante Actualizado",
+            amount: 100,
+            category: "Restaurantes & Ocio",
+            payer: "memberA",
+            split: "50/50",
+          })
+        }
+      >
+        Update tx-3
+      </button>
+
+      <button
+        data-testid="btn-delete-tx3"
+        onClick={() => deleteTransaction("tx-3")}
+      >
+        Delete tx-3
       </button>
     </div>
   );
@@ -115,5 +154,55 @@ describe("TransactionsContext Dynamic Engine", () => {
     const newSpent = Number(screen.getByTestId("total-spent").textContent);
 
     expect(newSpent).toBe(initialSpent + 20);
+  });
+
+  it("supports adding an expense from joint account without altering debt", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialDebt = Number(screen.getByTestId("debt").textContent);
+    const initialSpent = Number(screen.getByTestId("total-spent").textContent);
+
+    fireEvent.click(screen.getByTestId("btn-add-joint"));
+
+    // Spent increases by 40€
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent + 40);
+    // Debt remains identical because joint funds were used
+    expect(Number(screen.getByTestId("debt").textContent)).toBe(initialDebt);
+  });
+
+  it("updates an existing transaction and recalculates totals", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialSpent = Number(screen.getByTestId("total-spent").textContent);
+    // tx-3 was 40€, updated to 100€ -> difference is +60€
+    fireEvent.click(screen.getByTestId("btn-update-tx3"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent + 60);
+  });
+
+  it("deletes an existing transaction and recalculates totals", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialSpent = Number(screen.getByTestId("total-spent").textContent);
+    // tx-3 is 40€ -> deleting it reduces total spent by 40€
+    fireEvent.click(screen.getByTestId("btn-delete-tx3"));
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(initialSpent - 40);
   });
 });

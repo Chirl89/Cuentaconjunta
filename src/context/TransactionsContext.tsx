@@ -213,6 +213,17 @@ interface TransactionsContextType {
     payer: PayerType;
     split: SplitType;
   }) => void;
+  updateTransaction: (
+    id: string,
+    tx: {
+      merchant: string;
+      amount: number;
+      category: string;
+      payer: PayerType;
+      split: SplitType;
+    }
+  ) => void;
+  deleteTransaction: (id: string) => void;
   classifyTransaction: (id: string, split: SplitType, payer?: PayerType) => void;
   reclassifyTransaction: (id: string, split: SplitType) => void;
   updateTransactionCategory: (id: string, newCategoryName: string) => void;
@@ -283,6 +294,48 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     setTransactions((prev) => [newTx, ...prev]);
   };
 
+  const updateTransaction = (
+    id: string,
+    data: {
+      merchant: string;
+      amount: number;
+      category: string;
+      payer: PayerType;
+      split: SplitType;
+    }
+  ) => {
+    const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
+    const color = foundCat ? foundCat.color : "#00D09C";
+
+    const accountLabel =
+      data.payer === "memberA"
+        ? "Santander Débito"
+        : data.payer === "memberB"
+        ? "CaixaBank Débito"
+        : "BBVA Conjunta";
+
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              merchant: data.merchant.trim() || "Gasto",
+              amount: Math.abs(data.amount),
+              category: data.category,
+              categoryColor: color,
+              accountLabel,
+              payer: data.payer,
+              split: data.split,
+            }
+          : t
+      )
+    );
+  };
+
+  const deleteTransaction = (id: string) => {
+    setTransactions((prev) => prev.filter((t) => t.id !== id));
+  };
+
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
     setTransactions((prev) =>
       prev.map((t) =>
@@ -323,12 +376,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const getAccountDisplay = (tx: Transaction): string => {
     if (tx.payer === "memberA") {
-      return `${tx.accountLabel} (${memberAName})`;
+      return `${tx.accountLabel || "Santander Débito"} (${memberAName})`;
     }
     if (tx.payer === "memberB") {
-      return `${tx.accountLabel} (${memberBName})`;
+      return `${tx.accountLabel || "CaixaBank Débito"} (${memberBName})`;
     }
-    return "BBVA Cuenta Conjunta ••8491";
+    return `${tx.accountLabel || "BBVA Conjunta"} (Conjunta)`;
   };
 
   // Filtered by selected month
@@ -437,6 +490,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } else if (t.split === "memberB" && t.payer === "memberA") {
         // Carlos paid for Andrea's personal expense
         paidByA += t.amount * 2;
+      } else if (t.split === "memberA" && t.payer === "joint") {
+        // Joint account paid for Carlos's personal expense
+        paidByB += t.amount;
+      } else if (t.split === "memberB" && t.payer === "joint") {
+        // Joint account paid for Andrea's personal expense
+        paidByA += t.amount;
       }
     }
 
@@ -475,6 +534,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         selectedMonth,
         setSelectedMonth,
         addTransaction,
+        updateTransaction,
+        deleteTransaction,
         classifyTransaction,
         reclassifyTransaction,
         updateTransactionCategory,

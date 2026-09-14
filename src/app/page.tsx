@@ -7,6 +7,7 @@ import {
   useTransactions,
   SplitType,
   CATEGORIES_LIST,
+  Transaction,
 } from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
@@ -62,6 +63,12 @@ export default function HomePage() {
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+
+  const truncateConcept = (str: string, maxLength: number = 24) => {
+    if (!str) return "";
+    return str.length > maxLength ? str.slice(0, maxLength) + "..." : str;
+  };
 
   // Settings tab form state
   const [inputNameA, setInputNameA] = useState(memberAName);
@@ -243,17 +250,26 @@ export default function HomePage() {
                     {jointClassifiedTransactions.map((tx) => (
                       <div key={tx.id} className="py-3 flex items-center justify-between">
                         <div>
-                          <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                          <button
+                            type="button"
+                            onClick={() => setEditingTransaction(tx)}
+                            className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                            title="Pulsar para editar o eliminar gasto"
+                          >
+                            {truncateConcept(tx.merchant, 24)}
+                          </button>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                             <span
                               className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
                                 tx.payer === "memberA"
                                   ? "bg-red-50 text-red-600 border-red-200"
-                                  : "bg-blue-50 text-blue-600 border-blue-200"
+                                  : tx.payer === "memberB"
+                                  ? "bg-blue-50 text-blue-600 border-blue-200"
+                                  : "bg-emerald-50 text-[#008761] border-emerald-200"
                               }`}
                             >
-                              Pagó {tx.payer === "memberA" ? memberAName : memberBName}
+                              Pagó {tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}
                             </span>
                           </div>
                         </div>
@@ -393,7 +409,14 @@ export default function HomePage() {
                   {memberAClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingTransaction(tx)}
+                          className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                          title="Pulsar para editar o eliminar gasto"
+                        >
+                          {truncateConcept(tx.merchant, 24)}
+                        </button>
                         <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                       </div>
                       <span className="text-sm font-black text-slate-900 whitespace-nowrap">{tx.amount.toFixed(2)} €</span>
@@ -521,7 +544,14 @@ export default function HomePage() {
                   {memberBClassifiedTransactions.map((tx) => (
                     <div key={tx.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                        <button
+                          type="button"
+                          onClick={() => setEditingTransaction(tx)}
+                          className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors block truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                          title="Pulsar para editar o eliminar gasto"
+                        >
+                          {truncateConcept(tx.merchant, 24)}
+                        </button>
                         <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                       </div>
                       <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
@@ -583,7 +613,7 @@ export default function HomePage() {
                 {pendingTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="py-3 px-1 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    className="py-2.5 px-1 flex items-center justify-between gap-3 hover:bg-amber-100/40 rounded-2xl transition-colors"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <div
@@ -592,55 +622,66 @@ export default function HomePage() {
                       >
                         <ShoppingCart className="w-4 h-4" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-bold text-slate-900 truncate">{tx.merchant}</span>
+                      <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                        {/* Línea 1: Concepto con límite de caracteres y clic para editar */}
+                        <button
+                          type="button"
+                          onClick={() => setEditingTransaction(tx)}
+                          className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-amber-800 hover:underline transition-colors block truncate max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-md leading-tight cursor-pointer"
+                          title="Pulsar para editar o eliminar gasto"
+                        >
+                          {truncateConcept(tx.merchant, 24)}
+                        </button>
 
-                          {/* Category Selector */}
-                          <div className="relative inline-block shrink-0">
-                            <select
-                              value={tx.category}
-                              onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                              className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none"
-                            >
-                              {CATEGORIES_LIST.map((c) => (
-                                <option key={c.name} value={c.name}>
-                                  {c.name}
-                                </option>
-                              ))}
-                            </select>
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
-                              ▼
-                            </span>
-                          </div>
+                        {/* Línea 2: Categoría */}
+                        <div className="relative inline-block w-fit">
+                          <select
+                            value={tx.category}
+                            onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
+                            className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-amber-300 bg-white text-slate-700 hover:border-amber-500 focus:outline-none leading-none"
+                          >
+                            {CATEGORIES_LIST.map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                          <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
+                            ▼
+                          </span>
                         </div>
-                        <span className="text-[11px] text-slate-500 block truncate mt-0.5">
+
+                        {/* Línea 3: Fecha y cuenta */}
+                        <span className="text-[10px] sm:text-[11px] text-slate-500 block truncate leading-tight mt-0.5">
                           {tx.date} • {getAccountDisplay(tx)}
                         </span>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
-                      <span className="text-base font-black text-slate-900 whitespace-nowrap">
+                    <div className="flex flex-col items-end justify-center gap-1 shrink-0">
+                      <span className="text-base sm:text-lg font-black text-slate-900 whitespace-nowrap text-right leading-none">
                         {tx.amount.toFixed(2)} €
                       </span>
 
                       <div className="flex items-center gap-1 shrink-0">
                         <button
+                          type="button"
                           onClick={() => handleTriage(tx.id, "50/50", "1/2 (Compartido)")}
-                          className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs whitespace-nowrap"
+                          className="px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs whitespace-nowrap"
                         >
                           1/2
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleTriage(tx.id, "memberA", `Solo ${memberAName}`)}
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-red-50 text-red-600 text-xs font-bold border border-slate-200 hover:border-red-300 whitespace-nowrap"
+                          className="px-2 py-0.5 rounded-lg bg-white hover:bg-red-50 text-red-600 text-xs font-bold border border-slate-200 hover:border-red-300 whitespace-nowrap"
                         >
                           {memberAName}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleTriage(tx.id, "memberB", `Solo ${memberBName}`)}
-                          className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-blue-50 text-blue-600 text-xs font-bold border border-slate-200 hover:border-blue-300 whitespace-nowrap"
+                          className="px-2 py-0.5 rounded-lg bg-white hover:bg-blue-50 text-blue-600 text-xs font-bold border border-slate-200 hover:border-blue-300 whitespace-nowrap"
                         >
                           {memberBName}
                         </button>
@@ -668,52 +709,63 @@ export default function HomePage() {
               {classifiedTransactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="py-3.5 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/60 px-1 rounded-2xl transition-colors"
+                  className="py-2.5 px-1 flex items-center justify-between gap-3 hover:bg-slate-50/60 rounded-2xl transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
                     <div
                       className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }}
                     >
                       <ShoppingCart className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
+                    <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+                      {/* Línea 1: Concepto alineado a la izquierda con clic para editar */}
+                      <button
+                        type="button"
+                        onClick={() => setEditingTransaction(tx)}
+                        className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-[#00A37A] hover:underline transition-colors block truncate max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-md leading-tight cursor-pointer"
+                        title="Pulsar para editar o eliminar gasto"
+                      >
+                        {truncateConcept(tx.merchant, 24)}
+                      </button>
 
-                        <div className="relative inline-block">
-                          <select
-                            value={tx.category}
-                            onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                            className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none"
-                          >
-                            {CATEGORIES_LIST.map((c) => (
-                              <option key={c.name} value={c.name}>
-                                {c.name}
-                              </option>
-                            ))}
-                          </select>
-                          <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
-                            ▼
-                          </span>
-                        </div>
+                      {/* Línea 2: Categoría */}
+                      <div className="relative inline-block w-fit">
+                        <select
+                          value={tx.category}
+                          onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
+                          className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none leading-none"
+                        >
+                          {CATEGORIES_LIST.map((c) => (
+                            <option key={c.name} value={c.name}>
+                              {c.name}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
+                          ▼
+                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 block mt-0.5">
+
+                      {/* Línea 3: Fecha y cuenta */}
+                      <span className="text-[10px] sm:text-[11px] text-slate-400 block truncate leading-tight mt-0.5">
                         {tx.date} • {getAccountDisplay(tx)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between md:justify-end gap-3 shrink-0">
-                    <span className="text-base font-black text-slate-900 whitespace-nowrap">
+                  {/* Alineado a la derecha: importe arriba, selector debajo */}
+                  <div className="flex flex-col items-end justify-center gap-1 shrink-0">
+                    <span className="text-base sm:text-lg font-black text-slate-900 whitespace-nowrap text-right leading-none">
                       {tx.amount.toFixed(2)} €
                     </span>
 
                     {/* Reclassification Split Pill */}
-                    <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-[11px] shrink-0">
+                    <div className="flex items-center bg-slate-100 p-0.5 rounded-xl gap-0.5 text-[11px] shrink-0">
                       <button
+                        type="button"
                         onClick={() => handleReclassify(tx.id, "50/50", "1/2 (Compartido)")}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all whitespace-nowrap ${
+                        className={`px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs ${
                           tx.split === "50/50"
                             ? "bg-slate-900 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
@@ -722,8 +774,9 @@ export default function HomePage() {
                         1/2
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleReclassify(tx.id, "memberA", `Solo ${memberAName}`)}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all whitespace-nowrap ${
+                        className={`px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs ${
                           tx.split === "memberA"
                             ? "bg-red-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
@@ -732,8 +785,9 @@ export default function HomePage() {
                         {memberAName}
                       </button>
                       <button
+                        type="button"
                         onClick={() => handleReclassify(tx.id, "memberB", `Solo ${memberBName}`)}
-                        className={`px-2 py-1 rounded-lg font-bold transition-all whitespace-nowrap ${
+                        className={`px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap text-xs ${
                           tx.split === "memberB"
                             ? "bg-blue-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
@@ -1008,6 +1062,17 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Modal de Añadir / Editar / Eliminar Gasto */}
+      <AddManualExpenseModal
+        isOpen={isManualModalOpen || !!editingTransaction}
+        onClose={() => {
+          setIsManualModalOpen(false);
+          setEditingTransaction(null);
+        }}
+        onSuccess={showToast}
+        transactionToEdit={editingTransaction}
+      />
     </div>
   );
 }
