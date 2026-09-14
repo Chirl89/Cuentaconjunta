@@ -12,6 +12,79 @@ export interface CategoryInfo {
   isSystem?: boolean;
 }
 
+export const CATEGORY_COLOR_PALETTE: string[] = [
+  "#00D09C", // 1. Verde Menta (Brand)
+  "#0EA5E9", // 2. Azul Cielo
+  "#3B82F6", // 3. Azul Eléctrico
+  "#6366F1", // 4. Índigo
+  "#8B5CF6", // 5. Violeta
+  "#A855F7", // 6. Púrpura
+  "#D946EF", // 7. Fucsia
+  "#EC4899", // 8. Rosa
+  "#F43F5E", // 9. Rosa Coral
+  "#EF4444", // 10. Rojo
+  "#F97316", // 11. Naranja
+  "#F59E0B", // 12. Ámbar
+  "#EAB308", // 13. Amarillo Oro
+  "#84CC16", // 14. Lima
+  "#10B981", // 15. Esmeralda
+  "#14B8A6", // 16. Teal / Turquesa
+  "#06B6D4", // 17. Cian
+  "#64748B", // 18. Pizarra
+  "#78716C", // 19. Piedra Cálida
+  "#059669", // 20. Verde Bosque
+];
+
+export type CategoryFrequencyGroup = "frequent" | "less_frequent" | "rare";
+
+/**
+ * Groups categories by frequency:
+ * - 'frequent': used in referenceMonth or the previous month (last 2 months)
+ * - 'less_frequent': used in month -2 (within the last 3 months, 1 month more)
+ * - 'rare': not used in the last 3 months (> 3 months or never used)
+ */
+export function getCategoryFrequencyGroup(
+  categoryName: string,
+  transactions: Transaction[],
+  referenceMonth: string = "2026-09"
+): CategoryFrequencyGroup {
+  const [refYear, refMonth] = referenceMonth.split("-").map(Number);
+  
+  // Mes 1 atrás (el mes anterior)
+  let prev1Year = refYear;
+  let prev1Month = refMonth - 1;
+  if (prev1Month === 0) {
+    prev1Month = 12;
+    prev1Year -= 1;
+  }
+  const prev1MonthKey = `${prev1Year}-${String(prev1Month).padStart(2, "0")}`;
+
+  // Mes 2 atrás (hace 3 meses)
+  let prev2Year = prev1Year;
+  let prev2Month = prev1Month - 1;
+  if (prev2Month === 0) {
+    prev2Month = 12;
+    prev2Year -= 1;
+  }
+  const prev2MonthKey = `${prev2Year}-${String(prev2Month).padStart(2, "0")}`;
+
+  const catTxs = transactions.filter((t) => t.category === categoryName && t.amount > 0);
+
+  const isFrequent = catTxs.some(
+    (t) => t.monthKey === referenceMonth || t.monthKey === prev1MonthKey
+  );
+  if (isFrequent) {
+    return "frequent";
+  }
+
+  const isLessFrequent = catTxs.some((t) => t.monthKey === prev2MonthKey);
+  if (isLessFrequent) {
+    return "less_frequent";
+  }
+
+  return "rare";
+}
+
 export const CATEGORIES_LIST: CategoryInfo[] = [
   { name: "Supermercado", color: "#00D09C", isSystem: true },
   { name: "Hogar & Luz", color: "#0EA5E9", isSystem: true },
@@ -444,6 +517,7 @@ interface TransactionsContextType {
   } | null;
   categories: CategoryInfo[];
   addCategory: (name: string, color?: string) => { success: boolean; error?: string };
+  updateCategoryColor: (name: string, newColor: string) => { success: boolean; error?: string };
   deleteCategory: (name: string) => { success: boolean; error?: string };
   getCategoryUsageStatus: (categoryName: string) => CategoryUsageStatus;
   getCategoryMonthlyBreakdown: (categoryName: string) => MonthSpending[];
@@ -482,14 +556,48 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (categories.some((c) => c.name.toLowerCase() === trimmed.toLowerCase())) {
       return { success: false, error: "Ya existe un concepto con este nombre" };
     }
-    const defaultColors = [
-      "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
-      "#EC4899", "#F59E0B", "#F97316", "#14B8A6",
-    ];
-    const chosenColor = color || defaultColors[categories.length % defaultColors.length];
+
+    const normalizedColor = color ? color.toUpperCase() : null;
+    let chosenColor = normalizedColor;
+
+    // Garantizar que NUNCA existan 2 categorías con el mismo color
+    if (!chosenColor || categories.some((c) => c.color.toUpperCase() === chosenColor)) {
+      const available = CATEGORY_COLOR_PALETTE.find(
+        (pal) => !categories.some((c) => c.color.toUpperCase() === pal.toUpperCase())
+      );
+      chosenColor = available || CATEGORY_COLOR_PALETTE[categories.length % CATEGORY_COLOR_PALETTE.length];
+    }
+
     const newCat: CategoryInfo = { name: trimmed, color: chosenColor, isSystem: false };
     const updated = [...categories, newCat];
     setCategories(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
+      } catch {}
+    }
+    return { success: true };
+  };
+
+  const updateCategoryColor = (name: string, newColor: string): { success: boolean; error?: string } => {
+    const normalized = newColor.toUpperCase();
+    const collision = categories.find(
+      (c) => c.name !== name && c.color.toUpperCase() === normalized
+    );
+    if (collision) {
+      return {
+        success: false,
+        error: `Este color ya está en uso por la categoría "${collision.name}"`,
+      };
+    }
+
+    const updated = categories.map((c) =>
+      c.name === name ? { ...c, color: newColor } : c
+    );
+    setCategories(updated);
+    setTransactions((prev) =>
+      prev.map((t) => (t.category === name ? { ...t, categoryColor: newColor } : t))
+    );
     if (typeof window !== "undefined") {
       try {
         localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
@@ -1144,6 +1252,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         lastSettlementInfo: activeSettlement,
         categories,
         addCategory,
+        updateCategoryColor,
         deleteCategory,
         getCategoryUsageStatus,
         getCategoryMonthlyBreakdown,

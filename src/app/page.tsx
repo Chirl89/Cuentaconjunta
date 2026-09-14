@@ -7,6 +7,8 @@ import {
   useTransactions,
   SplitType,
   CATEGORIES_LIST,
+  CATEGORY_COLOR_PALETTE,
+  getCategoryFrequencyGroup,
   Transaction,
 } from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
@@ -41,8 +43,82 @@ import {
   ChevronDown,
   ChevronUp,
   Calendar,
+  Palette,
+  X,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+
+interface ColorPickerPopoverProps {
+  palette: string[];
+  usedColors: Set<string>;
+  currentColor: string;
+  onSelect: (color: string) => void;
+  onClose: () => void;
+}
+
+function ColorPickerPopover({
+  palette,
+  usedColors,
+  currentColor,
+  onSelect,
+  onClose,
+}: ColorPickerPopoverProps) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div className="absolute left-0 top-full mt-2 z-50 p-3 bg-white rounded-2xl shadow-xl border border-slate-200 w-64 animate-in fade-in zoom-in-95">
+        <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+          <span className="text-[11px] font-bold text-slate-700">Elige un color único (20)</span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md cursor-pointer"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+        <div className="grid grid-cols-5 gap-2">
+          {palette.map((color) => {
+            const isUsedByOther = usedColors.has(color.toUpperCase());
+            const isSelected = currentColor.toUpperCase() === color.toUpperCase();
+
+            return (
+              <button
+                key={color}
+                type="button"
+                disabled={isUsedByOther}
+                onClick={() => onSelect(color)}
+                title={
+                  isUsedByOther
+                    ? "Color ya usado por otra categoría"
+                    : isSelected
+                    ? "Color seleccionado actualmente"
+                    : "Asignar este color"
+                }
+                className={`relative w-9 h-9 rounded-xl transition-all flex items-center justify-center ${
+                  isSelected
+                    ? "ring-2 ring-slate-900 ring-offset-2 scale-105 shadow-sm"
+                    : isUsedByOther
+                    ? "opacity-20 cursor-not-allowed border border-dashed border-slate-400"
+                    : "hover:scale-110 active:scale-95 hover:shadow-md cursor-pointer border border-black/10"
+                }`}
+                style={{ backgroundColor: color }}
+              >
+                {isSelected && <Check className="w-4 h-4 text-white drop-shadow-md stroke-[3]" />}
+                {isUsedByOther && (
+                  <span className="text-[9px] font-extrabold text-slate-800 select-none">✕</span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-[10px] text-slate-400 mt-2 text-center">
+          Los colores con ✕ ya están en uso por otra categoría.
+        </p>
+      </div>
+    </>
+  );
+}
 
 export default function HomePage() {
   const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
@@ -73,6 +149,7 @@ export default function HomePage() {
     lastSettlementInfo,
     categories,
     addCategory,
+    updateCategoryColor,
     deleteCategory,
     getCategoryUsageStatus,
     getCategoryMonthlyBreakdown,
@@ -86,7 +163,13 @@ export default function HomePage() {
 
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
-  const [newConceptColor, setNewConceptColor] = useState("#00D09C");
+  const [newConceptColor, setNewConceptColor] = useState(() => {
+    const used = categories.map((c) => c.color.toUpperCase());
+    const available = CATEGORY_COLOR_PALETTE.find((c) => !used.includes(c.toUpperCase()));
+    return available || CATEGORY_COLOR_PALETTE[0];
+  });
+  const [showAddColorPicker, setShowAddColorPicker] = useState(false);
+  const [editingCategoryColor, setEditingCategoryColor] = useState<string | null>(null);
   const [conceptError, setConceptError] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
@@ -96,10 +179,42 @@ export default function HomePage() {
     if (!res.success) {
       setConceptError(res.error || "Error al añadir el concepto");
     } else {
+      const addedName = newConceptName.trim();
       setNewConceptName("");
       setConceptError(null);
-      setToastMsg(`Categoría "${newConceptName.trim()}" añadida correctamente`);
+      setShowAddColorPicker(false);
+
+      // Auto-asignar el siguiente color libre de la paleta de 20
+      const usedNow = [...categories.map((c) => c.color.toUpperCase()), newConceptColor.toUpperCase()];
+      const nextAvailable = CATEGORY_COLOR_PALETTE.find((c) => !usedNow.includes(c.toUpperCase()));
+      if (nextAvailable) {
+        setNewConceptColor(nextAvailable);
+      }
+
+      setToastMsg(`Categoría "${addedName}" añadida correctamente`);
       setTimeout(() => setToastMsg(null), 3000);
+    }
+  };
+
+  const handleUpdateCategoryColor = (catName: string, chosenColor: string) => {
+    const res = updateCategoryColor(catName, chosenColor);
+    if (!res.success) {
+      setToastMsg(res.error || "No se pudo actualizar el color");
+      setTimeout(() => setToastMsg(null), 3000);
+    } else {
+      setEditingCategoryColor(null);
+      setToastMsg(`Color de "${catName}" actualizado correctamente`);
+      setTimeout(() => setToastMsg(null), 3000);
+
+      const usedNow = categories.map((c) =>
+        c.name === catName ? chosenColor.toUpperCase() : c.color.toUpperCase()
+      );
+      if (usedNow.includes(newConceptColor.toUpperCase())) {
+        const nextFree = CATEGORY_COLOR_PALETTE.find((c) => !usedNow.includes(c.toUpperCase()));
+        if (nextFree) {
+          setNewConceptColor(nextFree);
+        }
+      }
     }
   };
 
@@ -1391,244 +1506,369 @@ export default function HomePage() {
       {/* ============================================================ */}
       {/* TAB: CATEGORÍAS & CONCEPTOS (Añadir, Eliminar y 12 meses)    */}
       {/* ============================================================ */}
-      {activeTab === "categorias" && (
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-                  <Tag className="w-5 h-5 text-[#00A37A]" />
-                  <span>Categorías y Conceptos</span>
-                </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Gestiona las categorías disponibles para tipificar gastos. Pulsa sobre el nombre de cualquier categoría para desplegar su desglose mes a mes hasta 12 meses atrás.
-                </p>
-              </div>
-              <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#E6FAF4] text-[#008761] border border-[#00D09C]/30 self-start sm:self-auto shrink-0">
-                {categories.length} categorías disponibles
-              </span>
-            </div>
+      {/* ============================================================ */}
+      {/* TAB: CATEGORÍAS & CONCEPTOS (Línea compacta, 20 colores y 3 grupos) */}
+      {/* ============================================================ */}
+      {activeTab === "categorias" && (() => {
+        const frequentCategories = categories.filter(
+          (c) => getCategoryFrequencyGroup(c.name, transactions, selectedMonth) === "frequent"
+        );
+        const lessFrequentCategories = categories.filter(
+          (c) => getCategoryFrequencyGroup(c.name, transactions, selectedMonth) === "less_frequent"
+        );
+        const rareCategories = categories.filter(
+          (c) => getCategoryFrequencyGroup(c.name, transactions, selectedMonth) === "rare"
+        );
+        const usedColorsSet = new Set(categories.map((c) => c.color.toUpperCase()));
 
-            {/* Formulario Añadir Nueva Categoría */}
-            <form onSubmit={handleAddConcept} className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4 shadow-xs">
-              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-[#00A37A]" />
-                <span>Añadir Nueva Categoría</span>
-              </div>
+        const renderCategoryItem = (cat: typeof categories[0], group: "frequent" | "less_frequent" | "rare") => {
+          const usage = getCategoryUsageStatus(cat.name);
+          const isExpanded = expandedCategory === cat.name;
+          const breakdown = isExpanded ? getCategoryMonthlyBreakdown(cat.name) : [];
+          const total12m = isExpanded ? breakdown.reduce((sum, m) => sum + m.amount, 0) : 0;
+          const maxMonthly = isExpanded ? Math.max(...breakdown.map((m) => m.amount), 1) : 1;
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                <div className="sm:col-span-7 space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block">
-                    Nombre de la categoría:
-                  </label>
-                  <input
-                    type="text"
-                    value={newConceptName}
-                    onChange={(e) => {
-                      setNewConceptName(e.target.value);
-                      setConceptError(null);
-                    }}
-                    placeholder="ej. Mascotas, Suscripciones, Vacaciones, Farmacia..."
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
+          const otherUsedColors = new Set(
+            categories
+              .filter((c) => c.name !== cat.name)
+              .map((c) => c.color.toUpperCase())
+          );
 
-                <div className="sm:col-span-3 space-y-1">
-                  <label className="text-[11px] font-semibold text-slate-700 block">
-                    Color identificador:
-                  </label>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    {[
-                      "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
-                      "#EC4899", "#F59E0B", "#F97316", "#14B8A6"
-                    ].map((col) => (
-                      <button
-                        key={col}
-                        type="button"
-                        onClick={() => setNewConceptColor(col)}
-                        className={`w-5 h-5 rounded-full transition-transform ${
-                          newConceptColor === col ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
-                        }`}
-                        style={{ backgroundColor: col }}
-                        title={col}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <div className="sm:col-span-2">
+          return (
+            <div
+              key={cat.name}
+              className={`rounded-2xl border transition-all ${
+                isExpanded
+                  ? "bg-slate-50/90 border-slate-300 shadow-sm"
+                  : "bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs"
+              }`}
+            >
+              {/* Fila Principal */}
+              <div className="p-3 sm:p-3.5 flex items-center justify-between gap-2.5">
+                {/* Cuadrito de color interactivo con desplegable para editar */}
+                <div className="relative shrink-0">
                   <button
-                    type="submit"
-                    className="w-full py-2.5 px-3 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditingCategoryColor(editingCategoryColor === cat.name ? null : cat.name);
+                    }}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl shadow-xs transition-transform hover:scale-110 active:scale-95 flex items-center justify-center cursor-pointer border border-black/10 group"
+                    style={{ backgroundColor: cat.color }}
+                    title="Pulsar para cambiar el color de esta categoría (20 colores)"
                   >
-                    <Plus className="w-4 h-4" /> Añadir
+                    <Palette className="w-3.5 h-3.5 text-white/90 drop-shadow opacity-70 group-hover:opacity-100 transition-opacity" />
+                  </button>
+
+                  {editingCategoryColor === cat.name && (
+                    <ColorPickerPopover
+                      palette={CATEGORY_COLOR_PALETTE}
+                      usedColors={otherUsedColors}
+                      currentColor={cat.color}
+                      onSelect={(newCol) => handleUpdateCategoryColor(cat.name, newCol)}
+                      onClose={() => setEditingCategoryColor(null)}
+                    />
+                  )}
+                </div>
+
+                {/* Nombre de la categoría con espacio holgado */}
+                <button
+                  type="button"
+                  onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                  className="flex-1 min-w-0 text-left cursor-pointer group py-0.5"
+                >
+                  <span className="text-sm font-bold text-slate-900 group-hover:text-[#00A37A] transition-colors break-words leading-tight block">
+                    {cat.name}
+                  </span>
+                </button>
+
+                {/* Insignia y Acciones */}
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  {group === "frequent" && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3 text-emerald-600" />
+                      <span>Activa</span>
+                    </span>
+                  )}
+
+                  {group === "less_frequent" && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-amber-600" />
+                      <span>Hace 3m</span>
+                    </span>
+                  )}
+
+                  {group === "rare" && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      <span className="max-w-[85px] sm:max-w-none truncate">{usage.unusedText || "> 3 meses"}</span>
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCategory(cat.name);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                    title="Eliminar categoría"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                    className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                    title={isExpanded ? "Ocultar desglose" : "Ver desglose de 12 meses"}
+                  >
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform duration-200 ${
+                        isExpanded ? "rotate-180 text-[#00D09C]" : ""
+                      }`}
+                    />
                   </button>
                 </div>
               </div>
 
-              {conceptError && (
-                <div className="text-xs text-red-600 font-semibold flex items-center gap-1 pt-1">
-                  <AlertCircle className="w-4 h-4 shrink-0" />
-                  <span>{conceptError}</span>
+              {/* Desglose desplegable de 12 meses atrás */}
+              {isExpanded && (
+                <div className="border-t border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 text-xs">
+                    <div className="font-semibold text-slate-700">
+                      Total 12 meses en <span className="font-bold text-slate-900">{cat.name}</span>:{" "}
+                      <span className="text-[#00A37A] font-extrabold">{total12m.toFixed(2)} €</span>
+                    </div>
+                    <div className="text-slate-500 text-[11px]">
+                      Media mensual: <span className="font-bold text-slate-800">{(total12m / 12).toFixed(2)} €/mes</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Historial mes a mes (últimos 12 meses):
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {breakdown.map((m) => {
+                        const pct = maxMonthly > 0 ? Math.min(100, Math.round((m.amount / maxMonthly) * 100)) : 0;
+                        return (
+                          <div
+                            key={m.monthKey}
+                            className={`p-3 rounded-xl border transition-all ${
+                              m.amount > 0
+                                ? "bg-white border-slate-200 shadow-2xs"
+                                : "bg-slate-50/60 border-slate-100 text-slate-400"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between text-xs mb-1.5">
+                              <span className="font-bold text-slate-800 truncate">
+                                {m.label}
+                              </span>
+                              <span
+                                className={`font-black ${
+                                  m.amount > 0 ? "text-slate-900" : "text-slate-400"
+                                }`}
+                              >
+                                {m.amount.toFixed(2)} €
+                              </span>
+                            </div>
+
+                            {/* Barra de progreso proporcional */}
+                            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1.5">
+                              <div
+                                className="h-full rounded-full transition-all duration-300"
+                                style={{
+                                  width: `${pct}%`,
+                                  backgroundColor: m.amount > 0 ? cat.color : "transparent",
+                                }}
+                              />
+                            </div>
+
+                            <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                              <span>{m.count} {m.count === 1 ? "movimiento" : "movimientos"}</span>
+                              {m.amount > 0 && <span className="font-semibold text-emerald-600">Registrado</span>}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                 </div>
               )}
-            </form>
+            </div>
+          );
+        };
 
-            {/* Listado Interactivo de Categorías */}
-            <div className="space-y-3">
-              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
-                Listado de categorías (pulsa sobre el nombre para ver el desglose mensual):
+        return (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
+              <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                    <Tag className="w-5 h-5 text-[#00A37A]" />
+                    <span>Categorías y Conceptos</span>
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Gestiona categorías, colores únicos y consulta el histórico interactivo de los últimos 12 meses.
+                  </p>
+                </div>
+                <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#E6FAF4] text-[#008761] border border-[#00D09C]/30 self-start sm:self-auto shrink-0">
+                  {categories.length} categorías disponibles
+                </span>
               </div>
 
-              <div className="space-y-2.5">
-                {categories.map((cat) => {
-                  const usage = getCategoryUsageStatus(cat.name);
-                  const isExpanded = expandedCategory === cat.name;
-                  const breakdown = isExpanded ? getCategoryMonthlyBreakdown(cat.name) : [];
-                  const total12m = isExpanded ? breakdown.reduce((sum, m) => sum + m.amount, 0) : 0;
-                  const maxMonthly = isExpanded ? Math.max(...breakdown.map((m) => m.amount), 1) : 1;
+              {/* Formulario Añadir Nueva Categoría (LÍNEA COMPACTA HORIZONTAL) */}
+              <div className="p-3 sm:p-4 rounded-2xl bg-slate-50 border border-slate-200/80 shadow-xs space-y-2">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5 text-[#00A37A]" />
+                  <span>Añadir nueva categoría</span>
+                </div>
 
-                  return (
-                    <div
-                      key={cat.name}
-                      className={`rounded-2xl border transition-all overflow-hidden ${
-                        isExpanded
-                          ? "bg-slate-50/90 border-slate-300 shadow-sm"
-                          : "bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs"
-                      }`}
+                <form onSubmit={handleAddConcept} className="flex items-center gap-2">
+                  {/* Cuadrito de color con desplegable de 20 colores */}
+                  <div className="relative shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddColorPicker(!showAddColorPicker)}
+                      className="w-10 h-10 rounded-xl border border-slate-300 shadow-xs flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer relative"
+                      style={{ backgroundColor: newConceptColor }}
+                      title="Pulsar para elegir color (20 colores disponibles, nunca repetidos)"
                     >
-                      {/* Cabecera / Fila Principal */}
-                      <div className="p-4 flex items-center justify-between gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
-                          className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer group"
-                        >
-                          <span
-                            className="w-4 h-4 rounded-full shrink-0 shadow-xs"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                          <div className="min-w-0">
-                            <span className="text-sm font-bold text-slate-900 group-hover:text-[#00A37A] transition-colors truncate block">
-                              {cat.name}
-                            </span>
-                            <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
-                              <span>Pulsa para {isExpanded ? "ocultar" : "ver"} el desglose de 12 meses</span>
-                            </span>
-                          </div>
-                        </button>
+                      <Palette className="w-4 h-4 text-white drop-shadow-md" />
+                    </button>
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          {usage.isUnused ? (
-                            <span
-                              className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5"
-                              title={usage.lastUsedDate ? `Último movimiento: ${usage.lastUsedDate}` : "Sin movimientos registrados"}
-                            >
-                              <Clock className="w-3 h-3 text-amber-600" />
-                              <span>{usage.unusedText}</span>
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Activo recientemente</span>
-                            </span>
-                          )}
+                    {showAddColorPicker && (
+                      <ColorPickerPopover
+                        palette={CATEGORY_COLOR_PALETTE}
+                        usedColors={usedColorsSet}
+                        currentColor={newConceptColor}
+                        onSelect={(c) => {
+                          setNewConceptColor(c);
+                          setShowAddColorPicker(false);
+                        }}
+                        onClose={() => setShowAddColorPicker(false)}
+                      />
+                    )}
+                  </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCategory(cat.name)}
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
-                            title="Eliminar categoría (los gastos asociados se reasignarán a otra categoría de forma segura)"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                  {/* Campo de texto de nombre */}
+                  <div className="flex-1 min-w-0">
+                    <input
+                      type="text"
+                      value={newConceptName}
+                      onChange={(e) => {
+                        setNewConceptName(e.target.value);
+                        setConceptError(null);
+                      }}
+                      placeholder="Nombre de la categoría..."
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#00D09C] transition-colors"
+                    />
+                  </div>
 
-                          <button
-                            type="button"
-                            onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
-                            className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                          >
-                            {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 text-slate-600" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 text-slate-400" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
+                  {/* Botón + compacto a la derecha */}
+                  <button
+                    type="submit"
+                    disabled={!newConceptName.trim()}
+                    className="w-10 h-10 rounded-xl bg-[#00D09C] hover:bg-[#00B386] disabled:opacity-40 disabled:cursor-not-allowed text-white flex items-center justify-center shrink-0 shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer"
+                    title="Añadir categoría"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </form>
 
-                      {/* Desglose desplegable de 12 meses atrás */}
-                      {isExpanded && (
-                        <div className="border-t border-slate-200 bg-white p-4 sm:p-5 space-y-4">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 text-xs">
-                            <div className="font-semibold text-slate-700">
-                              Total 12 meses en <span className="font-bold text-slate-900">{cat.name}</span>:{" "}
-                              <span className="text-[#00A37A] font-extrabold">{total12m.toFixed(2)} €</span>
-                            </div>
-                            <div className="text-slate-500 text-[11px]">
-                              Media mensual: <span className="font-bold text-slate-800">{(total12m / 12).toFixed(2)} €/mes</span>
-                            </div>
-                          </div>
+                {conceptError && (
+                  <div className="text-xs text-red-600 font-semibold flex items-center gap-1 pt-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{conceptError}</span>
+                  </div>
+                )}
+              </div>
 
-                          <div className="space-y-2">
-                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                              Historial mes a mes (últimos 12 meses):
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                              {breakdown.map((m) => {
-                                const pct = maxMonthly > 0 ? Math.min(100, Math.round((m.amount / maxMonthly) * 100)) : 0;
-                                return (
-                                  <div
-                                    key={m.monthKey}
-                                    className={`p-3 rounded-xl border transition-all ${
-                                      m.amount > 0
-                                        ? "bg-white border-slate-200 shadow-2xs"
-                                        : "bg-slate-50/60 border-slate-100 text-slate-400"
-                                    }`}
-                                  >
-                                    <div className="flex items-center justify-between text-xs mb-1.5">
-                                      <span className="font-bold text-slate-800 truncate">
-                                        {m.label}
-                                      </span>
-                                      <span
-                                        className={`font-black ${
-                                          m.amount > 0 ? "text-slate-900" : "text-slate-400"
-                                        }`}
-                                      >
-                                        {m.amount.toFixed(2)} €
-                                      </span>
-                                    </div>
-
-                                    {/* Barra de progreso proporcional */}
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1.5">
-                                      <div
-                                        className="h-full rounded-full transition-all duration-300"
-                                        style={{
-                                          width: `${pct}%`,
-                                          backgroundColor: m.amount > 0 ? cat.color : "transparent",
-                                        }}
-                                      />
-                                    </div>
-
-                                    <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                                      <span>{m.count} {m.count === 1 ? "movimiento" : "movimientos"}</span>
-                                      {m.amount > 0 && <span className="font-semibold text-emerald-600">Registrado</span>}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      )}
+              {/* LISTADO ORGANIZADO EN 3 CUADROS POR FRECUENCIA */}
+              <div className="space-y-4 pt-1">
+                {/* 1. CUADRO: FRECUENTES (Mes actual y anterior) */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                      <h2 className="text-sm font-extrabold text-slate-900">Frecuentes</h2>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        (usadas este mes y el anterior)
+                      </span>
                     </div>
-                  );
-                })}
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {frequentCategories.length}
+                    </span>
+                  </div>
+
+                  {frequentCategories.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2.5 text-center italic">
+                      No hay categorías usadas este mes ni el anterior
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {frequentCategories.map((cat) => renderCategoryItem(cat, "frequent"))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. CUADRO: UTILIZADAS MENOS FRECUENTEMENTE (Últimos 3 meses) */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                      <h2 className="text-sm font-extrabold text-slate-900">Utilizadas menos frecuentemente</h2>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        (usadas en los últimos 3 meses)
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                      {lessFrequentCategories.length}
+                    </span>
+                  </div>
+
+                  {lessFrequentCategories.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2.5 text-center italic">
+                      No hay categorías en este rango
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {lessFrequentCategories.map((cat) => renderCategoryItem(cat, "less_frequent"))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. CUADRO: RARA VEZ UTILIZADAS (> 3 meses) */}
+                <div className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200/60">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
+                      <h2 className="text-sm font-extrabold text-slate-900">Rara vez utilizadas</h2>
+                      <span className="text-[11px] text-slate-500 font-medium">
+                        (no usadas en más de 3 meses)
+                      </span>
+                    </div>
+                    <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      {rareCategories.length}
+                    </span>
+                  </div>
+
+                  {rareCategories.length === 0 ? (
+                    <p className="text-xs text-slate-400 py-2.5 text-center italic">
+                      No hay categorías en este grupo
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {rareCategories.map((cat) => renderCategoryItem(cat, "rare"))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Modal de Añadir / Editar / Eliminar Gasto */}
       <AddManualExpenseModal

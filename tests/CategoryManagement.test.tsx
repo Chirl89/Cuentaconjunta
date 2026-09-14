@@ -6,6 +6,8 @@ import {
   useTransactions,
   calculateCategoryUsage,
   getCategoryMonthlyHistory,
+  getCategoryFrequencyGroup,
+  CATEGORY_COLOR_PALETTE,
   Transaction,
 } from "@/context/TransactionsContext";
 import { UserNamesProvider } from "@/context/UserNamesContext";
@@ -189,6 +191,115 @@ describe("Paso 3 Iteración 2: Gestión de Categorías, Desglose 12 Meses & Pres
       // CRITICAL INVARIANT: monthKey MUST NOT change to 2026-09!
       expect(updatedTx?.monthKey).toBe("2026-08");
       expect(updatedTx?.date).toBe(txAugust?.date);
+    });
+  });
+
+  describe("4. Paleta de 20 Colores Únicos, Edición Dinámica y Agrupación por Frecuencia", () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <UserNamesProvider>
+        <TransactionsProvider>{children}</TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    it("has a palette of exactly 20 distinct, unique colors", () => {
+      expect(CATEGORY_COLOR_PALETTE).toHaveLength(20);
+      const uniqueColors = new Set(CATEGORY_COLOR_PALETTE.map((c) => c.toUpperCase()));
+      expect(uniqueColors.size).toBe(20);
+    });
+
+    it("allows dynamically editing a category's color and immediately updates its transactions", () => {
+      const { result } = renderHook(() => useTransactions(), { wrapper });
+
+      const targetCategory = "Supermercado";
+      const newColor = "#D946EF"; // Fuchsia, not in initial categories
+
+      let updateRes: { success: boolean; error?: string } = { success: false };
+      act(() => {
+        updateRes = result.current.updateCategoryColor(targetCategory, newColor);
+      });
+
+      expect(updateRes.success).toBe(true);
+      const catObj = result.current.categories.find((c) => c.name === targetCategory);
+      expect(catObj?.color).toBe(newColor);
+
+      // Existing transactions of that category reflect the updated color
+      const catTxs = result.current.transactions.filter((t) => t.category === targetCategory);
+      expect(catTxs.length).toBeGreaterThan(0);
+      for (const t of catTxs) {
+        expect(t.categoryColor).toBe(newColor);
+      }
+    });
+
+    it("prevents assigning a color that is already in use by another category", () => {
+      const { result } = renderHook(() => useTransactions(), { wrapper });
+
+      // Hogar & Luz has #0EA5E9
+      const usedColor = result.current.categories.find((c) => c.name === "Hogar & Luz")!.color;
+
+      let updateRes: { success: boolean; error?: string } = { success: false };
+      act(() => {
+        updateRes = result.current.updateCategoryColor("Restaurantes & Ocio", usedColor);
+      });
+
+      expect(updateRes.success).toBe(false);
+      expect(updateRes.error).toContain("en uso");
+    });
+
+    it("immediately frees up the old color when a category color is changed", () => {
+      const { result } = renderHook(() => useTransactions(), { wrapper });
+
+      // Get current color of Restaurantes & Ocio
+      const oldColor = result.current.categories.find((c) => c.name === "Restaurantes & Ocio")!.color;
+
+      // Change Restaurantes to another unused color
+      act(() => {
+        result.current.updateCategoryColor("Restaurantes & Ocio", "#84CC16"); // Lime
+      });
+
+      // Now oldColor is free! We can add a new category with that freed oldColor
+      let addRes: { success: boolean; error?: string } = { success: false };
+      act(() => {
+        addRes = result.current.addCategory("Nueva Categ", oldColor);
+      });
+
+      expect(addRes.success).toBe(true);
+      const newCat = result.current.categories.find((c) => c.name === "Nueva Categ");
+      expect(newCat?.color).toBe(oldColor);
+    });
+
+    it("correctly segments categories into the 3 frequency groups (Frecuentes, Menos Frecuentes, Rara Vez)", () => {
+      const baseTx: Transaction = {
+        id: "test-tx",
+        merchant: "Test",
+        date: "01 Sep",
+        monthKey: "2026-09",
+        amount: 100,
+        category: "TestCat",
+        categoryColor: "#00D09C",
+        accountLabel: "Cuenta",
+        status: "classified",
+        payer: "memberA",
+        split: "50/50",
+      };
+
+      // 1. Used in reference month (2026-09) -> 'frequent'
+      const txs1: Transaction[] = [{ ...baseTx, category: "Cat1", monthKey: "2026-09" }];
+      expect(getCategoryFrequencyGroup("Cat1", txs1, "2026-09")).toBe("frequent");
+
+      // 2. Used in previous month (2026-08) -> 'frequent'
+      const txs2: Transaction[] = [{ ...baseTx, category: "Cat2", monthKey: "2026-08" }];
+      expect(getCategoryFrequencyGroup("Cat2", txs2, "2026-09")).toBe("frequent");
+
+      // 3. Used in month -2 (2026-07) -> 'less_frequent'
+      const txs3: Transaction[] = [{ ...baseTx, category: "Cat3", monthKey: "2026-07" }];
+      expect(getCategoryFrequencyGroup("Cat3", txs3, "2026-09")).toBe("less_frequent");
+
+      // 4. Used > 3 months ago (2026-06) -> 'rare'
+      const txs4: Transaction[] = [{ ...baseTx, category: "Cat4", monthKey: "2026-06" }];
+      expect(getCategoryFrequencyGroup("Cat4", txs4, "2026-09")).toBe("rare");
+
+      // 5. Never used -> 'rare'
+      expect(getCategoryFrequencyGroup("UnusedCat", [], "2026-09")).toBe("rare");
     });
   });
 });
