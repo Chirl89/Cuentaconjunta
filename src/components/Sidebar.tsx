@@ -12,6 +12,7 @@ import {
   ArrowRightLeft,
   Landmark,
   Settings,
+  Tag,
   ChevronLeft,
   ChevronRight,
   X,
@@ -75,6 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     },
     { key: "balances", name: "Balances & Deuda", icon: ArrowRightLeft },
     { key: "cuentas", name: "Cuentas Bancarias", icon: Landmark },
+    { key: "categorias", name: "Categorías", icon: Tag },
     { key: "ajustes", name: "Configuración", icon: Settings },
   ];
 

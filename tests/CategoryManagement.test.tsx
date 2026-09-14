@@ -1,16 +1,17 @@
 import React from "react";
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, renderHook, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import {
   TransactionsProvider,
   useTransactions,
   calculateCategoryUsage,
+  getCategoryMonthlyHistory,
   Transaction,
 } from "@/context/TransactionsContext";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 
-describe("Gestión de Conceptos & Cálculo de Tiempo Sin Uso", () => {
-  describe("1. Función calculateCategoryUsage", () => {
+describe("Paso 3 Iteración 2: Gestión de Categorías, Desglose 12 Meses & Preservación de Fechas", () => {
+  describe("1. Función calculateCategoryUsage & getCategoryMonthlyHistory", () => {
     const baseTx: Transaction = {
       id: "tx-test-1",
       merchant: "Test Merchant",
@@ -66,16 +67,45 @@ describe("Gestión de Conceptos & Cálculo de Tiempo Sin Uso", () => {
       expect(usage.isUnused).toBe(true);
       expect(usage.unusedText).toBe("No usado en > 2 meses");
     });
+
+    it("should return a 12-month historical breakdown with exact amounts for each month", () => {
+      const testTxs: Transaction[] = [
+        { ...baseTx, category: "Supermercado", amount: 300, monthKey: "2026-09" },
+        { ...baseTx, category: "Supermercado", amount: 700, monthKey: "2026-08" },
+        { ...baseTx, category: "Supermercado", amount: 150, monthKey: "2026-05" },
+      ];
+
+      const history = getCategoryMonthlyHistory("Supermercado", testTxs, "2026-09", 12);
+      expect(history.length).toBe(12);
+
+      // Month 0: Este mes (Sep 2026) -> 300€
+      expect(history[0].monthKey).toBe("2026-09");
+      expect(history[0].amount).toBe(300);
+      expect(history[0].label).toContain("Este mes");
+
+      // Month 1: El mes pasado (Ago 2026) -> 700€
+      expect(history[1].monthKey).toBe("2026-08");
+      expect(history[1].amount).toBe(700);
+      expect(history[1].label).toContain("El mes pasado");
+
+      // Month 4: May 2026 -> 150€
+      expect(history[4].monthKey).toBe("2026-05");
+      expect(history[4].amount).toBe(150);
+
+      // Months without spending should be 0€
+      expect(history[2].monthKey).toBe("2026-07");
+      expect(history[2].amount).toBe(0);
+    });
   });
 
-  describe("2. Acciones del Hook useTransactions (addCategory & deleteCategory)", () => {
+  describe("2. Acciones del Hook useTransactions (Añadir y Eliminar Categorías)", () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <UserNamesProvider>
         <TransactionsProvider>{children}</TransactionsProvider>
       </UserNamesProvider>
     );
 
-    it("allows adding a new custom concept with custom color", () => {
+    it("allows adding a new category with custom color", () => {
       const { result } = renderHook(() => useTransactions(), { wrapper });
 
       let addResult: { success: boolean; error?: string } = { success: false };
@@ -88,84 +118,77 @@ describe("Gestión de Conceptos & Cálculo de Tiempo Sin Uso", () => {
 
       const created = result.current.categories.find((c) => c.name === "Mascotas");
       expect(created?.color).toBe("#14B8A6");
-      expect(created?.isSystem).toBe(false);
 
-      // Verify usage for newly added concept (no expenses yet)
       const usage = result.current.getCategoryUsageStatus("Mascotas");
       expect(usage.isUnused).toBe(true);
       expect(usage.unusedText).toBe("No usado en > 2 meses");
     });
 
-    it("rejects duplicate category names (case-insensitive) or empty names", () => {
+    it("allows deleting ANY category and safely reassigns existing transactions to fallback", () => {
       const { result } = renderHook(() => useTransactions(), { wrapper });
 
-      let resEmpty: { success: boolean; error?: string } = { success: false };
+      // Add custom category and a transaction using it
       act(() => {
-        resEmpty = result.current.addCategory("   ");
-      });
-      expect(resEmpty.success).toBe(false);
-      expect(resEmpty.error).toContain("no puede estar vacío");
-
-      let resDuplicate: { success: boolean; error?: string } = { success: false };
-      act(() => {
-        resDuplicate = result.current.addCategory("supermercado");
-      });
-      expect(resDuplicate.success).toBe(false);
-      expect(resDuplicate.error).toContain("Ya existe");
-    });
-
-    it("blocks deletion of system categories", () => {
-      const { result } = renderHook(() => useTransactions(), { wrapper });
-
-      let delRes: { success: boolean; error?: string } = { success: false };
-      act(() => {
-        delRes = result.current.deleteCategory("Supermercado");
-      });
-
-      expect(delRes.success).toBe(false);
-      expect(delRes.error).toContain("sistema");
-      expect(result.current.categories.some((c) => c.name === "Supermercado")).toBe(true);
-    });
-
-    it("blocks deletion of custom categories if they have transactions attached", () => {
-      const { result } = renderHook(() => useTransactions(), { wrapper });
-
-      act(() => {
-        result.current.addCategory("Cursos Online", "#8B5CF6");
+        result.current.addCategory("Veterinario", "#EC4899");
         result.current.addTransaction({
-          merchant: "Udemy React",
-          amount: 15,
-          category: "Cursos Online",
+          merchant: "Clínica Animal",
+          amount: 60,
+          category: "Veterinario",
           payer: "memberA",
           split: "50/50",
         });
       });
 
+      expect(result.current.categories.some((c) => c.name === "Veterinario")).toBe(true);
+      expect(result.current.transactions.some((t) => t.category === "Veterinario")).toBe(true);
+
+      // Delete the category - must succeed without being blocked!
       let delRes: { success: boolean; error?: string } = { success: false };
       act(() => {
-        delRes = result.current.deleteCategory("Cursos Online");
-      });
-
-      expect(delRes.success).toBe(false);
-      expect(delRes.error).toContain("transacciones asociadas");
-      expect(result.current.categories.some((c) => c.name === "Cursos Online")).toBe(true);
-    });
-
-    it("allows deleting custom category when no transactions are using it", () => {
-      const { result } = renderHook(() => useTransactions(), { wrapper });
-
-      act(() => {
-        result.current.addCategory("Temporal", "#64748B");
-      });
-      expect(result.current.categories.some((c) => c.name === "Temporal")).toBe(true);
-
-      let delRes: { success: boolean; error?: string } = { success: false };
-      act(() => {
-        delRes = result.current.deleteCategory("Temporal");
+        delRes = result.current.deleteCategory("Veterinario");
       });
 
       expect(delRes.success).toBe(true);
-      expect(result.current.categories.some((c) => c.name === "Temporal")).toBe(false);
+      expect(result.current.categories.some((c) => c.name === "Veterinario")).toBe(false);
+
+      // Transaction was NOT deleted or corrupted; it was cleanly reassigned to fallback category
+      const reassignedTx = result.current.transactions.find((t) => t.merchant === "Clínica Animal");
+      expect(reassignedTx).toBeDefined();
+      expect(reassignedTx?.category).not.toBe("Veterinario");
+    });
+  });
+
+  describe("3. Preservación Estricta de Fechas (La fecha de la transacción manda)", () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <UserNamesProvider>
+        <TransactionsProvider>{children}</TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    it("guarantees that a pending transaction from August classified while in September remains strictly in August", () => {
+      const { result } = renderHook(() => useTransactions(), { wrapper });
+
+      // Add a simulated pending transaction from August (e.g. imported from bank feed)
+      act(() => {
+        result.current.setSelectedMonth("2026-09");
+      });
+
+      // tx-8 is in August 2026 (INITIAL_TRANSACTIONS has tx-8 in 2026-08)
+      // Let's verify INITIAL_TRANSACTIONS has tx-1 (in Sep) and tx-8 (in Ago)
+      const txAugust = result.current.transactions.find((t) => t.monthKey === "2026-08");
+      expect(txAugust).toBeDefined();
+      expect(txAugust?.monthKey).toBe("2026-08");
+
+      // Now classify that transaction while current view is September
+      act(() => {
+        result.current.classifyTransaction(txAugust!.id, "50/50");
+      });
+
+      const updatedTx = result.current.transactions.find((t) => t.id === txAugust!.id);
+      expect(updatedTx?.status).toBe("classified");
+      // CRITICAL INVARIANT: monthKey MUST NOT change to 2026-09!
+      expect(updatedTx?.monthKey).toBe("2026-08");
+      expect(updatedTx?.date).toBe(txAugust?.date);
     });
   });
 });

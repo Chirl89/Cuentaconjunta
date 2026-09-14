@@ -9,6 +9,7 @@ export type TabKey =
   | "movimientos"
   | "balances"
   | "cuentas"
+  | "categorias"
   | "distribucion"
   | "ajustes";
 

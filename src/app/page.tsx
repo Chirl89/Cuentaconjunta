@@ -38,6 +38,9 @@ import {
   Tag,
   Trash2,
   AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  Calendar,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -72,15 +75,20 @@ export default function HomePage() {
     addCategory,
     deleteCategory,
     getCategoryUsageStatus,
+    getCategoryMonthlyBreakdown,
+    allPendingTransactions,
+    selectedMonth,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
 
+  // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
   const [newConceptColor, setNewConceptColor] = useState("#00D09C");
   const [conceptError, setConceptError] = useState<string | null>(null);
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
 
   const handleAddConcept = (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,8 +98,23 @@ export default function HomePage() {
     } else {
       setNewConceptName("");
       setConceptError(null);
-      setToastMsg(`Concepto "${newConceptName.trim()}" añadido correctamente`);
+      setToastMsg(`Categoría "${newConceptName.trim()}" añadida correctamente`);
       setTimeout(() => setToastMsg(null), 3000);
+    }
+  };
+
+  const handleDeleteCategory = (catName: string) => {
+    if (confirm(`¿Seguro que deseas eliminar la categoría "${catName}"? Los gastos asociados existentes se reasignarán automáticamente a la categoría principal sin perderse.`)) {
+      const res = deleteCategory(catName);
+      if (res.success) {
+        if (expandedCategory === catName) {
+          setExpandedCategory(null);
+        }
+        setToastMsg(`Categoría "${catName}" eliminada correctamente`);
+        setTimeout(() => setToastMsg(null), 3000);
+      } else {
+        alert(res.error || "No se pudo eliminar la categoría");
+      }
     }
   };
 
@@ -659,21 +682,23 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* SECTION 1: PENDIENTES (Cuadro global ámbar sin cuadros interiores) */}
+          {/* SECTION 1: PENDIENTES (Bandeja unificada con preservación estricta de fecha) */}
           <div className="border border-amber-300/80 bg-amber-50/40 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
-            <div className="flex items-center justify-between border-b border-amber-200/70 pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-200/70 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Pendientes ({pendingTransactions.length})
+                  Bandeja de Triage ({allPendingTransactions.length})
                 </h2>
               </div>
-              <span className="text-[11px] font-bold text-amber-800 bg-amber-100/90 px-2.5 py-0.5 rounded-full">
-                Por clasificar
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-amber-800/90 font-semibold bg-amber-100/90 px-2.5 py-1 rounded-full">
+                  ⚡ La fecha original de cada gasto manda
+                </span>
+              </div>
             </div>
 
-            {pendingTransactions.length === 0 ? (
+            {allPendingTransactions.length === 0 ? (
               <div className="p-5 text-center text-slate-400 text-xs bg-white/70 rounded-2xl border border-dashed border-amber-200">
                 <CheckCircle2 className="w-5 h-5 text-[#00A37A] mx-auto mb-1" />
                 <span className="font-semibold text-slate-700 block">¡Bandeja al día!</span>
@@ -681,7 +706,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="divide-y divide-amber-200/70">
-                {pendingTransactions.map((tx) => (
+                {allPendingTransactions.map((tx) => (
                   <div
                     key={tx.id}
                     className="py-2.5 px-1 flex items-center justify-between gap-2 hover:bg-amber-100/40 rounded-2xl transition-colors"
@@ -736,6 +761,11 @@ export default function HomePage() {
                           <span className="text-[10px] sm:text-[11px] text-slate-500 truncate leading-tight">
                             {tx.date} • {getAccountDisplay(tx)}
                           </span>
+                          {tx.monthKey !== selectedMonth && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-200/90 text-amber-950 border border-amber-300">
+                              📅 Gasto original de {tx.monthKey === "2026-08" ? "Agosto 2026" : tx.monthKey}
+                            </span>
+                          )}
                           {tx.payer === "memberA" && tx.split === "memberB" && (
                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
                               Para {memberBName} (100% deuda)
@@ -1332,159 +1362,6 @@ export default function HomePage() {
               </form>
             </div>
 
-            {/* Gestión de Conceptos y Categorías */}
-            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-5">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/60 pb-3">
-                <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
-                  <Tag className="w-4 h-4 text-[#00A37A]" />
-                  <span>Gestión de Conceptos y Categorías</span>
-                </div>
-                <span className="text-[11px] text-slate-500 font-medium">
-                  {categories.length} conceptos disponibles
-                </span>
-              </div>
-
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Añade y personaliza los conceptos para tipificar tus gastos. Aquellos conceptos que no registren ningún gasto ni en el mes en curso ni en el anterior mostrarán a la derecha un aviso con el tiempo exacto que llevan sin utilizarse.
-              </p>
-
-              {/* Formulario Añadir Concepto */}
-              <form onSubmit={handleAddConcept} className="p-4 rounded-xl bg-white border border-slate-200/80 space-y-3 shadow-xs">
-                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                  <Plus className="w-3.5 h-3.5 text-[#00A37A]" />
-                  <span>Crear Nuevo Concepto</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
-                  <div className="sm:col-span-7 space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-600 block">
-                      Nombre del concepto:
-                    </label>
-                    <input
-                      type="text"
-                      value={newConceptName}
-                      onChange={(e) => {
-                        setNewConceptName(e.target.value);
-                        setConceptError(null);
-                      }}
-                      placeholder="ej. Mascotas, Suscripciones, Viajes..."
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
-                    />
-                  </div>
-
-                  <div className="sm:col-span-3 space-y-1">
-                    <label className="text-[11px] font-semibold text-slate-600 block">
-                      Color identificador:
-                    </label>
-                    <div className="flex items-center gap-1.5 pt-0.5">
-                      {[
-                        "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
-                        "#EC4899", "#F59E0B", "#F97316", "#14B8A6"
-                      ].map((col) => (
-                        <button
-                          key={col}
-                          type="button"
-                          onClick={() => setNewConceptColor(col)}
-                          className={`w-5 h-5 rounded-full transition-transform ${
-                            newConceptColor === col ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
-                          }`}
-                          style={{ backgroundColor: col }}
-                          title={col}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="sm:col-span-2">
-                    <button
-                      type="submit"
-                      className="w-full py-2 px-3 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1"
-                    >
-                      <Plus className="w-3.5 h-3.5" /> Añadir
-                    </button>
-                  </div>
-                </div>
-
-                {conceptError && (
-                  <div className="text-[11px] text-red-600 font-semibold flex items-center gap-1 pt-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    <span>{conceptError}</span>
-                  </div>
-                )}
-              </form>
-
-              {/* Listado de Conceptos */}
-              <div className="space-y-2">
-                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider px-1">
-                  Listado de conceptos y estado de uso:
-                </div>
-
-                <div className="divide-y divide-slate-100 bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-xs">
-                  {categories.map((cat) => {
-                    const usage = getCategoryUsageStatus(cat.name);
-                    return (
-                      <div
-                        key={cat.name}
-                        className="p-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <span
-                            className="w-3.5 h-3.5 rounded-full shrink-0 shadow-xs"
-                            style={{ backgroundColor: cat.color }}
-                          />
-                          <span className="text-xs font-bold text-slate-800 truncate">
-                            {cat.name}
-                          </span>
-                          {cat.isSystem ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
-                              Sistema
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              Personalizado
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          {usage.isUnused ? (
-                            <span
-                              className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5"
-                              title={usage.lastUsedDate ? `Último movimiento registrado: ${usage.lastUsedDate}` : "Sin movimientos registrados"}
-                            >
-                              <Clock className="w-3 h-3 text-amber-600" />
-                              <span>{usage.unusedText}</span>
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                              <Check className="w-3 h-3 text-emerald-600" />
-                              <span>Activo recientemente</span>
-                            </span>
-                          )}
-
-                          {!cat.isSystem && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const res = deleteCategory(cat.name);
-                                if (!res.success && res.error) {
-                                  alert(res.error);
-                                }
-                              }}
-                              className="p-1 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors"
-                              title="Eliminar concepto personalizado"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
             {/* System Info */}
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
@@ -1505,6 +1382,248 @@ export default function HomePage() {
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 3
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB: CATEGORÍAS & CONCEPTOS (Añadir, Eliminar y 12 meses)    */}
+      {/* ============================================================ */}
+      {activeTab === "categorias" && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <Tag className="w-5 h-5 text-[#00A37A]" />
+                  <span>Categorías y Conceptos</span>
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Gestiona las categorías disponibles para tipificar gastos. Pulsa sobre el nombre de cualquier categoría para desplegar su desglose mes a mes hasta 12 meses atrás.
+                </p>
+              </div>
+              <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#E6FAF4] text-[#008761] border border-[#00D09C]/30 self-start sm:self-auto shrink-0">
+                {categories.length} categorías disponibles
+              </span>
+            </div>
+
+            {/* Formulario Añadir Nueva Categoría */}
+            <form onSubmit={handleAddConcept} className="p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4 shadow-xs">
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                <Plus className="w-4 h-4 text-[#00A37A]" />
+                <span>Añadir Nueva Categoría</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                <div className="sm:col-span-7 space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block">
+                    Nombre de la categoría:
+                  </label>
+                  <input
+                    type="text"
+                    value={newConceptName}
+                    onChange={(e) => {
+                      setNewConceptName(e.target.value);
+                      setConceptError(null);
+                    }}
+                    placeholder="ej. Mascotas, Suscripciones, Vacaciones, Farmacia..."
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
+                  />
+                </div>
+
+                <div className="sm:col-span-3 space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block">
+                    Color identificador:
+                  </label>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    {[
+                      "#00D09C", "#0EA5E9", "#6366F1", "#8B5CF6",
+                      "#EC4899", "#F59E0B", "#F97316", "#14B8A6"
+                    ].map((col) => (
+                      <button
+                        key={col}
+                        type="button"
+                        onClick={() => setNewConceptColor(col)}
+                        className={`w-5 h-5 rounded-full transition-transform ${
+                          newConceptColor === col ? "ring-2 ring-offset-1 ring-slate-800 scale-110" : "opacity-80 hover:opacity-100"
+                        }`}
+                        style={{ backgroundColor: col }}
+                        title={col}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 px-3 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" /> Añadir
+                  </button>
+                </div>
+              </div>
+
+              {conceptError && (
+                <div className="text-xs text-red-600 font-semibold flex items-center gap-1 pt-1">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{conceptError}</span>
+                </div>
+              )}
+            </form>
+
+            {/* Listado Interactivo de Categorías */}
+            <div className="space-y-3">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider px-1">
+                Listado de categorías (pulsa sobre el nombre para ver el desglose mensual):
+              </div>
+
+              <div className="space-y-2.5">
+                {categories.map((cat) => {
+                  const usage = getCategoryUsageStatus(cat.name);
+                  const isExpanded = expandedCategory === cat.name;
+                  const breakdown = isExpanded ? getCategoryMonthlyBreakdown(cat.name) : [];
+                  const total12m = isExpanded ? breakdown.reduce((sum, m) => sum + m.amount, 0) : 0;
+                  const maxMonthly = isExpanded ? Math.max(...breakdown.map((m) => m.amount), 1) : 1;
+
+                  return (
+                    <div
+                      key={cat.name}
+                      className={`rounded-2xl border transition-all overflow-hidden ${
+                        isExpanded
+                          ? "bg-slate-50/90 border-slate-300 shadow-sm"
+                          : "bg-white border-slate-200/80 hover:border-slate-300 hover:shadow-xs"
+                      }`}
+                    >
+                      {/* Cabecera / Fila Principal */}
+                      <div className="p-4 flex items-center justify-between gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                          className="flex items-center gap-3 min-w-0 flex-1 text-left cursor-pointer group"
+                        >
+                          <span
+                            className="w-4 h-4 rounded-full shrink-0 shadow-xs"
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          <div className="min-w-0">
+                            <span className="text-sm font-bold text-slate-900 group-hover:text-[#00A37A] transition-colors truncate block">
+                              {cat.name}
+                            </span>
+                            <span className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5">
+                              <span>Pulsa para {isExpanded ? "ocultar" : "ver"} el desglose de 12 meses</span>
+                            </span>
+                          </div>
+                        </button>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          {usage.isUnused ? (
+                            <span
+                              className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5"
+                              title={usage.lastUsedDate ? `Último movimiento: ${usage.lastUsedDate}` : "Sin movimientos registrados"}
+                            >
+                              <Clock className="w-3 h-3 text-amber-600" />
+                              <span>{usage.unusedText}</span>
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Activo recientemente</span>
+                            </span>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCategory(cat.name)}
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors cursor-pointer"
+                            title="Eliminar categoría (los gastos asociados se reasignarán a otra categoría de forma segura)"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setExpandedCategory(isExpanded ? null : cat.name)}
+                            className="p-1.5 rounded-lg hover:bg-slate-200/60 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+                          >
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-slate-600" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-slate-400" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Desglose desplegable de 12 meses atrás */}
+                      {isExpanded && (
+                        <div className="border-t border-slate-200 bg-white p-4 sm:p-5 space-y-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200/70 text-xs">
+                            <div className="font-semibold text-slate-700">
+                              Total 12 meses en <span className="font-bold text-slate-900">{cat.name}</span>:{" "}
+                              <span className="text-[#00A37A] font-extrabold">{total12m.toFixed(2)} €</span>
+                            </div>
+                            <div className="text-slate-500 text-[11px]">
+                              Media mensual: <span className="font-bold text-slate-800">{(total12m / 12).toFixed(2)} €/mes</span>
+                            </div>
+                          </div>
+
+                          <div className="space-y-2">
+                            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                              Historial mes a mes (últimos 12 meses):
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                              {breakdown.map((m) => {
+                                const pct = maxMonthly > 0 ? Math.min(100, Math.round((m.amount / maxMonthly) * 100)) : 0;
+                                return (
+                                  <div
+                                    key={m.monthKey}
+                                    className={`p-3 rounded-xl border transition-all ${
+                                      m.amount > 0
+                                        ? "bg-white border-slate-200 shadow-2xs"
+                                        : "bg-slate-50/60 border-slate-100 text-slate-400"
+                                    }`}
+                                  >
+                                    <div className="flex items-center justify-between text-xs mb-1.5">
+                                      <span className="font-bold text-slate-800 truncate">
+                                        {m.label}
+                                      </span>
+                                      <span
+                                        className={`font-black ${
+                                          m.amount > 0 ? "text-slate-900" : "text-slate-400"
+                                        }`}
+                                      >
+                                        {m.amount.toFixed(2)} €
+                                      </span>
+                                    </div>
+
+                                    {/* Barra de progreso proporcional */}
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mb-1.5">
+                                      <div
+                                        className="h-full rounded-full transition-all duration-300"
+                                        style={{
+                                          width: `${pct}%`,
+                                          backgroundColor: m.amount > 0 ? cat.color : "transparent",
+                                        }}
+                                      />
+                                    </div>
+
+                                    <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                                      <span>{m.count} {m.count === 1 ? "movimiento" : "movimientos"}</span>
+                                      {m.amount > 0 && <span className="font-semibold text-emerald-600">Registrado</span>}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

@@ -106,6 +106,67 @@ export function calculateCategoryUsage(
   };
 }
 
+export interface MonthSpending {
+  monthKey: string;
+  label: string;
+  amount: number;
+  count: number;
+}
+
+/**
+ * Calculates monthly spending breakdown for a category for up to numMonths (default 12)
+ * backwards from referenceMonth.
+ */
+export function getCategoryMonthlyHistory(
+  categoryName: string,
+  transactions: Transaction[],
+  referenceMonth: string = "2026-09",
+  numMonths: number = 12
+): MonthSpending[] {
+  const [refYear, refMonth] = referenceMonth.split("-").map(Number);
+  const history: MonthSpending[] = [];
+
+  const MONTH_NAMES = [
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+  ];
+
+  for (let i = 0; i < numMonths; i++) {
+    let year = refYear;
+    let month = refMonth - i;
+    while (month <= 0) {
+      month += 12;
+      year -= 1;
+    }
+
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    const monthName = MONTH_NAMES[month - 1];
+
+    let label = `${monthName} ${year}`;
+    if (i === 0) {
+      label = `Este mes (${monthName} ${year})`;
+    } else if (i === 1) {
+      label = `El mes pasado (${monthName} ${year})`;
+    } else {
+      label = `${monthName} ${year}`;
+    }
+
+    const monthTxs = transactions.filter(
+      (t) => t.category === categoryName && t.monthKey === monthKey
+    );
+    const amount = monthTxs.reduce((sum, t) => sum + t.amount, 0);
+
+    history.push({
+      monthKey,
+      label,
+      amount: Math.round(amount * 100) / 100,
+      count: monthTxs.length,
+    });
+  }
+
+  return history;
+}
+
 export interface Transaction {
   id: string;
   merchant: string;
@@ -385,6 +446,8 @@ interface TransactionsContextType {
   addCategory: (name: string, color?: string) => { success: boolean; error?: string };
   deleteCategory: (name: string) => { success: boolean; error?: string };
   getCategoryUsageStatus: (categoryName: string) => CategoryUsageStatus;
+  getCategoryMonthlyBreakdown: (categoryName: string) => MonthSpending[];
+  allPendingTransactions: Transaction[];
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -438,11 +501,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const deleteCategory = (name: string): { success: boolean; error?: string } => {
     const target = categories.find((c) => c.name === name);
     if (!target) return { success: false, error: "El concepto no existe" };
-    if (target.isSystem) return { success: false, error: "No se pueden eliminar conceptos predeterminados del sistema" };
-    const inUse = transactions.some((t) => t.category === name);
-    if (inUse) {
-      return { success: false, error: "No se puede eliminar un concepto que contiene transacciones asociadas" };
+    if (categories.length <= 1) {
+      return { success: false, error: "Debe existir al menos un concepto en el sistema" };
     }
+
+    const fallbackCat = categories.find((c) => c.name !== name);
+    const fallbackName = fallbackCat ? fallbackCat.name : "Otros Gastos Comunes";
+    const fallbackColor = fallbackCat ? fallbackCat.color : "#EC4899";
+
+    // Reasignar de forma transparente las transacciones asociadas a la categoría de respaldo
+    setTransactions((prev) =>
+      prev.map((t) =>
+        t.category === name
+          ? {
+              ...t,
+              category: fallbackName,
+              categoryColor: fallbackColor,
+            }
+          : t
+      )
+    );
+
     const updated = categories.filter((c) => c.name !== name);
     setCategories(updated);
     if (typeof window !== "undefined") {
@@ -455,6 +534,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const getCategoryUsageStatus = (categoryName: string): CategoryUsageStatus => {
     return calculateCategoryUsage(categoryName, transactions, selectedMonth);
+  };
+
+  const getCategoryMonthlyBreakdown = (categoryName: string): MonthSpending[] => {
+    return getCategoryMonthlyHistory(categoryName, transactions, selectedMonth, 12);
   };
 
   const addTransaction = (data: {
@@ -620,6 +703,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const pendingTransactions = useMemo(
     () => filteredTransactions.filter((t) => t.status === "pending"),
     [filteredTransactions]
+  );
+
+  const allPendingTransactions = useMemo(
+    () => transactions.filter((t) => t.status === "pending"),
+    [transactions]
   );
 
   const classifiedTransactions = useMemo(
@@ -1058,6 +1146,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         addCategory,
         deleteCategory,
         getCategoryUsageStatus,
+        getCategoryMonthlyBreakdown,
+        allPendingTransactions,
       }}
     >
       {children}
