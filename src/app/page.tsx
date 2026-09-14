@@ -3,6 +3,8 @@
 import React, { useState } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useNavigation } from "@/context/NavigationContext";
+import { useTransactions, SplitType } from "@/context/TransactionsContext";
+import MonthSelector from "@/components/MonthSelector";
 import {
   TrendingDown,
   ArrowRight,
@@ -21,114 +23,74 @@ import {
   Landmark,
   PieChart as PieIcon,
   Settings as SettingsIcon,
-  CreditCard,
-  Plus,
   Check,
-  RefreshCw,
+  RotateCcw,
+  SlidersHorizontal,
+  ReceiptText,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-
-// Authentic Fintonic category scheme
-const FINTONIC_CATEGORIES = [
-  { name: "Supermercado", icon: ShoppingCart, value: 450.3, color: "#00D09C", count: 8 },
-  { name: "Hogar & Luz", icon: Zap, value: 215.8, color: "#0EA5E9", count: 3 },
-  { name: "Restaurantes & Ocio", icon: Utensils, value: 185.0, color: "#F59E0B", count: 5 },
-  { name: "Transporte & Gasolina", icon: Fuel, value: 110.4, color: "#6366F1", count: 4 },
-  { name: "Otros Gastos Comunes", icon: Receipt, value: 88.5, color: "#EC4899", count: 2 },
-];
-
-const INITIAL_TRANSACTIONS = [
-  {
-    id: "tx-1",
-    merchant: "Mercadona Gran Vía",
-    date: "Hoy, 11:42",
-    amount: -64.2,
-    category: "Supermercado",
-    categoryColor: "#00D09C",
-    icon: ShoppingCart,
-    account: "BBVA Conjunta ••8491",
-    status: "pending",
-  },
-  {
-    id: "tx-2",
-    merchant: "Iberdrola Clientes",
-    date: "Ayer, 09:15",
-    amount: -89.4,
-    category: "Hogar & Luz",
-    categoryColor: "#0EA5E9",
-    icon: Zap,
-    account: "Santander Mixta ••2104",
-    status: "pending",
-  },
-  {
-    id: "tx-3",
-    merchant: "Restaurante La Tagliatella",
-    date: "12 Sep, 21:30",
-    amount: -54.0,
-    category: "Restaurantes & Ocio",
-    categoryColor: "#F59E0B",
-    icon: Utensils,
-    account: "Revolut A ••5932",
-    status: "triaged",
-    assignedTo: "Ambos (50/50)",
-  },
-  {
-    id: "tx-4",
-    merchant: "Repsol Estación de Servicio",
-    date: "10 Sep, 18:20",
-    amount: -45.0,
-    category: "Transporte & Gasolina",
-    categoryColor: "#6366F1",
-    icon: Fuel,
-    account: "BBVA Conjunta ••8491",
-    status: "triaged",
-    assignedTo: "Persona A",
-  },
-];
 
 export default function HomePage() {
   const { memberAName, memberBName } = useUserNames();
   const { activeTab, setActiveTab } = useNavigation();
+  const {
+    selectedMonth,
+    classifyTransaction,
+    reclassifyTransaction,
+    pendingTransactions,
+    classifiedTransactions,
+    filteredTransactions,
+    totalSpent,
+    categoriesBreakdown,
+    balanceData,
+  } = useTransactions();
 
-  // Local state for interactive triage simulation
-  const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
-  const [lastAssignedMsg, setLastAssignedMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  const totalSpent = FINTONIC_CATEGORIES.reduce((sum, item) => sum + item.value, 0);
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(null), 3000);
+  };
 
-  const handleTriage = (txId: string, assigned: string) => {
-    setTransactions((prev) =>
-      prev.map((tx) => (tx.id === txId ? { ...tx, status: "triaged", assignedTo: assigned } : tx))
-    );
-    setLastAssignedMsg(`Movimiento asignado a "${assigned}" correctamente.`);
-    setTimeout(() => setLastAssignedMsg(null), 3000);
+  const handleTriage = (id: string, split: SplitType, label: string) => {
+    classifyTransaction(id, split);
+    showToast(`Movimiento asignado a "${label}". Balance recalculado.`);
+  };
+
+  const handleReclassify = (id: string, split: SplitType, label: string) => {
+    reclassifyTransaction(id, split);
+    showToast(`Reclasificado como "${label}". Balance recalculado.`);
   };
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback when clicking actions */}
-      {lastAssignedMsg && (
-        <div className="fixed top-5 right-5 z-50 bg-[#00A37A] text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-2 duration-200">
+      {/* Dynamic Feedback Toast */}
+      {toastMsg && (
+        <div className="fixed top-5 right-5 z-50 bg-[#00A37A] text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200">
           <CheckCircle2 className="w-4 h-4" />
-          <span>{lastAssignedMsg}</span>
+          <span>{toastMsg}</span>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* TAB 1: RESUMEN DE GASTOS (FINTONIC AUTHENTIC DASHBOARD)       */}
+      {/* TAB 1: RESUMEN GASTOS                                        */}
       {/* ============================================================ */}
       {activeTab === "resumen" && (
         <div className="space-y-6">
-          {/* Fintonic FinScore & Health Header */}
+          {/* Top Fintonic FinScore Banner + Month Selector */}
           <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(0,208,156,0.12)] relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
-                  <Sparkles className="w-3.5 h-3.5 text-[#00A37A]" />
-                  <span>FinScore Compartido: 840 • Control Excelente</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
+                    <Sparkles className="w-3.5 h-3.5 text-[#00A37A]" />
+                    <span>FinScore Pareja: 840 • Control Excelente</span>
+                  </div>
+                  {/* Month Selector Component */}
+                  <MonthSelector />
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Gastos de Septiembre
+                  Resumen de Gastos
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600">
                   Cuentas conjuntas sincronizadas de{" "}
@@ -140,22 +102,22 @@ export default function HomePage() {
               {/* Fintonic Main Spend Pill */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col sm:items-end justify-center min-w-[210px] shadow-sm">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Total Compartido del Mes
+                  Gasto Total del Mes
                 </span>
                 <div className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 tracking-tight">
                   {totalSpent.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   <span className="text-xl text-[#00A37A] ml-1 font-bold">€</span>
                 </div>
                 <span className="text-[11px] text-[#008761] font-semibold flex items-center gap-1 mt-1">
-                  <TrendingDown className="w-3.5 h-3.5" /> -12% vs el mes anterior
+                  <TrendingDown className="w-3.5 h-3.5" /> Basado en {classifiedTransactions.length} movimientos
                 </span>
               </div>
             </div>
           </section>
 
-          {/* Grid: Donut Chart & Balance Card */}
+          {/* Grid: Dynamic Donut Chart & Balance Debt */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Donut Chart (Fintonic clean style) */}
+            {/* Dynamic Donut Chart */}
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
@@ -164,78 +126,82 @@ export default function HomePage() {
                     Distribución por Categorías
                   </h2>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    5 categorías activas sincronizadas
+                    {categoriesBreakdown.length} categorías registradas este mes
                   </p>
                 </div>
-                <span className="text-xs font-bold px-3 py-1 rounded-xl bg-slate-100 text-slate-700">
-                  Septiembre 2026
-                </span>
+                <MonthSelector />
               </div>
 
               {/* Donut Graphic */}
               <div className="relative h-64 w-full flex items-center justify-center my-3">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={FINTONIC_CATEGORIES}
-                      innerRadius={76}
-                      outerRadius={100}
-                      paddingAngle={4}
-                      dataKey="value"
-                      stroke="none"
-                    >
-                      {FINTONIC_CATEGORIES.map((entry) => (
-                        <Cell key={entry.name} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => [
-                        `${value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`,
-                        "Gasto",
-                      ]}
-                      contentStyle={{
-                        backgroundColor: "#FFFFFF",
-                        borderColor: "#E2E8F0",
-                        borderRadius: "1rem",
-                        color: "#0F172A",
-                        fontSize: "12px",
-                        boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {categoriesBreakdown.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={categoriesBreakdown}
+                          innerRadius={76}
+                          outerRadius={100}
+                          paddingAngle={4}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {categoriesBreakdown.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [
+                            `${value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`,
+                            "Gasto",
+                          ]}
+                          contentStyle={{
+                            backgroundColor: "#FFFFFF",
+                            borderColor: "#E2E8F0",
+                            borderRadius: "1rem",
+                            color: "#0F172A",
+                            fontSize: "12px",
+                            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
 
-                {/* Donut Center */}
-                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                    Total Gastado
-                  </span>
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {totalSpent.toFixed(0)} €
-                  </span>
-                  <span className="text-[11px] text-[#008761] font-bold mt-0.5">
-                    Equilibrio 50/50
-                  </span>
-                </div>
+                    {/* Donut Center */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        Total Gastado
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                        {totalSpent.toFixed(0)} €
+                      </span>
+                      <span className="text-[11px] text-[#008761] font-bold mt-0.5">
+                        Dinámico en Vivo
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
+                    <Clock className="w-8 h-8 text-slate-300" />
+                    <span>No hay gastos clasificados en este mes todavía.</span>
+                  </div>
+                )}
               </div>
 
               {/* Categories list */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {FINTONIC_CATEGORIES.map((cat) => {
-                  const Icon = cat.icon;
-                  const percent = Math.round((cat.value / totalSpent) * 100);
+                {categoriesBreakdown.map((cat) => {
+                  const percent = totalSpent > 0 ? Math.round((cat.value / totalSpent) * 100) : 0;
                   return (
                     <div
                       key={cat.name}
                       className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div
-                          className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm"
-                          style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
-                        >
-                          <Icon className="w-4 h-4" />
-                        </div>
+                        <span
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: cat.color }}
+                        />
                         <div>
                           <span className="text-xs font-bold text-slate-800 block">{cat.name}</span>
                           <span className="text-[10px] text-slate-400">{cat.count} movimientos</span>
@@ -254,56 +220,62 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Right Column: Balance & Quick Triage */}
+            {/* Right Column: Dynamic Balance Card */}
             <section className="lg:col-span-5 flex flex-col gap-6">
-              {/* Balance Card ("Quién debe a quién") */}
               <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                    Liquidación de Cuentas
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
+                    Balance en Tiempo Real
                   </h2>
-                  <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full uppercase">
-                    Pendiente
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full uppercase">
+                    Calculado
                   </span>
                 </div>
 
+                {/* Who owes whom */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
                   <div className="space-y-1">
                     <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      Saldo Neto Calculado
+                      Quién debe a quién:
                     </span>
-                    <p className="text-sm font-extrabold text-slate-800">
-                      <span className="text-rose-600">{memberBName}</span> debe a{" "}
-                      <span className="text-[#008761]">{memberAName}</span>:
-                    </p>
+                    {balanceData.debtor !== "none" ? (
+                      <p className="text-sm font-extrabold text-slate-800">
+                        <span className="text-rose-600">{balanceData.debtorName}</span> debe a{" "}
+                        <span className="text-[#008761]">{balanceData.creditorName}</span>:
+                      </p>
+                    ) : (
+                      <p className="text-sm font-extrabold text-[#008761]">
+                        ¡Cuentas completamente saldadas!
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl sm:text-3xl font-black text-[#008761]">115,00 €</span>
+                    <span className="text-2xl sm:text-3xl font-black text-[#008761]">
+                      {balanceData.netDebt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                    </span>
                     <span className="text-[10px] block text-slate-400 font-medium">Reparto 50/50</span>
                   </div>
                 </div>
 
-                {/* Contributions Bar */}
+                {/* Paid by A vs Paid by B */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/60 space-y-1">
                     <span className="text-[11px] text-slate-500 font-medium block truncate">
-                      Pagado por {memberAName}
+                      Aportado por {memberAName}
                     </span>
-                    <span className="text-lg font-black text-[#008761] block">625,00 €</span>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-[#00D09C] h-full w-[61%]" />
-                    </div>
+                    <span className="text-lg font-black text-[#008761] block">
+                      {balanceData.paidByA.toFixed(2)} €
+                    </span>
                   </div>
 
                   <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/60 space-y-1">
                     <span className="text-[11px] text-slate-500 font-medium block truncate">
-                      Pagado por {memberBName}
+                      Aportado por {memberBName}
                     </span>
-                    <span className="text-lg font-black text-rose-600 block">395,00 €</span>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-rose-500 h-full w-[39%]" />
-                    </div>
+                    <span className="text-lg font-black text-rose-600 block">
+                      {balanceData.paidByB.toFixed(2)} €
+                    </span>
                   </div>
                 </div>
 
@@ -311,223 +283,227 @@ export default function HomePage() {
                   onClick={() => setActiveTab("balances")}
                   className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-all flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <span>Ver detalle completo de saldos</span>
+                  <span>Ver detalle y saldar cuentas</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#00D09C]" />
                 </button>
               </div>
 
-              {/* Inbox Shortcut Card */}
+              {/* Pending Shortcut */}
               <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
                     <Clock className="w-4 h-4 text-[#00A37A]" />
-                    <span>Inbox de Clasificación Rápida</span>
+                    <span>Sin clasificar ({pendingTransactions.length})</span>
                   </h3>
                   <button
-                    onClick={() => setActiveTab("inbox")}
+                    onClick={() => setActiveTab("movimientos")}
                     className="text-xs font-bold text-[#00A37A] hover:underline"
                   >
-                    Ver todos →
+                    Ir a Movimientos →
                   </button>
                 </div>
-                <p className="text-xs text-slate-600">
-                  Hay movimientos pendientes de asignación esperando tu validación:
-                </p>
 
-                {/* Quick triage item */}
-                {transactions
-                  .filter((t) => t.status === "pending")
-                  .slice(0, 1)
-                  .map((tx) => (
-                    <div key={tx.id} className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-xl bg-[#E6FAF4] text-[#00A37A] flex items-center justify-center text-xs">
-                            <ShoppingCart className="w-4 h-4" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
-                            <span className="text-[10px] text-slate-400">{tx.account}</span>
-                          </div>
-                        </div>
-                        <span className="text-sm font-black text-slate-900">
-                          {tx.amount.toFixed(2)} €
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5 pt-1">
-                        <button
-                          onClick={() => handleTriage(tx.id, memberAName)}
-                          className="py-1.5 px-2 rounded-xl bg-white hover:bg-[#E6FAF4] border border-slate-200 hover:border-[#00D09C]/40 text-[#008761] text-[11px] font-bold truncate transition-colors text-center shadow-2xs"
-                        >
-                          {memberAName}
-                        </button>
-                        <button
-                          onClick={() => handleTriage(tx.id, memberBName)}
-                          className="py-1.5 px-2 rounded-xl bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-rose-600 text-[11px] font-bold truncate transition-colors text-center shadow-2xs"
-                        >
-                          {memberBName}
-                        </button>
-                        <button
-                          onClick={() => handleTriage(tx.id, "50/50")}
-                          className="py-1.5 px-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold truncate transition-colors text-center shadow-2xs"
-                        >
-                          50 / 50
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                {pendingTransactions.length > 0 ? (
+                  <p className="text-xs text-slate-600">
+                    Tienes {pendingTransactions.length} gastos pendientes. Al asignarlos, la deuda se recalcula en el acto.
+                  </p>
+                ) : (
+                  <p className="text-xs text-[#008761] font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> ¡Todos los gastos de este mes están clasificados!
+                  </p>
+                )}
               </div>
             </section>
           </div>
-
-          {/* Recent Activity Section */}
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#00A37A]" />
-                Movimientos Recientes de las Cuentas
-              </h2>
-              <span className="text-xs font-semibold text-slate-400">Actualizado vía PSD2</span>
-            </div>
-
-            <div className="divide-y divide-slate-100">
-              {transactions.map((tx) => {
-                const Icon = tx.icon;
-                return (
-                  <div key={tx.id} className="py-3.5 flex items-center justify-between gap-3 hover:bg-slate-50/60 px-2 rounded-xl transition-colors">
-                    <div className="flex items-center gap-3.5">
-                      <div
-                        className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div>
-                        <span className="text-xs sm:text-sm font-bold text-slate-900 block">
-                          {tx.merchant}
-                        </span>
-                        <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                          <span>{tx.date}</span>
-                          <span>•</span>
-                          <span>{tx.account}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="text-right flex-shrink-0">
-                      <span className="text-sm sm:text-base font-black text-slate-900 block">
-                        {tx.amount.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold ${
-                          tx.status === "pending"
-                            ? "text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full"
-                            : "text-[#008761] bg-[#E6FAF4] px-2 py-0.5 rounded-full"
-                        }`}
-                      >
-                        {tx.status === "pending" ? "Pendiente" : tx.assignedTo || "Asignado"}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: INBOX DE TRIAGE (INTERACTIVO)                          */}
+      {/* TAB 2: MOVIMIENTOS (PENDIENTES ARRIBA + HISTÓRICO RECLASIFICABLE) */}
       {/* ============================================================ */}
-      {activeTab === "inbox" && (
+      {activeTab === "movimientos" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-              <div>
-                <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-[#00A37A]" />
-                  Bandeja de Entrada de Gastos (Inbox)
-                </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Clasifica cada movimiento con 1 solo toque asignándolo a {memberAName}, {memberBName} o Compartido (50/50).
-                </p>
+          {/* Header & Month Selector */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                <ReceiptText className="w-5 h-5 text-[#00A37A]" />
+                Movimientos Bancarios
+              </h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Clasifica los gastos entrantes arriba y reclasifica cualquier movimiento histórico abajo.
+              </p>
+            </div>
+            <MonthSelector />
+          </div>
+
+          {/* SECTION 1: PENDIENTES DE CLASIFICAR */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Gastos Pendientes de Clasificar ({pendingTransactions.length})
+                </h2>
               </div>
-              <span className="text-xs font-bold px-3 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                {transactions.filter((t) => t.status === "pending").length} pendientes
+              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full">
+                Requiere tu validación
               </span>
             </div>
 
-            <div className="space-y-3">
-              {transactions.map((tx) => {
-                const Icon = tx.icon;
-                const isPending = tx.status === "pending";
-                return (
+            {pendingTransactions.length === 0 ? (
+              <div className="p-6 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                <CheckCircle2 className="w-6 h-6 text-[#00A37A] mx-auto mb-1.5" />
+                <span className="font-semibold text-slate-700 block">¡Bandeja al día!</span>
+                <span>No hay gastos pendientes en este mes. Revisa el histórico abajo.</span>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className={`p-4 rounded-2xl border transition-all ${
-                      isPending
-                        ? "bg-white border-slate-200 shadow-xs"
-                        : "bg-slate-50/60 border-slate-100 opacity-80"
-                    }`}
+                    className="p-4 rounded-2xl border border-amber-200/70 bg-amber-50/20 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                   >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-2xl flex items-center justify-center"
-                          style={{ backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }}
-                        >
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
-                            <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                              {tx.category}
-                            </span>
-                          </div>
-                          <span className="text-xs text-slate-400 block mt-0.5">
-                            {tx.date} • {tx.account}
-                          </span>
-                        </div>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-2xl flex items-center justify-center font-bold text-sm"
+                        style={{ backgroundColor: `${tx.categoryColor}20`, color: tx.categoryColor }}
+                      >
+                        <ShoppingCart className="w-5 h-5" />
                       </div>
-
-                      <div className="flex items-center justify-between sm:justify-end gap-4">
-                        <span className="text-base font-black text-slate-900">
-                          {tx.amount.toFixed(2)} €
-                        </span>
-
-                        {isPending ? (
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleTriage(tx.id, memberAName)}
-                              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-[#E6FAF4] text-[#008761] text-xs font-bold border border-slate-200 hover:border-[#00D09C] transition-colors"
-                            >
-                              {memberAName}
-                            </button>
-                            <button
-                              onClick={() => handleTriage(tx.id, memberBName)}
-                              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-rose-50 text-rose-600 text-xs font-bold border border-slate-200 hover:border-rose-300 transition-colors"
-                            >
-                              {memberBName}
-                            </button>
-                            <button
-                              onClick={() => handleTriage(tx.id, "50/50")}
-                              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors"
-                            >
-                              50 / 50
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs font-bold text-[#008761] bg-[#E6FAF4] px-3 py-1 rounded-xl">
-                            <Check className="w-3.5 h-3.5" /> Asignado a: {tx.assignedTo}
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                            {tx.category}
                           </span>
-                        )}
+                        </div>
+                        <span className="text-xs text-slate-400 block mt-0.5">
+                          {tx.date} • {tx.account}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between sm:justify-end gap-4">
+                      <span className="text-base font-black text-slate-900">
+                        {tx.amount.toFixed(2)} €
+                      </span>
+
+                      {/* 1-Click Triage Buttons */}
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleTriage(tx.id, "50/50", "Ambos (50/50)")}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
+                          title="Gasto compartido al 50%"
+                        >
+                          50 / 50
+                        </button>
+                        <button
+                          onClick={() => handleTriage(tx.id, "memberA", `Solo ${memberAName}`)}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#E6FAF4] text-[#008761] text-xs font-bold border border-slate-200 hover:border-[#00D09C] transition-all"
+                          title={`Gasto 100% de ${memberAName}`}
+                        >
+                          {memberAName}
+                        </button>
+                        <button
+                          onClick={() => handleTriage(tx.id, "memberB", `Solo ${memberBName}`)}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold border border-slate-200 hover:border-rose-300 transition-all"
+                          title={`Gasto 100% de ${memberBName}`}
+                        >
+                          {memberBName}
+                        </button>
                       </div>
                     </div>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 2: HISTÓRICO DE MOVIMIENTOS RECLASIFICABLE */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <SlidersHorizontal className="w-4 h-4 text-[#00A37A]" />
+                  Histórico de Movimientos (Reclasificables)
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Haz clic en cualquier opción para cambiar el reparto y recalcular la deuda al instante.
+                </p>
+              </div>
+              <span className="text-xs font-bold text-slate-500">
+                {classifiedTransactions.length} clasificados
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {classifiedTransactions.map((tx) => (
+                <div
+                  key={tx.id}
+                  className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 hover:bg-slate-50/60 px-2 rounded-2xl transition-colors"
+                >
+                  <div className="flex items-center gap-3.5">
+                    <div
+                      className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }}
+                    >
+                      <ShoppingCart className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
+                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
+                          {tx.category}
+                        </span>
+                      </div>
+                      <span className="text-xs text-slate-400 block mt-0.5">
+                        {tx.date} • Pagado con {tx.account}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between md:justify-end gap-4">
+                    <span className="text-base font-black text-slate-900">
+                      {tx.amount.toFixed(2)} €
+                    </span>
+
+                    {/* Reclassification Pill Switcher */}
+                    <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-[11px]">
+                      <button
+                        onClick={() => handleReclassify(tx.id, "50/50", "Ambos (50/50)")}
+                        className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                          tx.split === "50/50"
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        50/50
+                      </button>
+                      <button
+                        onClick={() => handleReclassify(tx.id, "memberA", `Solo ${memberAName}`)}
+                        className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                          tx.split === "memberA"
+                            ? "bg-[#00D09C] text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {memberAName}
+                      </button>
+                      <button
+                        onClick={() => handleReclassify(tx.id, "memberB", `Solo ${memberBName}`)}
+                        className={`px-2.5 py-1 rounded-lg font-bold transition-all ${
+                          tx.split === "memberB"
+                            ? "bg-rose-500 text-white shadow-xs"
+                            : "text-slate-600 hover:text-slate-900"
+                        }`}
+                      >
+                        {memberBName}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -539,14 +515,17 @@ export default function HomePage() {
       {activeTab === "balances" && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
-            <div className="border-b border-slate-100 pb-4">
-              <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-[#00A37A]" />
-                Balance de Gastos Compartidos
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Cálculo matemático exacto de las aportaciones y compensaciones pendientes.
-              </p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+                  <ArrowRightLeft className="w-5 h-5 text-[#00A37A]" />
+                  Cálculo Dinámico de Balances
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Los saldos se recalculan en tiempo real cada vez que asignas o reclasificas un movimiento.
+                </p>
+              </div>
+              <MonthSelector />
             </div>
 
             {/* Big summary card */}
@@ -555,24 +534,45 @@ export default function HomePage() {
                 <span className="text-xs font-bold uppercase tracking-wider text-[#008761]">
                   Estado de Liquidación
                 </span>
-                <h3 className="text-2xl font-black text-slate-900 mt-1">
-                  <span className="text-rose-600">{memberBName}</span> debe a{" "}
-                  <span className="text-[#008761]">{memberAName}</span>
-                </h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Ambos miembros absorben el 50% de los gastos comunes del hogar.
-                </p>
+                {balanceData.debtor !== "none" ? (
+                  <>
+                    <h3 className="text-2xl font-black text-slate-900 mt-1">
+                      <span className="text-rose-600">{balanceData.debtorName}</span> debe a{" "}
+                      <span className="text-[#008761]">{balanceData.creditorName}</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Saldo exacto para equilibrar al 50% todos los gastos compartidos.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-black text-[#008761] mt-1">
+                      ¡Cuentas al día y saldadas!
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      No hay deudas pendientes entre vosotros este mes.
+                    </p>
+                  </>
+                )}
               </div>
 
               <div className="text-left sm:text-right">
-                <span className="text-4xl font-black text-[#008761] block">115,00 €</span>
-                <button
-                  onClick={() => alert(`Simulación: Enlace Bizum preparado para que ${memberBName} envíe 115,00 € a ${memberAName}.`)}
-                  className="mt-2 px-4 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/25 transition-all inline-flex items-center gap-1.5"
-                >
-                  <span>Saldar por Bizum</span>
-                  <ArrowUpRight className="w-4 h-4" />
-                </button>
+                <span className="text-4xl font-black text-[#008761] block">
+                  {balanceData.netDebt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                </span>
+                {balanceData.debtor !== "none" && (
+                  <button
+                    onClick={() =>
+                      alert(
+                        `Bizum simulado: Enlace preparado para que ${balanceData.debtorName} envíe ${balanceData.netDebt.toFixed(2)} € a ${balanceData.creditorName}.`
+                      )
+                    }
+                    className="mt-2 px-4 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/25 transition-all inline-flex items-center gap-1.5"
+                  >
+                    <span>Saldar por Bizum</span>
+                    <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -586,18 +586,34 @@ export default function HomePage() {
               <div className="divide-y divide-slate-100">
                 <div className="px-4 py-3 grid grid-cols-3">
                   <span className="text-slate-600">Total aportado a gastos comunes</span>
-                  <span className="text-center font-bold text-[#008761]">625,00 €</span>
-                  <span className="text-right font-bold text-rose-600">395,00 €</span>
+                  <span className="text-center font-bold text-[#008761]">
+                    {balanceData.paidByA.toFixed(2)} €
+                  </span>
+                  <span className="text-right font-bold text-rose-600">
+                    {balanceData.paidByB.toFixed(2)} €
+                  </span>
                 </div>
                 <div className="px-4 py-3 grid grid-cols-3">
                   <span className="text-slate-600">Cuota correspondiente (50%)</span>
-                  <span className="text-center font-semibold text-slate-700">510,00 €</span>
-                  <span className="text-right font-semibold text-slate-700">510,00 €</span>
+                  <span className="text-center font-semibold text-slate-700">
+                    {(totalSpent / 2).toFixed(2)} €
+                  </span>
+                  <span className="text-right font-semibold text-slate-700">
+                    {(totalSpent / 2).toFixed(2)} €
+                  </span>
                 </div>
                 <div className="px-4 py-3 bg-slate-50 font-bold text-slate-900 grid grid-cols-3">
                   <span>Diferencia Neta</span>
-                  <span className="text-center text-[#008761]">+115,00 € (a favor)</span>
-                  <span className="text-right text-rose-600">-115,00 € (deudor)</span>
+                  <span className="text-center text-[#008761]">
+                    {balanceData.paidByA >= balanceData.paidByB
+                      ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
+                      : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
+                  </span>
+                  <span className="text-right text-rose-600">
+                    {balanceData.paidByB >= balanceData.paidByA
+                      ? `+${balanceData.netDebt.toFixed(2)} € (a favor)`
+                      : `-${balanceData.netDebt.toFixed(2)} € (debe)`}
+                  </span>
                 </div>
               </div>
             </div>
@@ -625,7 +641,6 @@ export default function HomePage() {
                 onClick={() => alert("El flujo oficial OAuth PSD2 se activará en el Paso 5.")}
                 className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-1.5"
               >
-                <Plus className="w-3.5 h-3.5 text-[#00D09C]" />
                 <span>Conectar Banco</span>
               </button>
             </div>
@@ -674,7 +689,7 @@ export default function HomePage() {
             </div>
 
             <div className="p-4 rounded-2xl bg-[#E6FAF4] border border-[#00D09C]/30 text-xs text-[#008761] leading-relaxed">
-              💡 <strong>Aprendizaje por corrección:</strong> Cuando reclasifiques un gasto en el Inbox, el sistema aprenderá el patrón del comercio para asignarlo automáticamente en el futuro.
+              💡 <strong>Aprendizaje continuo:</strong> Al reclasificar cualquier gasto en Movimientos, el motor IA adaptará las reglas futuras para esa categoría o comercio.
             </div>
 
             <div className="divide-y divide-slate-100 text-xs">
@@ -741,7 +756,7 @@ export default function HomePage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Estándar y Versión de la App</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.3</span>
+                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.4</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 2 Completado

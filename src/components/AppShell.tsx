@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import { NavigationProvider } from "@/context/NavigationContext";
+import { TransactionsProvider } from "@/context/TransactionsContext";
 
 export const AppShellContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -26,9 +27,11 @@ export const AppShellContent: React.FC<{ children: React.ReactNode }> = ({ child
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <NavigationProvider>
-      <AppShellContent>{children}</AppShellContent>
-    </NavigationProvider>
+    <TransactionsProvider>
+      <NavigationProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </NavigationProvider>
+    </TransactionsProvider>
   );
 };
 

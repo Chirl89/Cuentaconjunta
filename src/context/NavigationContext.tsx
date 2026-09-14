@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState } from "react";
 
 export type TabKey =
   | "resumen"
-  | "inbox"
+  | "movimientos"
   | "balances"
   | "cuentas"
   | "distribucion"

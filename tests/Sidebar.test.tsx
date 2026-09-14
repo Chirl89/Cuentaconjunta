@@ -4,6 +4,15 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Sidebar } from "@/components/Sidebar";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
+import { TransactionsProvider } from "@/context/TransactionsContext";
+
+const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <UserNamesProvider>
+    <TransactionsProvider>
+      <NavigationProvider>{children}</NavigationProvider>
+    </TransactionsProvider>
+  </UserNamesProvider>
+);
 
 const SidebarWithNavigationTester = () => {
   const { activeTab } = useNavigation();
@@ -18,25 +27,25 @@ const SidebarWithNavigationTester = () => {
 describe("Sidebar Component", () => {
   it("renders brand and navigation items with Fintonic branding", () => {
     render(
-      <UserNamesProvider>
-        <NavigationProvider>
-          <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
-        </NavigationProvider>
-      </UserNamesProvider>
+      <TestWrapper>
+        <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
+      </TestWrapper>
     );
 
     expect(screen.getAllByText(/Cuenta Conjunta/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Estilo Fintonic/i)).toBeInTheDocument();
     expect(screen.getByText(/Resumen Gastos/i)).toBeInTheDocument();
-    expect(screen.getByText(/Inbox de Triage/i)).toBeInTheDocument();
+    expect(screen.getByText(/Movimientos/i)).toBeInTheDocument();
   });
 
   it("displays couple names in read-only mode with NO edit inputs", () => {
     render(
       <UserNamesProvider initialNames={{ memberA: "Carlos", memberB: "Laura" }}>
-        <NavigationProvider>
-          <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
-        </NavigationProvider>
+        <TransactionsProvider>
+          <NavigationProvider>
+            <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
+          </NavigationProvider>
+        </TransactionsProvider>
       </UserNamesProvider>
     );
 
@@ -47,19 +56,17 @@ describe("Sidebar Component", () => {
     expect(screen.queryByTitle(/editar/i)).not.toBeInTheDocument();
   });
 
-  it("changes active tab when clicking navigation buttons", () => {
+  it("changes active tab when clicking navigation buttons including Movimientos", () => {
     render(
-      <UserNamesProvider>
-        <NavigationProvider>
-          <SidebarWithNavigationTester />
-        </NavigationProvider>
-      </UserNamesProvider>
+      <TestWrapper>
+        <SidebarWithNavigationTester />
+      </TestWrapper>
     );
 
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen");
 
-    fireEvent.click(screen.getByText(/Inbox de Triage/i));
-    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("inbox");
+    fireEvent.click(screen.getByText(/Movimientos/i));
+    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("movimientos");
 
     fireEvent.click(screen.getByText(/Balances & Deuda/i));
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("balances");
@@ -70,11 +77,9 @@ describe("Sidebar Component", () => {
 
   it("displays the VersionBadge", () => {
     render(
-      <UserNamesProvider>
-        <NavigationProvider>
-          <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
-        </NavigationProvider>
-      </UserNamesProvider>
+      <TestWrapper>
+        <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
+      </TestWrapper>
     );
 
     expect(screen.getByTestId("version-badge")).toBeInTheDocument();

@@ -4,9 +4,10 @@ import React, { useState } from "react";
 import VersionBadge from "./VersionBadge";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useNavigation, TabKey } from "@/context/NavigationContext";
+import { useTransactions } from "@/context/TransactionsContext";
 import {
   LayoutDashboard,
-  Inbox,
+  ReceiptText,
   ArrowRightLeft,
   Landmark,
   Settings,
@@ -25,11 +26,19 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
   const { memberAName, memberBName } = useUserNames();
   const { activeTab, setActiveTab } = useNavigation();
+  const { pendingTransactions } = useTransactions();
   const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const pendingCount = pendingTransactions.length;
 
   const navItems: { key: TabKey; name: string; icon: React.ComponentType<{ className?: string }>; badge?: string }[] = [
     { key: "resumen", name: "Resumen Gastos", icon: LayoutDashboard },
-    { key: "inbox", name: "Inbox de Triage", icon: Inbox, badge: "2" },
+    {
+      key: "movimientos",
+      name: "Movimientos",
+      icon: ReceiptText,
+      badge: pendingCount > 0 ? String(pendingCount) : undefined,
+    },
     { key: "balances", name: "Balances & Deuda", icon: ArrowRightLeft },
     { key: "cuentas", name: "Cuentas Bancarias", icon: Landmark },
     { key: "distribucion", name: "Distribución IA", icon: PieChart },
@@ -85,7 +94,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </button>
         </div>
 
-        {/* Read-Only Couple Badge (NO edit controls) */}
+        {/* Read-Only Couple Badge */}
         {(!isCollapsed || isMobileOpen) && (
           <div className="px-3.5 py-2.5 mx-3 mt-3 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
@@ -105,7 +114,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </div>
         )}
 
-        {/* Navigation Items (Fully Interactive) */}
+        {/* Navigation Items */}
         <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
@@ -130,7 +139,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                   <span className="flex-1 truncate">{item.name}</span>
                 )}
                 {(!isCollapsed || isMobileOpen) && item.badge && (
-                  <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-[#00D09C] text-white">
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#00D09C] text-white">
                     {item.badge}
                   </span>
                 )}
