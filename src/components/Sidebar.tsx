@@ -6,7 +6,8 @@ import { useUserNames } from "@/context/UserNamesContext";
 import { useNavigation, TabKey } from "@/context/NavigationContext";
 import { useTransactions } from "@/context/TransactionsContext";
 import {
-  LayoutDashboard,
+  Users,
+  User,
   ReceiptText,
   ArrowRightLeft,
   Landmark,
@@ -14,7 +15,6 @@ import {
   ChevronLeft,
   ChevronRight,
   X,
-  PieChart,
   HeartHandshake,
 } from "lucide-react";
 
@@ -31,8 +31,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
 
   const pendingCount = pendingTransactions.length;
 
-  const navItems: { key: TabKey; name: string; icon: React.ComponentType<{ className?: string }>; badge?: string }[] = [
-    { key: "resumen", name: "Resumen Gastos", icon: LayoutDashboard },
+  const graphItems: { key: TabKey; name: string; icon: React.ComponentType<{ className?: string }>; color: string }[] = [
+    { key: "resumen_conjunta", name: "Gastos Conjuntos", icon: Users, color: "text-[#00A37A]" },
+    { key: "resumen_carlos", name: `Gastos de ${memberAName}`, icon: User, color: "text-[#00A37A]" },
+    { key: "resumen_andrea", name: `Gastos de ${memberBName}`, icon: User, color: "text-rose-500" },
+  ];
+
+  const managementItems: {
+    key: TabKey;
+    name: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: string;
+  }[] = [
     {
       key: "movimientos",
       name: "Movimientos",
@@ -41,7 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
     },
     { key: "balances", name: "Balances & Deuda", icon: ArrowRightLeft },
     { key: "cuentas", name: "Cuentas Bancarias", icon: Landmark },
-    { key: "distribucion", name: "Distribución IA", icon: PieChart },
     { key: "ajustes", name: "Configuración", icon: Settings },
   ];
 
@@ -67,7 +76,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           ${isCollapsed ? "md:w-20" : "md:w-64"}
         `}
       >
-        {/* Brand Header */}
+        {/* Brand Header without "estilo fintonic" */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="h-10 w-10 min-w-[40px] rounded-2xl bg-[#00D09C] flex items-center justify-center shadow-md shadow-[#00D09C]/25">
@@ -78,8 +87,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 <span className="font-extrabold text-base tracking-tight text-slate-900 leading-tight">
                   Cuenta Conjunta
                 </span>
-                <span className="text-[10px] font-bold text-[#00A37A] tracking-wider uppercase">
-                  Estilo Fintonic
+                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
+                  Finanzas en Pareja
                 </span>
               </div>
             )}
@@ -94,11 +103,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </button>
         </div>
 
-        {/* Read-Only Couple Badge */}
+        {/* Read-Only Couple Header Badge */}
         {(!isCollapsed || isMobileOpen) && (
           <div className="px-3.5 py-2.5 mx-3 mt-3 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              Miembros del Hogar
+              Hogar
             </div>
             <div className="flex items-center justify-between text-xs font-bold">
               <span className="flex items-center gap-1.5 text-[#00A37A]">
@@ -114,38 +123,80 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </div>
         )}
 
-        {/* Navigation Items */}
-        <nav className="flex-1 px-3 py-4 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.key;
-            return (
-              <button
-                key={item.key}
-                onClick={() => handleSelectTab(item.key)}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all group text-left ${
-                  isActive
-                    ? "bg-[#E6FAF4] text-[#008761] font-bold shadow-xs border border-[#00D09C]/30"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                }`}
-                title={isCollapsed && !isMobileOpen ? item.name : undefined}
-              >
-                <Icon
-                  className={`w-5 h-5 min-w-[20px] transition-colors ${
-                    isActive ? "text-[#00A37A]" : "text-slate-400 group-hover:text-slate-700"
+        {/* Navigation Sections */}
+        <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
+          {/* Section 1: GRÁFICAS */}
+          <div className="space-y-1">
+            {(!isCollapsed || isMobileOpen) && (
+              <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                Gráficas & Análisis
+              </div>
+            )}
+            {graphItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => handleSelectTab(item.key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
+                    isActive
+                      ? "bg-[#E6FAF4] text-[#008761] font-bold shadow-xs border border-[#00D09C]/30"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
                   }`}
-                />
-                {(!isCollapsed || isMobileOpen) && (
-                  <span className="flex-1 truncate">{item.name}</span>
-                )}
-                {(!isCollapsed || isMobileOpen) && item.badge && (
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#00D09C] text-white">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+                  title={isCollapsed && !isMobileOpen ? item.name : undefined}
+                >
+                  <Icon
+                    className={`w-4 h-4 min-w-[16px] transition-colors ${
+                      isActive ? item.color : "text-slate-400"
+                    }`}
+                  />
+                  {(!isCollapsed || isMobileOpen) && (
+                    <span className="flex-1 truncate">{item.name}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Section 2: GESTIÓN */}
+          <div className="space-y-1">
+            {(!isCollapsed || isMobileOpen) && (
+              <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                Gestión
+              </div>
+            )}
+            {managementItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => handleSelectTab(item.key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all text-left ${
+                    isActive
+                      ? "bg-[#E6FAF4] text-[#008761] font-bold shadow-xs border border-[#00D09C]/30"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
+                  }`}
+                  title={isCollapsed && !isMobileOpen ? item.name : undefined}
+                >
+                  <Icon
+                    className={`w-4 h-4 min-w-[16px] transition-colors ${
+                      isActive ? "text-[#00A37A]" : "text-slate-400"
+                    }`}
+                  />
+                  {(!isCollapsed || isMobileOpen) && (
+                    <span className="flex-1 truncate">{item.name}</span>
+                  )}
+                  {(!isCollapsed || isMobileOpen) && item.badge && (
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-[#00D09C] text-white">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </nav>
 
         {/* Footer: Version Badge & Desktop Collapse Button */}
@@ -160,7 +211,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
             ) : (
               <span className="flex items-center gap-2 text-slate-500">
                 <ChevronLeft className="w-4 h-4" />
-                <span className="text-[11px]">Plegar menú lateral</span>
+                <span className="text-[11px]">Plegar menú</span>
               </span>
             )}
           </button>

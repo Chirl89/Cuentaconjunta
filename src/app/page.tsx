@@ -9,6 +9,7 @@ import {
   CATEGORIES_LIST,
 } from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
+import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import {
   TrendingDown,
   ArrowRight,
@@ -20,19 +21,18 @@ import {
   CheckCircle2,
   Clock,
   ArrowUpRight,
-  ShieldCheck,
   Building2,
   Sparkles,
   ArrowRightLeft,
   Landmark,
-  PieChart as PieIcon,
   Settings as SettingsIcon,
   Check,
   SlidersHorizontal,
   ReceiptText,
-  Tag,
   UserCheck,
-  Edit2,
+  Plus,
+  Users,
+  User,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -40,21 +40,29 @@ export default function HomePage() {
   const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
   const { activeTab, setActiveTab } = useNavigation();
   const {
-    selectedMonth,
+    accounts,
     classifyTransaction,
     reclassifyTransaction,
     updateTransactionCategory,
     getAccountDisplay,
     pendingTransactions,
     classifiedTransactions,
-    totalSpent,
-    categoriesBreakdown,
+    jointClassifiedTransactions,
+    memberAClassifiedTransactions,
+    memberBClassifiedTransactions,
+    totalJointSpent,
+    totalMemberASpent,
+    totalMemberBSpent,
+    jointCategoriesBreakdown,
+    memberACategoriesBreakdown,
+    memberBCategoriesBreakdown,
     balanceData,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
 
-  // Settings tab temporary edit state
+  // Settings tab form state
   const [inputNameA, setInputNameA] = useState(memberAName);
   const [inputNameB, setInputNameB] = useState(memberBName);
 
@@ -75,7 +83,7 @@ export default function HomePage() {
 
   const handleCategoryChange = (id: string, newCategory: string) => {
     updateTransactionCategory(id, newCategory);
-    showToast(`Categoría cambiada a "${newCategory}". Gráfico Donut actualizado.`);
+    showToast(`Categoría cambiada a "${newCategory}". Gráfico actualizado.`);
   };
 
   const handleSaveNames = (e: React.FormEvent) => {
@@ -87,7 +95,7 @@ export default function HomePage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback */}
+      {/* Dynamic Toast Feedback */}
       {toastMsg && (
         <div className="fixed top-5 right-5 z-50 bg-[#00A37A] text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200">
           <CheckCircle2 className="w-4 h-4" />
@@ -95,43 +103,49 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Add Manual Expense Modal */}
+      <AddManualExpenseModal
+        isOpen={isManualModalOpen}
+        onClose={() => setIsManualModalOpen(false)}
+        onSuccess={(msg) => showToast(msg)}
+      />
+
       {/* ============================================================ */}
-      {/* TAB 1: RESUMEN GASTOS (DASHBOARD FINTONIC)                    */}
+      {/* GRÁFICA 1: GASTOS CONJUNTOS (50 / 50)                        */}
       {/* ============================================================ */}
-      {activeTab === "resumen" && (
+      {activeTab === "resumen_conjunta" && (
         <div className="space-y-6">
-          {/* Top Banner + Month Selector */}
+          {/* Header Banner */}
           <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-[0_4px_24px_-4px_rgba(0,208,156,0.12)] relative overflow-hidden">
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
-                    <Sparkles className="w-3.5 h-3.5 text-[#00A37A]" />
-                    <span>FinScore Pareja: 840 • Control Excelente</span>
+                    <Users className="w-3.5 h-3.5 text-[#00A37A]" />
+                    <span>Gastos Compartidos (50 / 50)</span>
                   </div>
                   <MonthSelector />
                 </div>
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-                  Resumen de Gastos
+                  Economía Compartida del Hogar
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600">
-                  Cuentas conjuntas sincronizadas de{" "}
+                  Gastos comunes divididos entre{" "}
                   <strong className="text-[#00A37A] font-bold">{memberAName}</strong> y{" "}
                   <strong className="text-rose-500 font-bold">{memberBName}</strong>
                 </p>
               </div>
 
-              {/* Fintonic Main Spend Pill */}
               <div className="bg-white border border-slate-200/80 rounded-2xl p-5 flex flex-col sm:items-end justify-center min-w-[210px] shadow-sm">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Gasto Total del Mes
+                  Total Gastos Conjuntos
                 </span>
                 <div className="text-3xl sm:text-4xl font-black text-slate-900 mt-1 tracking-tight">
-                  {totalSpent.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {totalJointSpent.toFixed(2)}
                   <span className="text-xl text-[#00A37A] ml-1 font-bold">€</span>
                 </div>
                 <span className="text-[11px] text-[#008761] font-semibold flex items-center gap-1 mt-1">
-                  <TrendingDown className="w-3.5 h-3.5" /> Basado en {classifiedTransactions.length} movimientos
+                  <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} movimientos comunes
                 </span>
               </div>
             </div>
@@ -139,201 +153,139 @@ export default function HomePage() {
 
           {/* Grid: Donut Chart & Balance Debt */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Dynamic Donut Chart */}
+            {/* Joint Donut Chart */}
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div>
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Distribución por Categorías
-                  </h2>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    {categoriesBreakdown.length} categorías registradas este mes
-                  </p>
-                </div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
+                  Categorías de Gastos Conjuntos
+                </h2>
                 <MonthSelector />
               </div>
 
-              {/* Donut Graphic */}
               <div className="relative h-64 w-full flex items-center justify-center my-3">
-                {categoriesBreakdown.length > 0 ? (
+                {jointCategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie
-                          data={categoriesBreakdown}
+                          data={jointCategoriesBreakdown}
                           innerRadius={76}
                           outerRadius={100}
                           paddingAngle={4}
                           dataKey="value"
                           stroke="none"
                         >
-                          {categoriesBreakdown.map((entry) => (
+                          {jointCategoriesBreakdown.map((entry) => (
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value: number) => [
-                            `${value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`,
-                            "Gasto",
-                          ]}
+                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
                           contentStyle={{
                             backgroundColor: "#FFFFFF",
                             borderColor: "#E2E8F0",
                             borderRadius: "1rem",
                             color: "#0F172A",
                             fontSize: "12px",
-                            boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1)",
                           }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
 
-                    {/* Donut Center */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Total Gastado
+                        Total Común
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                        {totalSpent.toFixed(0)} €
+                        {totalJointSpent.toFixed(0)} €
                       </span>
                       <span className="text-[11px] text-[#008761] font-bold mt-0.5">
-                        Dinámico en Vivo
+                        Reparto 50/50
                       </span>
                     </div>
                   </>
                 ) : (
-                  <div className="flex flex-col items-center justify-center text-slate-400 text-xs space-y-1">
-                    <Clock className="w-8 h-8 text-slate-300" />
-                    <span>No hay gastos clasificados en este mes todavía.</span>
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    No hay gastos conjuntos registrados en este mes.
                   </div>
                 )}
               </div>
 
-              {/* Categories list */}
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {categoriesBreakdown.map((cat) => {
-                  const percent = totalSpent > 0 ? Math.round((cat.value / totalSpent) * 100) : 0;
-                  return (
-                    <div
-                      key={cat.name}
-                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: cat.color }}
-                        />
-                        <div>
-                          <span className="text-xs font-bold text-slate-800 block">{cat.name}</span>
-                          <span className="text-[10px] text-slate-400">{cat.count} movimientos</span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-xs font-bold text-slate-900 block">
-                          {cat.value.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
-                        </span>
-                        <span className="text-[10px] font-semibold text-slate-400">{percent}%</span>
-                      </div>
+                {jointCategoriesBreakdown.map((cat) => (
+                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+                      <span className="text-xs font-bold text-slate-800">{cat.name}</span>
                     </div>
-                  );
-                })}
+                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
+                  </div>
+                ))}
               </div>
             </section>
 
-            {/* Right Column: Dynamic Balance Card */}
-            <section className="lg:col-span-5 flex flex-col gap-6">
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            {/* Quick Balance Summary */}
+            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5 flex flex-col justify-between">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Balance en Tiempo Real
+                    Balance de Cuentas
                   </h2>
                   <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full uppercase">
-                    Calculado
+                    Neto
                   </span>
                 </div>
 
-                {/* Who owes whom */}
                 <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <div>
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
                       Quién debe a quién:
                     </span>
                     {balanceData.debtor !== "none" ? (
-                      <p className="text-sm font-extrabold text-slate-800">
+                      <p className="text-sm font-extrabold text-slate-800 mt-1">
                         <span className="text-rose-600">{balanceData.debtorName}</span> debe a{" "}
                         <span className="text-[#008761]">{balanceData.creditorName}</span>:
                       </p>
                     ) : (
-                      <p className="text-sm font-extrabold text-[#008761]">
-                        ¡Cuentas completamente saldadas!
+                      <p className="text-sm font-extrabold text-[#008761] mt-1">
+                        ¡Cuentas equilibradas!
                       </p>
                     )}
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl sm:text-3xl font-black text-[#008761]">
-                      {balanceData.netDebt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                    <span className="text-3xl font-black text-[#008761]">
+                      {balanceData.netDebt.toFixed(2)} €
                     </span>
-                    <span className="text-[10px] block text-slate-400 font-medium">Reparto 50/50</span>
+                    <span className="text-[10px] block text-slate-400 font-medium">50/50</span>
                   </div>
                 </div>
 
-                {/* Paid by A vs Paid by B */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/60 space-y-1">
-                    <span className="text-[11px] text-slate-500 font-medium block truncate">
-                      Aportado por {memberAName}
-                    </span>
-                    <span className="text-lg font-black text-[#008761] block">
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block truncate">Pagado por {memberAName}:</span>
+                    <span className="text-base font-black text-[#008761] mt-1 block">
                       {balanceData.paidByA.toFixed(2)} €
                     </span>
                   </div>
-
-                  <div className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/60 space-y-1">
-                    <span className="text-[11px] text-slate-500 font-medium block truncate">
-                      Aportado por {memberBName}
-                    </span>
-                    <span className="text-lg font-black text-rose-600 block">
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-slate-400 block truncate">Pagado por {memberBName}:</span>
+                    <span className="text-base font-black text-rose-600 mt-1 block">
                       {balanceData.paidByB.toFixed(2)} €
                     </span>
                   </div>
                 </div>
+              </div>
 
+              <div className="pt-2">
                 <button
                   onClick={() => setActiveTab("balances")}
                   className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white transition-all flex items-center justify-center gap-2 shadow-sm"
                 >
-                  <span>Ver detalle y saldar cuentas</span>
+                  <span>Ver cálculo detallado de deudas</span>
                   <ArrowRight className="w-3.5 h-3.5 text-[#00D09C]" />
                 </button>
-              </div>
-
-              {/* Pending Shortcut */}
-              <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-[#00A37A]" />
-                    <span>Sin clasificar ({pendingTransactions.length})</span>
-                  </h3>
-                  <button
-                    onClick={() => setActiveTab("movimientos")}
-                    className="text-xs font-bold text-[#00A37A] hover:underline"
-                  >
-                    Ir a Movimientos →
-                  </button>
-                </div>
-
-                {pendingTransactions.length > 0 ? (
-                  <p className="text-xs text-slate-600">
-                    Tienes {pendingTransactions.length} gastos pendientes. Al asignarlos, la deuda se recalcula en el acto.
-                  </p>
-                ) : (
-                  <p className="text-xs text-[#008761] font-semibold flex items-center gap-1">
-                    <CheckCircle2 className="w-4 h-4" /> ¡Todos los gastos de este mes están clasificados!
-                  </p>
-                )}
               </div>
             </section>
           </div>
@@ -341,26 +293,283 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 2: MOVIMIENTOS (CON RECLASIFICACIÓN DE CATEGORÍA Y REPARTO) */}
+      {/* GRÁFICA 2: GASTOS DE CARLOS (EXCLUSIVOS, SIN DUPLICAR 50/50) */}
+      {/* ============================================================ */}
+      {activeTab === "resumen_carlos" && (
+        <div className="space-y-6">
+          <section className="bg-gradient-to-br from-[#E6FAF4] via-white to-[#F0FDF9] border border-[#00D09C]/30 rounded-3xl p-6 sm:p-7 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#00D09C]/15 text-[#008761] border border-[#00D09C]/30 text-xs font-bold">
+                    <User className="w-3.5 h-3.5 text-[#00A37A]" />
+                    <span>Gastos Personales de {memberAName}</span>
+                  </div>
+                  <MonthSelector />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Gastos Propios de {memberAName}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  Gastos exclusivos individuales de {memberAName} (no se incluyen en el 50/50 para evitar duplicar).
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right shadow-sm">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Total Personal de {memberAName}
+                </span>
+                <div className="text-3xl sm:text-4xl font-black text-[#008761] mt-1 tracking-tight">
+                  {totalMemberASpent.toFixed(2)} €
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  {memberAClassifiedTransactions.length} gastos individuales
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Donut Chart Carlos */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Distribución Personal de {memberAName}
+                </h2>
+                <span className="text-xs font-bold text-[#008761]">100% Individual</span>
+              </div>
+
+              <div className="relative h-64 w-full flex items-center justify-center my-3">
+                {memberACategoriesBreakdown.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={memberACategoriesBreakdown}
+                          innerRadius={76}
+                          outerRadius={100}
+                          paddingAngle={4}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {memberACategoriesBreakdown.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
+                          contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "1rem" }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        Total {memberAName}
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                        {totalMemberASpent.toFixed(0)} €
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    {memberAName} no tiene gastos individuales propios este mes.
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                {memberACategoriesBreakdown.map((cat) => (
+                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <span className="text-xs font-bold text-slate-800">{cat.name}</span>
+                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* List of Carlos's personal expenses */}
+            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">
+                Movimientos Propios de {memberAName}
+              </h2>
+              {memberAClassifiedTransactions.length === 0 ? (
+                <div className="text-center text-slate-400 text-xs py-8">
+                  No hay movimientos personales asignados a {memberAName}.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {memberAClassifiedTransactions.map((tx) => (
+                    <div key={tx.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                        <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* GRÁFICA 3: GASTOS DE ANDREA (EXCLUSIVOS, SIN DUPLICAR 50/50) */}
+      {/* ============================================================ */}
+      {activeTab === "resumen_andrea" && (
+        <div className="space-y-6">
+          <section className="bg-gradient-to-br from-rose-50 via-white to-pink-50 border border-rose-200 rounded-3xl p-6 sm:p-7 shadow-sm">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold">
+                    <User className="w-3.5 h-3.5 text-rose-500" />
+                    <span>Gastos Personales de {memberBName}</span>
+                  </div>
+                  <MonthSelector />
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+                  Gastos Propios de {memberBName}
+                </h1>
+                <p className="text-xs sm:text-sm text-slate-600">
+                  Gastos exclusivos individuales de {memberBName} (no se incluyen en el 50/50 para evitar duplicar).
+                </p>
+              </div>
+
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-5 min-w-[210px] text-right shadow-sm">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Total Personal de {memberBName}
+                </span>
+                <div className="text-3xl sm:text-4xl font-black text-rose-600 mt-1 tracking-tight">
+                  {totalMemberBSpent.toFixed(2)} €
+                </div>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  {memberBClassifiedTransactions.length} gastos individuales
+                </span>
+              </div>
+            </div>
+          </section>
+
+          {/* Donut Chart Andrea */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Distribución Personal de {memberBName}
+                </h2>
+                <span className="text-xs font-bold text-rose-600">100% Individual</span>
+              </div>
+
+              <div className="relative h-64 w-full flex items-center justify-center my-3">
+                {memberBCategoriesBreakdown.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={memberBCategoriesBreakdown}
+                          innerRadius={76}
+                          outerRadius={100}
+                          paddingAngle={4}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {memberBCategoriesBreakdown.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
+                          contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "1rem" }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        Total {memberBName}
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                        {totalMemberBSpent.toFixed(0)} €
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    {memberBName} no tiene gastos individuales propios este mes.
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                {memberBCategoriesBreakdown.map((cat) => (
+                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
+                    <span className="text-xs font-bold text-slate-800">{cat.name}</span>
+                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* List of Andrea's personal expenses */}
+            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider border-b border-slate-100 pb-3">
+                Movimientos Propios de {memberBName}
+              </h2>
+              {memberBClassifiedTransactions.length === 0 ? (
+                <div className="text-center text-slate-400 text-xs py-8">
+                  No hay movimientos personales asignados a {memberBName}.
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {memberBClassifiedTransactions.map((tx) => (
+                    <div key={tx.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-slate-900 block">{tx.merchant}</span>
+                        <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                      </div>
+                      <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* TAB 4: MOVIMIENTOS (+ AÑADIR GASTO MANUAL)                   */}
       {/* ============================================================ */}
       {activeTab === "movimientos" && (
         <div className="space-y-6">
-          {/* Header & Month Selector */}
+          {/* Header with Month Selector & "+ Añadir Gasto Manual" Button */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                 <ReceiptText className="w-5 h-5 text-[#00A37A]" />
-                Movimientos Bancarios
+                Movimientos Bancarios & Manuales
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Puedes cambiar el <strong className="text-slate-800">reparto</strong> (50/50 o individual) y la{" "}
-                <strong className="text-slate-800">categoría</strong> de cualquier gasto haciendo clic sobre ella.
+                Clasifica los gastos entrantes o añade gastos manuales en efectivo en cifras redondas.
               </p>
             </div>
-            <MonthSelector />
+
+            <div className="flex items-center gap-3">
+              <MonthSelector />
+              <button
+                onClick={() => setIsManualModalOpen(true)}
+                className="px-4 py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Añadir Gasto Manual</span>
+              </button>
+            </div>
           </div>
 
-          {/* SECTION 1: PENDIENTES DE CLASIFICAR */}
+          {/* SECTION 1: PENDIENTES */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -370,7 +579,7 @@ export default function HomePage() {
                 </h2>
               </div>
               <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full">
-                Requiere tu validación
+                Requiere validación
               </span>
             </div>
 
@@ -378,7 +587,7 @@ export default function HomePage() {
               <div className="p-6 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
                 <CheckCircle2 className="w-6 h-6 text-[#00A37A] mx-auto mb-1.5" />
                 <span className="font-semibold text-slate-700 block">¡Bandeja al día!</span>
-                <span>No hay gastos pendientes en este mes. Revisa el histórico abajo.</span>
+                <span>Todos los gastos están clasificados. Revisa el histórico abajo.</span>
               </div>
             ) : (
               <div className="space-y-3">
@@ -398,13 +607,12 @@ export default function HomePage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
 
-                          {/* Interactive Category Selector */}
+                          {/* Category Selector */}
                           <div className="relative inline-block">
                             <select
                               value={tx.category}
                               onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                              className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
-                              title="Haz clic para cambiar la categoría"
+                              className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none"
                             >
                               {CATEGORIES_LIST.map((c) => (
                                 <option key={c.name} value={c.name}>
@@ -428,26 +636,22 @@ export default function HomePage() {
                         {tx.amount.toFixed(2)} €
                       </span>
 
-                      {/* 1-Click Triage Buttons */}
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleTriage(tx.id, "50/50", "Ambos (50/50)")}
-                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs"
-                          title="Gasto compartido al 50%"
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs"
                         >
                           50 / 50
                         </button>
                         <button
                           onClick={() => handleTriage(tx.id, "memberA", `Solo ${memberAName}`)}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#E6FAF4] text-[#008761] text-xs font-bold border border-slate-200 hover:border-[#00D09C] transition-all"
-                          title={`Gasto 100% de ${memberAName}`}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-[#E6FAF4] text-[#008761] text-xs font-bold border border-slate-200 hover:border-[#00D09C]"
                         >
                           {memberAName}
                         </button>
                         <button
                           onClick={() => handleTriage(tx.id, "memberB", `Solo ${memberBName}`)}
-                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold border border-slate-200 hover:border-rose-300 transition-all"
-                          title={`Gasto 100% de ${memberBName}`}
+                          className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold border border-slate-200 hover:border-rose-300"
                         >
                           {memberBName}
                         </button>
@@ -459,7 +663,7 @@ export default function HomePage() {
             )}
           </div>
 
-          {/* SECTION 2: HISTÓRICO DE MOVIMIENTOS RECLASIFICABLE (CATEGORÍA + REPARTO) */}
+          {/* SECTION 2: HISTÓRICO RECLASIFICABLE */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
@@ -468,8 +672,7 @@ export default function HomePage() {
                   Histórico de Movimientos
                 </h2>
                 <p className="text-[11px] text-slate-500 mt-0.5">
-                  Cambia la <strong className="text-slate-800">categoría</strong> o el{" "}
-                  <strong className="text-slate-800">reparto</strong> en cualquier momento:
+                  Cambia la categoría o el reparto para recalcular las cuentas:
                 </p>
               </div>
               <span className="text-xs font-bold text-slate-500">
@@ -494,13 +697,11 @@ export default function HomePage() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold text-slate-900">{tx.merchant}</span>
 
-                        {/* Interactive Category Selector in History */}
                         <div className="relative inline-block">
                           <select
                             value={tx.category}
                             onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                            className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none focus:ring-1 focus:ring-[#00D09C]"
-                            title="Cambiar categoría de este gasto"
+                            className="appearance-none cursor-pointer text-[10px] font-bold px-2 py-0.5 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none"
                           >
                             {CATEGORIES_LIST.map((c) => (
                               <option key={c.name} value={c.name}>
@@ -524,7 +725,7 @@ export default function HomePage() {
                       {tx.amount.toFixed(2)} €
                     </span>
 
-                    {/* Reclassification Split Pill Switcher */}
+                    {/* Reclassification Split Pill */}
                     <div className="flex items-center bg-slate-100 p-1 rounded-xl gap-1 text-[11px]">
                       <button
                         onClick={() => handleReclassify(tx.id, "50/50", "Ambos (50/50)")}
@@ -533,7 +734,6 @@ export default function HomePage() {
                             ? "bg-slate-900 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
-                        title="Repartir al 50% entre ambos"
                       >
                         50/50
                       </button>
@@ -544,7 +744,6 @@ export default function HomePage() {
                             ? "bg-[#00D09C] text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
-                        title={`Gasto 100% de ${memberAName}`}
                       >
                         {memberAName}
                       </button>
@@ -555,7 +754,6 @@ export default function HomePage() {
                             ? "bg-rose-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
-                        title={`Gasto 100% de ${memberBName}`}
                       >
                         {memberBName}
                       </button>
@@ -569,7 +767,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 3: BALANCES & DEUDA                                       */}
+      {/* TAB 5: BALANCES & DEUDA                                       */}
       {/* ============================================================ */}
       {activeTab === "balances" && (
         <div className="space-y-6">
@@ -581,7 +779,7 @@ export default function HomePage() {
                   Cálculo Dinámico de Balances
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
-                  Los saldos se recalculan en tiempo real cada vez que asignas o reclasificas un movimiento.
+                  Cifras redondas para validar fácilmente las cuentas compartidas y neteo.
                 </p>
               </div>
               <MonthSelector />
@@ -617,7 +815,7 @@ export default function HomePage() {
 
               <div className="text-left sm:text-right">
                 <span className="text-4xl font-black text-[#008761] block">
-                  {balanceData.netDebt.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                  {balanceData.netDebt.toFixed(2)} €
                 </span>
                 {balanceData.debtor !== "none" && (
                   <button
@@ -635,7 +833,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Math Table */}
+            {/* Math Table with Round Numbers */}
             <div className="border border-slate-200/80 rounded-2xl overflow-hidden text-xs">
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200/80 font-bold text-slate-700 grid grid-cols-3">
                 <span>Concepto</span>
@@ -644,7 +842,7 @@ export default function HomePage() {
               </div>
               <div className="divide-y divide-slate-100">
                 <div className="px-4 py-3 grid grid-cols-3">
-                  <span className="text-slate-600">Total aportado a gastos comunes</span>
+                  <span className="text-slate-600">Aportado a gastos comunes (50/50)</span>
                   <span className="text-center font-bold text-[#008761]">
                     {balanceData.paidByA.toFixed(2)} €
                   </span>
@@ -653,12 +851,12 @@ export default function HomePage() {
                   </span>
                 </div>
                 <div className="px-4 py-3 grid grid-cols-3">
-                  <span className="text-slate-600">Cuota correspondiente (50%)</span>
+                  <span className="text-slate-600">Cuota debida (50% de {totalJointSpent.toFixed(2)} €)</span>
                   <span className="text-center font-semibold text-slate-700">
-                    {(totalSpent / 2).toFixed(2)} €
+                    {(totalJointSpent / 2).toFixed(2)} €
                   </span>
                   <span className="text-right font-semibold text-slate-700">
-                    {(totalSpent / 2).toFixed(2)} €
+                    {(totalJointSpent / 2).toFixed(2)} €
                   </span>
                 </div>
                 <div className="px-4 py-3 bg-slate-50 font-bold text-slate-900 grid grid-cols-3">
@@ -681,7 +879,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 4: CUENTAS BANCARIAS PSD2                                 */}
+      {/* TAB 6: CUENTAS BANCARIAS (CON CUENTA PARA ANDREA)            */}
       {/* ============================================================ */}
       {activeTab === "cuentas" && (
         <div className="space-y-6">
@@ -690,93 +888,61 @@ export default function HomePage() {
               <div>
                 <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
                   <Landmark className="w-5 h-5 text-[#00A37A]" />
-                  Cuentas & Conexiones Bancarias (PSD2)
+                  Cuentas & Conexiones Bancarias
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
-                  Cuentas vinculadas a través de la API oficial Open Banking GoCardless.
+                  Cuentas personales y compartida de la pareja.
                 </p>
               </div>
               <button
-                onClick={() => alert("El conector oficial PSD2 GoCardless se activará en el Paso 5.")}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                onClick={() => alert("El conector bancario automático oficial PSD2 se configurará en el Paso 5.")}
+                className="px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
               >
-                <span>Conectar Banco</span>
+                Conectar Banco
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">BBVA Cuenta Compartida</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#E6FAF4] text-[#008761]">
-                    Titularidad: Conjunta
-                  </span>
-                </div>
-                <div className="text-2xl font-black text-slate-900">2.410,80 €</div>
-                <span className="text-xs text-slate-400 block">IBAN: ES76 0182 •••• 8491</span>
-              </div>
+            {/* List of accounts: Joint, Member A, Member B (Andrea) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {accounts.map((acc) => {
+                const isJoint = acc.ownership === "JOINT";
+                const isA = acc.ownership === "USER_A";
+                const ownerLabel = isJoint
+                  ? "Titularidad: Conjunta"
+                  : isA
+                  ? `Titularidad: ${memberAName}`
+                  : `Titularidad: ${memberBName}`;
 
-              <div className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-slate-900">Santander Tarjeta Gastos</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                    Titularidad: {memberAName}
-                  </span>
-                </div>
-                <div className="text-2xl font-black text-slate-900">840,25 €</div>
-                <span className="text-xs text-slate-400 block">Tarjeta: •••• 2104</span>
-              </div>
+                const badgeStyle = isJoint
+                  ? "bg-[#E6FAF4] text-[#008761]"
+                  : isA
+                  ? "bg-slate-100 text-slate-800"
+                  : "bg-rose-50 text-rose-600";
+
+                return (
+                  <div key={acc.id} className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-900">
+                        {acc.bankName} {acc.accountName}
+                      </span>
+                    </div>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${badgeStyle}`}>
+                      {ownerLabel}
+                    </span>
+                    <div className="text-2xl font-black text-slate-900">
+                      {acc.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                    </div>
+                    <span className="text-xs text-slate-400 block font-mono">{acc.ibanMask}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
       {/* ============================================================ */}
-      {/* TAB 5: DISTRIBUCIÓN IA & REGLAS                               */}
-      {/* ============================================================ */}
-      {activeTab === "distribucion" && (
-        <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-            <div className="border-b border-slate-100 pb-4">
-              <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
-                <PieIcon className="w-5 h-5 text-[#00A37A]" />
-                Motor de Distribución Inteligente
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Reglas automáticas de categorización y reparto configuradas para la pareja.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-[#E6FAF4] border border-[#00D09C]/30 text-xs text-[#008761] leading-relaxed">
-              💡 <strong>Aprendizaje continuo:</strong> Al reclasificar cualquier gasto o categoría en Movimientos, el motor adaptará las reglas futuras para ese comercio.
-            </div>
-
-            <div className="divide-y divide-slate-100 text-xs">
-              <div className="py-3 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-800 block">Mercadona / Carrefour / Lidl</span>
-                  <span className="text-slate-400">Categoría: Supermercado</span>
-                </div>
-                <span className="font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-                  Reparto: 50/50
-                </span>
-              </div>
-              <div className="py-3 flex items-center justify-between">
-                <div>
-                  <span className="font-bold text-slate-800 block">Iberdrola / Naturgy / Agua</span>
-                  <span className="text-slate-400">Categoría: Hogar & Suministros</span>
-                </div>
-                <span className="font-bold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700">
-                  Reparto: 50/50
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ============================================================ */}
-      {/* TAB 6: CONFIGURACIÓN (CON FORMULARIO OFICIAL DE NOMBRES)      */}
+      {/* TAB 7: CONFIGURACIÓN (CON FORMULARIO DE NOMBRES)             */}
       {/* ============================================================ */}
       {activeTab === "ajustes" && (
         <div className="space-y-6">
@@ -787,11 +953,11 @@ export default function HomePage() {
                 Configuración del Hogar
               </h1>
               <p className="text-xs text-slate-500 mt-1">
-                Personaliza los nombres de los miembros de la pareja y ajusta preferencias.
+                Personaliza los nombres de los miembros de la pareja y preferencias.
               </p>
             </div>
 
-            {/* Dedicated Name Customizer Form */}
+            {/* Name Customizer Form */}
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
                 <UserCheck className="w-4 h-4 text-[#00A37A]" />
@@ -809,7 +975,7 @@ export default function HomePage() {
                     value={inputNameA}
                     onChange={(e) => setInputNameA(e.target.value)}
                     placeholder="ej. Carlos"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C] focus:ring-1 focus:ring-[#00D09C]"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-[#00D09C]"
                   />
                 </div>
 
@@ -823,7 +989,7 @@ export default function HomePage() {
                     value={inputNameB}
                     onChange={(e) => setInputNameB(e.target.value)}
                     placeholder="ej. Andrea"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-rose-400 focus:ring-1 focus:ring-rose-400"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-900 text-xs font-semibold focus:outline-none focus:border-rose-400"
                   />
                 </div>
 
@@ -841,25 +1007,25 @@ export default function HomePage() {
               </form>
             </div>
 
-            {/* System Info & PSD2 Status */}
+            {/* System Info */}
             <div className="space-y-3">
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-bold text-slate-800 block">Consentimiento Bancario PSD2</span>
-                  <span className="text-slate-500">Vigente durante 89 días restantes</span>
+                  <span className="font-bold text-slate-800 block">Miembros Registrados</span>
+                  <span className="text-slate-500">Miembro A: {memberAName} • Miembro B: {memberBName}</span>
                 </div>
-                <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                  Activo
+                <span className="text-[10px] font-bold px-2.5 py-1 bg-slate-200 text-slate-700 rounded-full">
+                  Configurado
                 </span>
               </div>
 
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
-                  <span className="font-bold text-slate-800 block">Estándar y Versión de la App</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.5</span>
+                  <span className="font-bold text-slate-800 block">Versión del Sistema</span>
+                  <span className="text-slate-500">FitDuo Protocol • Versión v0.2.6</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                  Paso 2 Completado
+                  Paso 2
                 </span>
               </div>
             </div>

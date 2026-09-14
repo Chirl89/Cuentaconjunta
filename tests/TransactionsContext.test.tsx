@@ -6,6 +6,7 @@ import { TransactionsProvider, useTransactions } from "@/context/TransactionsCon
 
 const TestComponent = () => {
   const {
+    addTransaction,
     balanceData,
     classifyTransaction,
     reclassifyTransaction,
@@ -42,10 +43,18 @@ const TestComponent = () => {
       <span data-testid="tx3-cat">{categoriesBreakdown.find((c) => c.name === "Hogar & Luz")?.value || 0}</span>
 
       <button
-        data-testid="btn-change-cat"
-        onClick={() => updateTransactionCategory("tx-3", "Hogar & Luz")}
+        data-testid="btn-add-manual"
+        onClick={() =>
+          addTransaction({
+            merchant: "Gasto Manual Test",
+            amount: 20,
+            category: "Supermercado",
+            payer: "memberA",
+            split: "50/50",
+          })
+        }
       >
-        Change Cat tx-3
+        Add Manual
       </button>
     </div>
   );
@@ -92,7 +101,7 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(newDebt).not.toBe(initialDebt);
   });
 
-  it("updates category and recalculates category breakdown", () => {
+  it("adds manual expense and recalculates balance immediately", () => {
     render(
       <UserNamesProvider>
         <TransactionsProvider>
@@ -101,10 +110,10 @@ describe("TransactionsContext Dynamic Engine", () => {
       </UserNamesProvider>
     );
 
-    const initialHogarVal = Number(screen.getByTestId("tx3-cat").textContent);
-    fireEvent.click(screen.getByTestId("btn-change-cat"));
-    const newHogarVal = Number(screen.getByTestId("tx3-cat").textContent);
+    const initialSpent = Number(screen.getByTestId("total-spent").textContent);
+    fireEvent.click(screen.getByTestId("btn-add-manual"));
+    const newSpent = Number(screen.getByTestId("total-spent").textContent);
 
-    expect(newHogarVal).toBeGreaterThan(initialHogarVal);
+    expect(newSpent).toBe(initialSpent + 20);
   });
 });

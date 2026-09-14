@@ -25,7 +25,7 @@ const SidebarWithNavigationTester = () => {
 };
 
 describe("Sidebar Component", () => {
-  it("renders brand and navigation items with Fintonic branding", () => {
+  it("renders brand and 3 distinct graph tabs without 'estilo fintonic'", () => {
     render(
       <TestWrapper>
         <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
@@ -33,14 +33,16 @@ describe("Sidebar Component", () => {
     );
 
     expect(screen.getAllByText(/Cuenta Conjunta/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Estilo Fintonic/i)).toBeInTheDocument();
-    expect(screen.getByText(/Resumen Gastos/i)).toBeInTheDocument();
+    // User requested that 'estilo fintonic' disappears
+    expect(screen.queryByText(/estilo fintonic/i)).not.toBeInTheDocument();
+
+    expect(screen.getByText(/Gastos Conjuntos/i)).toBeInTheDocument();
     expect(screen.getByText(/Movimientos/i)).toBeInTheDocument();
   });
 
-  it("displays couple names in read-only mode with NO edit inputs", () => {
+  it("displays couple names in read-only mode with NO edit inputs in sidebar", () => {
     render(
-      <UserNamesProvider initialNames={{ memberA: "Carlos", memberB: "Laura" }}>
+      <UserNamesProvider initialNames={{ memberA: "Carlos", memberB: "Andrea" }}>
         <TransactionsProvider>
           <NavigationProvider>
             <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
@@ -49,30 +51,33 @@ describe("Sidebar Component", () => {
       </UserNamesProvider>
     );
 
-    expect(screen.getByText("Carlos")).toBeInTheDocument();
-    expect(screen.getByText("Laura")).toBeInTheDocument();
+    expect(screen.getAllByText("Carlos").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Andrea").length).toBeGreaterThan(0);
 
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.queryByTitle(/editar/i)).not.toBeInTheDocument();
   });
 
-  it("changes active tab when clicking navigation buttons including Movimientos", () => {
+  it("changes active tab when clicking navigation buttons including 3 graph views", () => {
     render(
       <TestWrapper>
         <SidebarWithNavigationTester />
       </TestWrapper>
     );
 
-    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen");
+    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen_conjunta");
+
+    fireEvent.click(screen.getByText(/Gastos de Persona A/i));
+    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen_carlos");
+
+    fireEvent.click(screen.getByText(/Gastos de Persona B/i));
+    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen_andrea");
 
     fireEvent.click(screen.getByText(/Movimientos/i));
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("movimientos");
 
     fireEvent.click(screen.getByText(/Balances & Deuda/i));
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("balances");
-
-    fireEvent.click(screen.getByText(/Cuentas Bancarias/i));
-    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("cuentas");
   });
 
   it("displays the VersionBadge", () => {

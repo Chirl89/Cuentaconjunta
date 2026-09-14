@@ -27,12 +27,22 @@ export interface Transaction {
   amount: number;
   category: string;
   categoryColor: string;
-  accountLabel: string; // e.g. "Tarjeta Débito" or "Cuenta Santander"
+  accountLabel: string;
   status: "pending" | "classified";
   payer: PayerType;
   split: SplitType;
 }
 
+export interface BankAccount {
+  id: string;
+  bankName: string;
+  accountName: string;
+  ibanMask: string;
+  ownership: "JOINT" | "USER_A" | "USER_B";
+  balance: number;
+}
+
+// Crisp, round numbers for easy mental math
 const INITIAL_TRANSACTIONS: Transaction[] = [
   // Septiembre 2026
   {
@@ -40,23 +50,23 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Mercadona Gran Vía",
     date: "14 Sep, 11:42",
     monthKey: "2026-09",
-    amount: 64.2,
+    amount: 50.0, // Round number
     category: "Supermercado",
     categoryColor: "#00D09C",
-    accountLabel: "Tarjeta Débito",
+    accountLabel: "Santander Débito",
     status: "pending",
     payer: "memberA",
     split: "50/50",
   },
   {
     id: "tx-2",
-    merchant: "Iberdrola Clientes",
+    merchant: "Iberdrola Electricidad",
     date: "13 Sep, 09:15",
     monthKey: "2026-09",
-    amount: 89.4,
+    amount: 30.0, // Round number
     category: "Hogar & Luz",
     categoryColor: "#0EA5E9",
-    accountLabel: "Cuenta Santander",
+    accountLabel: "CaixaBank Débito",
     status: "pending",
     payer: "memberB",
     split: "50/50",
@@ -66,23 +76,23 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Restaurante La Tagliatella",
     date: "12 Sep, 21:30",
     monthKey: "2026-09",
-    amount: 54.0,
+    amount: 40.0, // Round: Carlos paid 40€ 50/50
     category: "Restaurantes & Ocio",
     categoryColor: "#F59E0B",
-    accountLabel: "Tarjeta Débito",
+    accountLabel: "Santander Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
   },
   {
     id: "tx-4",
-    merchant: "Repsol Estación de Servicio",
+    merchant: "Repsol Gasolina",
     date: "10 Sep, 18:20",
     monthKey: "2026-09",
-    amount: 45.0,
+    amount: 60.0, // Round: Carlos paid 60€ 50/50
     category: "Transporte & Gasolina",
     categoryColor: "#6366F1",
-    accountLabel: "Tarjeta Débito",
+    accountLabel: "Santander Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
@@ -92,79 +102,96 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Farmacia Central",
     date: "08 Sep, 12:10",
     monthKey: "2026-09",
-    amount: 32.5,
+    amount: 20.0, // Round: Andrea paid 20€ 50/50
     category: "Otros Gastos Comunes",
     categoryColor: "#EC4899",
-    accountLabel: "Cuenta Santander",
+    accountLabel: "CaixaBank Débito",
     status: "classified",
     payer: "memberB",
     split: "50/50",
   },
+  // Personal expense of Member A (no 50/50 duplication)
   {
     id: "tx-6",
-    merchant: "Carrefour Market",
-    date: "05 Sep, 16:40",
+    merchant: "Zara Moda Hombre",
+    date: "06 Sep, 17:30",
     monthKey: "2026-09",
-    amount: 128.0,
-    category: "Supermercado",
-    categoryColor: "#00D09C",
-    accountLabel: "Tarjeta Débito",
+    amount: 50.0, // Solo Carlos
+    category: "Restaurantes & Ocio",
+    categoryColor: "#F59E0B",
+    accountLabel: "Santander Débito",
     status: "classified",
     payer: "memberA",
-    split: "50/50",
+    split: "memberA",
   },
-  // Agosto 2026 (Mes anterior)
+  // Personal expense of Member B (no 50/50 duplication)
   {
     id: "tx-7",
+    merchant: "Sephora Cosméticos",
+    date: "04 Sep, 14:15",
+    monthKey: "2026-09",
+    amount: 30.0, // Solo Andrea
+    category: "Otros Gastos Comunes",
+    categoryColor: "#EC4899",
+    accountLabel: "CaixaBank Débito",
+    status: "classified",
+    payer: "memberB",
+    split: "memberB",
+  },
+
+  // Agosto 2026 (Mes anterior)
+  {
+    id: "tx-8",
     merchant: "Lidl Supermercados",
     date: "28 Ago, 10:15",
     monthKey: "2026-08",
-    amount: 95.3,
+    amount: 80.0,
     category: "Supermercado",
     categoryColor: "#00D09C",
-    accountLabel: "Cuenta Santander",
+    accountLabel: "CaixaBank Débito",
     status: "classified",
     payer: "memberB",
-    split: "50/50",
-  },
-  {
-    id: "tx-8",
-    merchant: "Cine Yelmo Ideal",
-    date: "24 Ago, 20:00",
-    monthKey: "2026-08",
-    amount: 22.0,
-    category: "Restaurantes & Ocio",
-    categoryColor: "#F59E0B",
-    accountLabel: "Tarjeta Débito",
-    status: "classified",
-    payer: "memberA",
     split: "50/50",
   },
   {
     id: "tx-9",
-    merchant: "Gas Natural Suministros",
-    date: "15 Ago, 08:30",
+    merchant: "Cine Yelmo",
+    date: "24 Ago, 20:00",
     monthKey: "2026-08",
-    amount: 68.4,
-    category: "Hogar & Luz",
-    categoryColor: "#0EA5E9",
-    accountLabel: "Cuenta Santander",
-    status: "classified",
-    payer: "memberB",
-    split: "50/50",
-  },
-  {
-    id: "tx-10",
-    merchant: "Taller Mecánico Rápido",
-    date: "12 Ago, 11:20",
-    monthKey: "2026-08",
-    amount: 140.0,
-    category: "Transporte & Gasolina",
-    categoryColor: "#6366F1",
-    accountLabel: "Tarjeta Débito",
+    amount: 20.0,
+    category: "Restaurantes & Ocio",
+    categoryColor: "#F59E0B",
+    accountLabel: "Santander Débito",
     status: "classified",
     payer: "memberA",
     split: "50/50",
+  },
+];
+
+export const INITIAL_ACCOUNTS: BankAccount[] = [
+  {
+    id: "acc-1",
+    bankName: "BBVA",
+    accountName: "Cuenta Corriente Compartida",
+    ibanMask: "ES76 0182 •••• 8491",
+    ownership: "JOINT",
+    balance: 2400.0,
+  },
+  {
+    id: "acc-2",
+    bankName: "Santander",
+    accountName: "Cuenta Personal & Tarjeta",
+    ibanMask: "ES44 0049 •••• 2104",
+    ownership: "USER_A",
+    balance: 1350.0,
+  },
+  {
+    id: "acc-3",
+    bankName: "CaixaBank",
+    accountName: "Cuenta Personal & Tarjeta",
+    ibanMask: "ES91 2100 •••• 7731",
+    ownership: "USER_B",
+    balance: 1100.0,
   },
 ];
 
@@ -176,8 +203,16 @@ export const AVAILABLE_MONTHS = [
 
 interface TransactionsContextType {
   transactions: Transaction[];
+  accounts: BankAccount[];
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
+  addTransaction: (tx: {
+    merchant: string;
+    amount: number;
+    category: string;
+    payer: PayerType;
+    split: SplitType;
+  }) => void;
   classifyTransaction: (id: string, split: SplitType, payer?: PayerType) => void;
   reclassifyTransaction: (id: string, split: SplitType) => void;
   updateTransactionCategory: (id: string, newCategoryName: string) => void;
@@ -185,8 +220,17 @@ interface TransactionsContextType {
   filteredTransactions: Transaction[];
   pendingTransactions: Transaction[];
   classifiedTransactions: Transaction[];
+  jointClassifiedTransactions: Transaction[];
+  memberAClassifiedTransactions: Transaction[];
+  memberBClassifiedTransactions: Transaction[];
   totalSpent: number;
+  totalJointSpent: number;
+  totalMemberASpent: number;
+  totalMemberBSpent: number;
   categoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  jointCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberACategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberBCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   balanceData: {
     paidByA: number;
     paidByB: number;
@@ -202,7 +246,42 @@ const TransactionsContext = createContext<TransactionsContextType | undefined>(u
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
   const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+  const [accounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
+
+  const addTransaction = (data: {
+    merchant: string;
+    amount: number;
+    category: string;
+    payer: PayerType;
+    split: SplitType;
+  }) => {
+    const foundCat = CATEGORIES_LIST.find((c) => c.name === data.category);
+    const color = foundCat ? foundCat.color : "#00D09C";
+
+    const accountLabel =
+      data.payer === "memberA"
+        ? "Santander Débito"
+        : data.payer === "memberB"
+        ? "CaixaBank Débito"
+        : "BBVA Conjunta";
+
+    const newTx: Transaction = {
+      id: `tx-${Date.now()}`,
+      merchant: data.merchant.trim() || "Gasto Manual",
+      date: "Hoy, Manual",
+      monthKey: selectedMonth,
+      amount: Math.abs(data.amount),
+      category: data.category,
+      categoryColor: color,
+      accountLabel,
+      status: "classified",
+      payer: data.payer,
+      split: data.split,
+    };
+
+    setTransactions((prev) => [newTx, ...prev]);
+  };
 
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
     setTransactions((prev) =>
@@ -249,10 +328,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (tx.payer === "memberB") {
       return `${tx.accountLabel} (${memberBName})`;
     }
-    return "Cuenta Conjunta BBVA ••8491";
+    return "BBVA Cuenta Conjunta ••8491";
   };
 
-  // Transactions filtered by selected month
+  // Filtered by selected month
   const filteredTransactions = useMemo(
     () => transactions.filter((t) => t.monthKey === selectedMonth),
     [transactions, selectedMonth]
@@ -268,15 +347,44 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [filteredTransactions]
   );
 
-  // Total spent (all classified expenses in this month)
-  const totalSpent = useMemo(() => {
-    return classifiedTransactions.reduce((sum, t) => sum + t.amount, 0);
-  }, [classifiedTransactions]);
+  // 1. Joint Shared 50/50 expenses
+  const jointClassifiedTransactions = useMemo(
+    () => classifiedTransactions.filter((t) => t.split === "50/50"),
+    [classifiedTransactions]
+  );
 
-  // Categories Breakdown for Donut Chart dynamically calculated from current month classified transactions
-  const categoriesBreakdown = useMemo(() => {
+  // 2. Personal Member A expenses (exclusive to A, NOT 50/50 to avoid duplication)
+  const memberAClassifiedTransactions = useMemo(
+    () => classifiedTransactions.filter((t) => t.split === "memberA"),
+    [classifiedTransactions]
+  );
+
+  // 3. Personal Member B expenses (exclusive to B, NOT 50/50 to avoid duplication)
+  const memberBClassifiedTransactions = useMemo(
+    () => classifiedTransactions.filter((t) => t.split === "memberB"),
+    [classifiedTransactions]
+  );
+
+  // Totals
+  const totalJointSpent = useMemo(
+    () => jointClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [jointClassifiedTransactions]
+  );
+
+  const totalMemberASpent = useMemo(
+    () => memberAClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [memberAClassifiedTransactions]
+  );
+
+  const totalMemberBSpent = useMemo(
+    () => memberBClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    [memberBClassifiedTransactions]
+  );
+
+  // Category breakdown builders helper
+  const buildCategoryBreakdown = (list: Transaction[]) => {
     const map = new Map<string, { value: number; color: string; count: number }>();
-    for (const t of classifiedTransactions) {
+    for (const t of list) {
       const existing = map.get(t.category);
       if (existing) {
         existing.value += t.amount;
@@ -291,9 +399,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       color: data.color,
       count: data.count,
     }));
-  }, [classifiedTransactions]);
+  };
 
-  // Mathematical Balance Engine: "Quién debe a quién"
+  const jointCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown(jointClassifiedTransactions),
+    [jointClassifiedTransactions]
+  );
+
+  const memberACategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown(memberAClassifiedTransactions),
+    [memberAClassifiedTransactions]
+  );
+
+  const memberBCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown(memberBClassifiedTransactions),
+    [memberBClassifiedTransactions]
+  );
+
+  // Mathematical Net Balance:
+  // Carlos paid: sum of 50/50 where payer=A
+  // Andrea paid: sum of 50/50 where payer=B
+  // Net debt = |paidByA - paidByB| / 2
   const balanceData = useMemo(() => {
     let paidByA = 0;
     let paidByB = 0;
@@ -305,16 +431,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         } else if (t.payer === "memberB") {
           paidByB += t.amount;
         }
-      } else if (t.split === "memberA") {
-        // Personal expense of Member A
-        if (t.payer === "memberB") {
-          paidByB += t.amount * 2;
-        }
-      } else if (t.split === "memberB") {
-        // Personal expense of Member B
-        if (t.payer === "memberA") {
-          paidByA += t.amount * 2;
-        }
+      } else if (t.split === "memberA" && t.payer === "memberB") {
+        // Andrea paid for Carlos's personal expense
+        paidByB += t.amount * 2;
+      } else if (t.split === "memberB" && t.payer === "memberA") {
+        // Carlos paid for Andrea's personal expense
+        paidByA += t.amount * 2;
       }
     }
 
@@ -349,8 +471,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     <TransactionsContext.Provider
       value={{
         transactions,
+        accounts,
         selectedMonth,
         setSelectedMonth,
+        addTransaction,
         classifyTransaction,
         reclassifyTransaction,
         updateTransactionCategory,
@@ -358,8 +482,17 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         filteredTransactions,
         pendingTransactions,
         classifiedTransactions,
-        totalSpent,
-        categoriesBreakdown,
+        jointClassifiedTransactions,
+        memberAClassifiedTransactions,
+        memberBClassifiedTransactions,
+        totalSpent: totalJointSpent,
+        totalJointSpent,
+        totalMemberASpent,
+        totalMemberBSpent,
+        categoriesBreakdown: jointCategoriesBreakdown,
+        jointCategoriesBreakdown,
+        memberACategoriesBreakdown,
+        memberBCategoriesBreakdown,
         balanceData,
       }}
     >
