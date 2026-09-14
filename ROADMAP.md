@@ -16,7 +16,7 @@
 - **Paso 2 (v0.2)**: **Setup Next.js PWA, Diseño Fintech Fintonic, Estado Global Reactivo de Nombres & Versión Visual** *(Completado)*
   - Creación del proyecto Next.js (TypeScript, Tailwind CSS con paleta Fintonic, Lucide icons, Recharts), contexto global reactivo para nombres configurables en tiempo real, soporte PWA cross-platform y componente de versión global.
 
-- **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL) con Soporte de Traspasos**
+- **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL) con Soporte de Traspasos** *(Completado)*
   - Migraciones SQL: tablas `users`, `households`, `bank_connections`, `accounts` (titularidad: A, B, Ambos), `transactions` (origen: 'bank'|'manual'|'cash'|'transfer_internal'|'transfer_settlement'), `rules`, `category_learnings`, `categories` y `settlements`, tipos TypeScript y cliente de conexión.
 
 - **Paso 4 (v0.4)**: **Autenticación Multi-Usuario, Perfiles de Pareja y Nombres Personalizables Reactivos**

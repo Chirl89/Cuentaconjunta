@@ -1,4 +1,4 @@
-export type Ownership = "USER_A" | "USER_B" | "JOINT";
+export * from "./database";
 
 export interface UserNames {
   memberA: string;
