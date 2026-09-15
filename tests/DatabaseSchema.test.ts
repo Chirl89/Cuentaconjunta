@@ -74,12 +74,28 @@ describe("Paso 3: Supabase Database Schema & Types Verification", () => {
         name: "Casa Carlos y Laura",
         member_a_name: "Carlos",
         member_b_name: "Laura",
+        invite_code: "FITDUO",
+        member_a_id: null,
+        member_b_id: null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
       expect(household.member_a_name).toBe("Carlos");
       expect(household.member_b_name).toBe("Laura");
+      expect(household.invite_code).toBe("FITDUO");
+    });
+
+    it("should validate Step 4 multi-user and household invite code schema", () => {
+      const step4MigrationPath = path.resolve(
+        __dirname,
+        "../supabase/migrations/20260915000000_auth_and_households.sql"
+      );
+      const step4Sql = fs.readFileSync(step4MigrationPath, "utf8");
+
+      expect(step4Sql).toContain("ADD COLUMN IF NOT EXISTS invite_code");
+      expect(step4Sql).toContain("role_in_household TEXT CHECK (role_in_household IN ('MEMBER_A', 'MEMBER_B'))");
+      expect(step4Sql).toContain("handle_new_auth_user");
     });
 
     it("should typecheck accounts with distinct ownerships", () => {

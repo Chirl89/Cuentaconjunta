@@ -3,7 +3,8 @@
 import React from "react";
 import VersionBadge from "./VersionBadge";
 import { useUserNames } from "@/context/UserNamesContext";
-import { Menu, HeartHandshake } from "lucide-react";
+import { useOptionalAuth } from "@/context/AuthContext";
+import { Menu, HeartHandshake, User } from "lucide-react";
 
 interface HeaderProps {
   onOpenMobileMenu: () => void;
@@ -11,6 +12,16 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
   const { memberAName, memberBName } = useUserNames();
+  const auth = useOptionalAuth();
+
+  const activeName = auth?.activeRole === "memberB" ? memberBName : memberAName;
+  const isB = auth?.activeRole === "memberB";
+
+  const handleToggleRole = () => {
+    if (auth) {
+      auth.switchActiveRole(isB ? "memberA" : "memberB");
+    }
+  };
 
   return (
     <header className="md:hidden sticky top-0 z-30 w-full bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 h-14 flex items-center justify-between pt-safe-top shadow-xs">
@@ -32,13 +43,23 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu }) => {
         </div>
       </div>
 
-      {/* Right side: Read-only Couple Badge & VersionBadge */}
+      {/* Right side: Active Role Switcher Badge & VersionBadge */}
       <div className="flex items-center gap-2">
-        <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-[11px] font-bold text-slate-700">
-          <span className="text-red-600">{memberAName}</span>
-          <span className="text-slate-400">&</span>
-          <span className="text-blue-600">{memberBName}</span>
-        </div>
+        {auth && (
+          <button
+            type="button"
+            onClick={handleToggleRole}
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border transition-all cursor-pointer ${
+              isB
+                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+            }`}
+            title={`Actuando como ${activeName}. Toca para cambiar.`}
+          >
+            <span className={`w-2 h-2 rounded-full ${isB ? "bg-blue-500" : "bg-red-500"}`} />
+            <span>{activeName}</span>
+          </button>
+        )}
         <VersionBadge showDetails={false} />
       </div>
     </header>

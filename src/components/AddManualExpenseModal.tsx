@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
+import { useOptionalAuth } from "@/context/AuthContext";
 import {
   useTransactions,
   CATEGORIES_LIST,
@@ -25,6 +26,7 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
   transactionToEdit,
 }) => {
   const { memberAName, memberBName } = useUserNames();
+  const auth = useOptionalAuth();
   const { addTransaction, updateTransaction, deleteTransaction, categories } = useTransactions();
   const availableCategories = categories && categories.length > 0 ? categories : CATEGORIES_LIST;
 
@@ -54,10 +56,10 @@ export const AddManualExpenseModal: React.FC<AddManualExpenseModalProps> = ({
       setMerchant("");
       setAmount("");
       setCategory(availableCategories[0]?.name || "Supermercado");
-      setPayer("joint");
+      setPayer(auth?.activeRole === "memberB" ? "memberB" : "memberA");
       setSplit("50/50");
     }
-  }, [transactionToEdit, isOpen]);
+  }, [transactionToEdit, isOpen, auth?.activeRole]);
 
   // When switching movement type in creation mode
   const handleTypeChange = (type: "expense" | "transfer_to_joint") => {

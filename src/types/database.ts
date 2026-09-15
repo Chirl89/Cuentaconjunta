@@ -38,6 +38,9 @@ export interface Database {
           name: string;
           member_a_name: string;
           member_b_name: string;
+          invite_code: string;
+          member_a_id: string | null;
+          member_b_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -46,6 +49,9 @@ export interface Database {
           name?: string;
           member_a_name?: string;
           member_b_name?: string;
+          invite_code?: string;
+          member_a_id?: string | null;
+          member_b_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -54,6 +60,9 @@ export interface Database {
           name?: string;
           member_a_name?: string;
           member_b_name?: string;
+          invite_code?: string;
+          member_a_id?: string | null;
+          member_b_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -65,6 +74,7 @@ export interface Database {
           display_name: string;
           avatar_url: string | null;
           household_id: string | null;
+          role_in_household: "MEMBER_A" | "MEMBER_B" | null;
           created_at: string;
           updated_at: string;
         };
@@ -74,6 +84,7 @@ export interface Database {
           display_name: string;
           avatar_url?: string | null;
           household_id?: string | null;
+          role_in_household?: "MEMBER_A" | "MEMBER_B" | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -83,6 +94,7 @@ export interface Database {
           display_name?: string;
           avatar_url?: string | null;
           household_id?: string | null;
+          role_in_household?: "MEMBER_A" | "MEMBER_B" | null;
           created_at?: string;
           updated_at?: string;
         };

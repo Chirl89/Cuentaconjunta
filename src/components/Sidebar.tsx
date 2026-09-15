@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import VersionBadge from "./VersionBadge";
 import { useUserNames } from "@/context/UserNamesContext";
+import { useOptionalAuth } from "@/context/AuthContext";
 import { useNavigation, TabKey } from "@/context/NavigationContext";
 import { useTransactions } from "@/context/TransactionsContext";
 import {
@@ -26,6 +27,7 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
   const { memberAName, memberBName } = useUserNames();
+  const auth = useOptionalAuth();
   const { activeTab, setActiveTab } = useNavigation();
   const { pendingTransactions } = useTransactions();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -129,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
           </button>
         </div>
 
-        {/* Read-Only Couple Header Badge */}
+        {/* Couple Header Badge & Active Profile Switcher */}
         {(!isCollapsed || isMobileOpen) && (
           <div className="px-3.5 py-2.5 mx-3 mt-3 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">
@@ -146,6 +148,32 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 <span className="truncate max-w-[85px]">{memberBName}</span>
               </span>
             </div>
+
+            {auth && (
+              <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+                <span className="text-slate-400 font-medium">Activo:</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    auth.switchActiveRole(auth.activeRole === "memberA" ? "memberB" : "memberA")
+                  }
+                  className={`font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
+                    auth.activeRole === "memberB"
+                      ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
+                      : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
+                  }`}
+                  title="Cambiar perfil activo en este dispositivo"
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      auth.activeRole === "memberB" ? "bg-blue-500" : "bg-red-500"
+                    }`}
+                  />
+                  <span>{auth.activeRole === "memberB" ? memberBName : memberAName}</span>
+                  <span className="text-[9px] opacity-60">⇄</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 

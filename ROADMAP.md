@@ -19,7 +19,7 @@
 - **Paso 3 (v0.3)**: **Esquema de Base de Datos Supabase (PostgreSQL) con Soporte de Traspasos** *(Completado)*
   - Migraciones SQL: tablas `users`, `households`, `bank_connections`, `accounts` (titularidad: A, B, Ambos), `transactions` (origen: 'bank'|'manual'|'cash'|'transfer_internal'|'transfer_settlement'), `rules`, `category_learnings`, `categories` y `settlements`, tipos TypeScript y cliente de conexión.
 
-- **Paso 4 (v0.4)**: **Autenticación Multi-Usuario, Perfiles de Pareja y Nombres Personalizables Reactivos**
+- **Paso 4 (v0.4)**: **Autenticación Multi-Usuario, Perfiles de Pareja y Nombres Personalizables Reactivos** *(Completado)*
   - Sistema de acceso seguro con Supabase Auth (Magic Link / Email), vinculación de perfiles de pareja y sincronización en tiempo real de nombres de usuario en todas las pestañas/ventanas.
 
 - **Paso 5 (v0.5)**: **Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y Titularidad de Cuentas)**

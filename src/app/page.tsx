@@ -13,6 +13,8 @@ import {
 } from "@/context/TransactionsContext";
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
+import CoupleLinkingCard from "@/components/CoupleLinkingCard";
+import AuthModal from "@/components/AuthModal";
 import versionData from "../../version.json";
 import {
   TrendingDown,
@@ -160,6 +162,7 @@ export default function HomePage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
@@ -1427,6 +1430,12 @@ export default function HomePage() {
               </h1>
             </div>
 
+            {/* Household & Couple Profile Linking Card */}
+            <CoupleLinkingCard
+              onOpenAuthModal={() => setIsAuthModalOpen(true)}
+              onToast={showToast}
+            />
+
             {/* Name Customizer Form */}
             <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-4">
               <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
@@ -1495,10 +1504,11 @@ export default function HomePage() {
                   <span className="text-slate-500">FitDuo Protocol • Versión v{versionData.version}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                  Paso 3
+                  Paso 4 (v0.4.0)
                 </span>
               </div>
             </div>
+
           </div>
         </div>
       )}
@@ -1879,6 +1889,13 @@ export default function HomePage() {
         }}
         onSuccess={showToast}
         transactionToEdit={editingTransaction}
+      />
+
+      {/* Modal de Acceso y Registro Supabase Auth */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={showToast}
       />
     </div>
   );

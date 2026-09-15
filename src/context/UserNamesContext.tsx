@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { UserNames } from "@/types";
+import { useOptionalAuth } from "@/context/AuthContext";
 
 const STORAGE_KEY = "fitduo_user_names";
 const CHANNEL_NAME = "fitduo_names_sync";
@@ -31,11 +32,36 @@ export function UserNamesProvider({
   children: React.ReactNode;
   initialNames?: Partial<UserNames>;
 }) {
+  const auth = useOptionalAuth();
+
   const [names, setNamesState] = useState<UserNames>(() => ({
-    memberA: initialNames?.memberA?.trim() || DEFAULT_NAMES.memberA,
-    memberB: initialNames?.memberB?.trim() || DEFAULT_NAMES.memberB,
+    memberA:
+      initialNames?.memberA?.trim() ||
+      auth?.household?.memberAName?.trim() ||
+      DEFAULT_NAMES.memberA,
+    memberB:
+      initialNames?.memberB?.trim() ||
+      auth?.household?.memberBName?.trim() ||
+      DEFAULT_NAMES.memberB,
   }));
   const [isHydrated, setIsHydrated] = useState(false);
+
+  // Synchronize when Auth household updates from cloud/partner
+  useEffect(() => {
+    if (auth?.household) {
+      const authA = auth.household.memberAName?.trim();
+      const authB = auth.household.memberBName?.trim();
+      if (authA || authB) {
+        setNamesState((prev) => {
+          if (prev.memberA === authA && prev.memberB === authB) return prev;
+          return {
+            memberA: authA || prev.memberA,
+            memberB: authB || prev.memberB,
+          };
+        });
+      }
+    }
+  }, [auth?.household?.memberAName, auth?.household?.memberBName]);
 
   // Sync state to local storage and broadcast to other tabs
   const broadcastAndStore = useCallback((newNames: UserNames) => {
@@ -124,10 +150,11 @@ export function UserNamesProvider({
           memberB: newPartial.memberB !== undefined ? newPartial.memberB.trim() || DEFAULT_NAMES.memberB : prev.memberB,
         };
         broadcastAndStore(updated);
+        auth?.updateHouseholdNames(updated.memberA, updated.memberB);
         return updated;
       });
     },
-    [broadcastAndStore]
+    [broadcastAndStore, auth]
   );
 
   const setMemberAName = useCallback(

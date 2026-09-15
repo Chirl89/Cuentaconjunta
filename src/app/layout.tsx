@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import AppShell from "@/components/AppShell";
 
@@ -47,9 +48,11 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href={`${basePath}/icons/icon-192.svg`} />
       </head>
       <body className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-[#00D09C]/20 selection:text-[#00A37A]">
-        <UserNamesProvider>
-          <AppShell>{children}</AppShell>
-        </UserNamesProvider>
+        <AuthProvider>
+          <UserNamesProvider>
+            <AppShell>{children}</AppShell>
+          </UserNamesProvider>
+        </AuthProvider>
       </body>
     </html>
   );
