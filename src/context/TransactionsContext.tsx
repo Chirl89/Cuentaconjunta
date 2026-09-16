@@ -264,6 +264,7 @@ export interface Transaction {
   isManual?: boolean;
   movementType?: "expense" | "transfer_to_joint" | "settlement";
   createdAt?: number;
+  bankMovementId?: string;
 }
 
 export interface DebtMovementItem {
@@ -550,6 +551,7 @@ interface TransactionsContextType {
     accountLabel?: string;
     ownership?: "JOINT" | "USER_A" | "USER_B";
   }>) => void;
+  syncBankFeed: () => Promise<void>;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -654,6 +656,89 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       console.warn("Hydration failed:", e);
     }
   }, []);
+
+  // Automated background bank feed synchronization (from GitHub Actions / Backend cron)
+  const syncBankFeed = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    try {
+      if (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))) {
+        return;
+      }
+      const origin = window.location.origin && window.location.origin !== "null" ? window.location.origin : "";
+      const basePath = window.location.pathname.startsWith("/Cuentaconjunta")
+        ? "/Cuentaconjunta"
+        : "";
+      const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const feed = await res.json();
+
+      if (Array.isArray(feed.transactions) && feed.transactions.length > 0) {
+        setTransactions((prev) => {
+          const existingIds = new Set(prev.map((t) => t.id));
+          const existingBankIds = new Set(
+            prev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
+          );
+          const toAdd = feed.transactions.filter(
+            (ft: Transaction) =>
+              !existingIds.has(ft.id) &&
+              (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
+          );
+          if (toAdd.length === 0) return prev;
+          const merged = [...toAdd, ...prev];
+          try {
+            localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+
+      if (Array.isArray(feed.accounts) && feed.accounts.length > 0) {
+        setAccounts((prev) => {
+          let hasChanges = false;
+          const updated = prev.map((a) => {
+            const feedAcc = feed.accounts.find(
+              (fa: any) =>
+                fa.bankName.toLowerCase() === a.bankName.toLowerCase() ||
+                (fa.ibanMask && a.ibanMask && fa.ibanMask === a.ibanMask)
+            );
+            if (feedAcc && feedAcc.balance !== undefined && feedAcc.balance !== a.balance) {
+              hasChanges = true;
+              return { ...a, balance: feedAcc.balance };
+            }
+            return a;
+          });
+          if (hasChanges) {
+            try {
+              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+            } catch {}
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.warn("Could not sync bank feed:", err);
+    }
+  }, []);
+
+  // Poll feed on mount and on app focus/visibility
+  useEffect(() => {
+    syncBankFeed();
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncBankFeed();
+      }
+    };
+
+    window.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", syncBankFeed);
+
+    return () => {
+      window.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", syncBankFeed);
+    };
+  }, [syncBankFeed]);
 
   // Persistent & sync dispatchers
   const persistTransactions = useCallback(
@@ -1615,6 +1700,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         updateAccountBalance,
         removeAccount,
         importBankMovements,
+        syncBankFeed,
       }}
     >
       {children}

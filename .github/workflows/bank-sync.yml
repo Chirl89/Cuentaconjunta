@@ -1,0 +1,53 @@
+﻿name: FitDuo Automated Bank Sync
+
+on:
+  schedule:
+    # Run every 4 hours automatically
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    # Allows manual trigger at any time from GitHub UI
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "bank-sync"
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Bank Sync Background Worker
+        run: node scripts/sync-banks.js
+        env:
+          ENABLEBANKING_APP_ID: ${{ secrets.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f' }}
+          ENABLEBANKING_PRIVATE_KEY: ${{ secrets.ENABLEBANKING_PRIVATE_KEY }}
+          NEXT_PUBLIC_SUPABASE_URL: "https://egougygfqnnzfqpceggn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_hGjr4Hb-601X2np1wi1d4g_gPGdg192"
+
+      - name: Commit & push updated bank feed
+        run: |
+          git config user.name "FitDuo Bank Sync Bot"
+          git config user.email "bot@fitduo.app"
+          git add public/data/bank-feed.json data/
+          if ! git diff --staged --quiet; then
+            git commit -m "chore(sync): automated bank feed update"
+            git push origin main
+          else
+            echo "No bank feed changes detected."
+          fi

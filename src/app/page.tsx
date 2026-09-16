@@ -167,6 +167,7 @@ export default function HomePage() {
     updateAccountOwnership,
     updateAccountBalance,
     removeAccount,
+    syncBankFeed,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -1410,11 +1411,24 @@ export default function HomePage() {
                   <span>Cuentas Bancarias & Tarjetas</span>
                 </h1>
                 <p className="text-xs text-slate-500 mt-1">
-                  Conexión bancaria oficial PSD2 (GoCardless). Gestiona la titularidad compartida o individual.
+                  Conexión bancaria oficial PSD2 (Enable Banking). Sincronización automática de movimientos y gestión de titularidad.
                 </p>
               </div>
 
               <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await syncBankFeed();
+                    showToast("Sincronizando feed de movimientos bancarios...");
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                  title="Sincronizar movimientos bancarios descargados por el backend"
+                >
+                  <RefreshCw className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Sincronizar ahora</span>
+                </button>
+
                 <button
                   type="button"
                   onClick={() => {
@@ -1437,15 +1451,19 @@ export default function HomePage() {
                 </div>
                 <div>
                   <span className="font-extrabold text-slate-900 block">
-                    Pasarela Segura PSD2 Open Banking
+                    Pasarela Segura PSD2 Open Banking & Worker en Segundo Plano
                   </span>
                   <span className="text-slate-500 text-[11px] leading-relaxed block">
-                    Conexión oficial de solo lectura supervisada por la EBA y el Banco de España. Tus credenciales nunca se comparten.
+                    Lectura oficial de solo lectura. Worker autónomo programado cada 4 horas para volcar los movimientos de tus tarjetas a la app.
                   </span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3 text-blue-600" />
+                  <span>Backend Worker: cada 4h</span>
+                </span>
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                   <span>Consentimiento activo (90 días)</span>

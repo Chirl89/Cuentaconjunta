@@ -1,0 +1,13 @@
+{
+  "connections": [
+    {
+      "bankName": "Bankinter",
+      "accountName": "Cuenta Bankinter",
+      "ibanMask": "ES93 0128 •••• 0803",
+      "ownership": "USER_A",
+      "institutionId": "bankinter",
+      "status": "active",
+      "lastSyncAt": null
+    }
+  ]
+}
