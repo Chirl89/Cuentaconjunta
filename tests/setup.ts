@@ -56,11 +56,12 @@ class MockBroadcastChannel {
   }
 }
 
+// @ts-expect-error Mocking global BroadcastChannel
+globalThis.BroadcastChannel = MockBroadcastChannel;
+
 if (typeof window !== "undefined") {
-  if (!window.BroadcastChannel) {
-    // @ts-expect-error Mocking global BroadcastChannel
-    window.BroadcastChannel = MockBroadcastChannel;
-  }
+  // @ts-expect-error Mocking global BroadcastChannel
+  window.BroadcastChannel = MockBroadcastChannel;
 
   // Mock window.matchMedia
   Object.defineProperty(window, "matchMedia", {

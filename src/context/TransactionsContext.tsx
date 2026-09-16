@@ -1,7 +1,16 @@
 "use client";
 
-import React, { createContext, useContext, useState, useMemo } from "react";
+import React, { createContext, useContext, useState, useMemo, useEffect, useCallback } from "react";
 import { useUserNames } from "./UserNamesContext";
+import { useOptionalAuth } from "./AuthContext";
+import {
+  subscribeHouseholdRoom,
+  broadcastHouseholdSync,
+} from "@/lib/sync/householdSync";
+
+const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v1";
+const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
+const STORAGE_KEY_SETTLEMENTS = "cuentaconjunta_settlements_v1";
 
 export type SplitType = "50/50" | "memberA" | "memberB";
 export type PayerType = "memberA" | "memberB" | "joint";
@@ -528,8 +537,60 @@ const TransactionsContext = createContext<TransactionsContextType | undefined>(u
 
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
-  const [accounts, setAccounts] = useState<BankAccount[]>(INITIAL_ACCOUNTS);
+  const auth = useOptionalAuth();
+  const inviteCode = auth?.household?.inviteCode || "FITDUO";
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return INITIAL_TRANSACTIONS;
+  });
+
+  const [accounts, setAccounts] = useState<BankAccount[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed;
+          }
+        }
+      } catch {}
+    }
+    return INITIAL_ACCOUNTS;
+  });
+
+  const [settlementCutoffs, setSettlementCutoffs] = useState<{
+    [monthKey: string]: {
+      timestamp: number;
+      amount: number;
+      debtorName: string;
+      creditorName: string;
+      method: "direct" | "joint";
+      date: string;
+    };
+  }>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      } catch {}
+    }
+    return {};
+  });
+
   const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
   const [categories, setCategories] = useState<CategoryInfo[]>(() => {
     if (typeof window !== "undefined") {
@@ -547,6 +608,162 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     return CATEGORIES_LIST;
   });
+
+  // Persistent & sync dispatchers
+  const persistTransactions = useCallback(
+    (newTxs: Transaction[] | ((prev: Transaction[]) => Transaction[]), broadcast = true) => {
+      setTransactions((prev) => {
+        const updated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(updated));
+          } catch {}
+        }
+        if (broadcast) {
+          broadcastHouseholdSync({
+            type: "TRANSACTIONS_SYNC",
+            inviteCode,
+            transactions: updated,
+          });
+        }
+        return updated;
+      });
+    },
+    [inviteCode]
+  );
+
+  const persistAccounts = useCallback(
+    (newAccs: BankAccount[] | ((prev: BankAccount[]) => BankAccount[]), broadcast = true) => {
+      setAccounts((prev) => {
+        const updated = typeof newAccs === "function" ? newAccs(prev) : newAccs;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+          } catch {}
+        }
+        if (broadcast) {
+          broadcastHouseholdSync({
+            type: "ACCOUNTS_SYNC",
+            inviteCode,
+            accounts: updated,
+          });
+        }
+        return updated;
+      });
+    },
+    [inviteCode]
+  );
+
+  const persistSettlements = useCallback(
+    (
+      newSettlements:
+        | Record<string, any>
+        | ((prev: Record<string, any>) => Record<string, any>),
+      broadcast = true
+    ) => {
+      setSettlementCutoffs((prev) => {
+        const updated =
+          typeof newSettlements === "function" ? newSettlements(prev) : newSettlements;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
+          } catch {}
+        }
+        if (broadcast) {
+          broadcastHouseholdSync({
+            type: "SETTLEMENTS_SYNC",
+            inviteCode,
+            settlements: updated,
+          });
+        }
+        return updated;
+      });
+    },
+    [inviteCode]
+  );
+
+  // Keep a ref to latest state for responsive sync handshakes
+  const latestStateRef = React.useRef({ transactions, accounts, settlementCutoffs });
+  useEffect(() => {
+    latestStateRef.current = { transactions, accounts, settlementCutoffs };
+  }, [transactions, accounts, settlementCutoffs]);
+
+  // Zero-login background sync listener (Supabase Realtime + BroadcastChannel + Storage)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const handleRemoteSync = (msg: any) => {
+      if (!msg) return;
+      if (msg.type === "TRANSACTIONS_SYNC" && Array.isArray(msg.transactions)) {
+        setTransactions(msg.transactions);
+        try {
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(msg.transactions));
+        } catch {}
+      } else if (msg.type === "ACCOUNTS_SYNC" && Array.isArray(msg.accounts)) {
+        setAccounts(msg.accounts);
+        try {
+          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(msg.accounts));
+        } catch {}
+      } else if (msg.type === "SETTLEMENTS_SYNC" && msg.settlements) {
+        setSettlementCutoffs(msg.settlements);
+        try {
+          localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(msg.settlements));
+        } catch {}
+      } else if (msg.type === "REQUEST_SYNC") {
+        broadcastHouseholdSync({
+          type: "TRANSACTIONS_SYNC",
+          inviteCode,
+          transactions: latestStateRef.current.transactions,
+        });
+        broadcastHouseholdSync({
+          type: "ACCOUNTS_SYNC",
+          inviteCode,
+          accounts: latestStateRef.current.accounts,
+        });
+        broadcastHouseholdSync({
+          type: "SETTLEMENTS_SYNC",
+          inviteCode,
+          settlements: latestStateRef.current.settlementCutoffs,
+        });
+      }
+    };
+
+    // 1. Cloud room sync (no user credentials needed)
+    const unsubscribeRoom = subscribeHouseholdRoom(inviteCode, handleRemoteSync);
+
+    // 2. Multi-tab sync on same machine
+    let bc: BroadcastChannel | null = null;
+    if ("BroadcastChannel" in window) {
+      bc = new BroadcastChannel("cuentaconjunta_transactions_sync");
+      bc.onmessage = (event: MessageEvent) => {
+        handleRemoteSync(event.data);
+      };
+    }
+
+    // 3. Storage event fallback
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY_TRANSACTIONS && e.newValue) {
+        try {
+          setTransactions(JSON.parse(e.newValue));
+        } catch {}
+      } else if (e.key === STORAGE_KEY_ACCOUNTS && e.newValue) {
+        try {
+          setAccounts(JSON.parse(e.newValue));
+        } catch {}
+      } else if (e.key === STORAGE_KEY_SETTLEMENTS && e.newValue) {
+        try {
+          setSettlementCutoffs(JSON.parse(e.newValue));
+        } catch {}
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      unsubscribeRoom();
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [inviteCode]);
 
   const addCategory = (name: string, color?: string): { success: boolean; error?: string } => {
     const trimmed = name.trim();
@@ -595,7 +812,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       c.name === name ? { ...c, color: newColor } : c
     );
     setCategories(updated);
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) => (t.category === name ? { ...t, categoryColor: newColor } : t))
     );
     if (typeof window !== "undefined") {
@@ -618,7 +835,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const fallbackColor = fallbackCat ? fallbackCat.color : "#EC4899";
 
     // Reasignar de forma transparente las transacciones asociadas a la categoría de respaldo
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) =>
         t.category === name
           ? {
@@ -681,12 +898,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       split: isTransfer ? "50/50" : data.split,
       isManual: true,
       movementType: data.movementType || "expense",
+      createdAt: Date.now(),
     };
 
-    setTransactions((prev) => [newTx, ...prev]);
+    persistTransactions((prev) => [newTx, ...prev]);
 
     if (isTransfer) {
-      setAccounts((prev) =>
+      persistAccounts((prev) =>
         prev.map((acc) => {
           if (acc.ownership === "JOINT") {
             return { ...acc, balance: acc.balance + Math.abs(data.amount) };
@@ -713,7 +931,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       split: SplitType;
     }
   ) => {
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) => {
         if (t.id !== id) return t;
         // Automated bank transactions can NEVER be edited (amount and payer immutable)
@@ -745,7 +963,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const deleteTransaction = (id: string) => {
     // Automated bank transactions can NEVER be deleted!
-    setTransactions((prev) => {
+    persistTransactions((prev) => {
       const target = prev.find((t) => t.id === id);
       if (!target || !target.isManual) {
         return prev;
@@ -755,7 +973,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) =>
         t.id === id
           ? {
@@ -770,7 +988,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const reclassifyTransaction = (id: string, split: SplitType) => {
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) => (t.id === id ? { ...t, split, status: "classified" } : t))
     );
   };
@@ -779,7 +997,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const found = categories.find((c) => c.name === newCategoryName) || CATEGORIES_LIST.find((c) => c.name === newCategoryName);
     const color = found ? found.color : "#64748B";
 
-    setTransactions((prev) =>
+    persistTransactions((prev) =>
       prev.map((t) =>
         t.id === id
           ? {
@@ -895,18 +1113,6 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [memberBClassifiedTransactions]
   );
 
-  // Settlement state per month:
-  const [settlementCutoffs, setSettlementCutoffs] = useState<{
-    [monthKey: string]: {
-      timestamp: number;
-      amount: number;
-      debtorName: string;
-      creditorName: string;
-      method: "direct" | "joint";
-      date: string;
-    };
-  }>({});
-
   const activeSettlement = settlementCutoffs[selectedMonth] || null;
 
   const settleDebt = (method: "direct" | "joint" = "direct") => {
@@ -921,14 +1127,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       date: "Hoy",
     };
 
-    setSettlementCutoffs((prev) => ({
+    persistSettlements((prev) => ({
       ...prev,
       [selectedMonth]: info,
     }));
   };
 
   const resetSettlement = () => {
-    setSettlementCutoffs((prev) => {
+    persistSettlements((prev) => {
       const next = { ...prev };
       delete next[selectedMonth];
       return next;

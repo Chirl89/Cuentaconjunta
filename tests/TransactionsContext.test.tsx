@@ -1,6 +1,6 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { describe, it, expect, beforeEach } from "vitest";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import { TransactionsProvider, useTransactions } from "@/context/TransactionsContext";
 
@@ -178,6 +178,9 @@ const TestComponent = () => {
 };
 
 describe("TransactionsContext Dynamic Engine", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
   it("calculates initial debt and spent for current month", () => {
     render(
       <UserNamesProvider>
@@ -370,5 +373,88 @@ describe("TransactionsContext Dynamic Engine", () => {
     // Reset/undo settlement
     fireEvent.click(screen.getByTestId("btn-reset-settle"));
     expect(Number(screen.getByTestId("debt").textContent)).toBe(initialDebt);
+  });
+
+  it("persists classified transactions and manual expenses across page reloads / remounts", () => {
+    // 1. Initial mount
+    const { unmount } = render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    // Initial state: 2 pending transactions
+    expect(Number(screen.getByTestId("pending-count").textContent)).toBe(2);
+
+    // Classify tx-1 and add a manual transaction
+    fireEvent.click(screen.getByTestId("btn-classify"));
+    fireEvent.click(screen.getByTestId("btn-add-manual"));
+
+    expect(Number(screen.getByTestId("pending-count").textContent)).toBe(1);
+    const spentBeforeUnmount = Number(screen.getByTestId("total-spent").textContent);
+    const classifiedBeforeUnmount = Number(screen.getByTestId("classified-count").textContent);
+
+    // 2. Unmount (simulates navigating away or page unload)
+    unmount();
+
+    // 3. Remount (simulates page refresh F5)
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    // Verify all changes were rehydrated from localStorage!
+    expect(Number(screen.getByTestId("pending-count").textContent)).toBe(1);
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(spentBeforeUnmount);
+    expect(Number(screen.getByTestId("classified-count").textContent)).toBe(classifiedBeforeUnmount);
+  });
+
+  it("synchronizes transaction updates received from another tab or device via BroadcastChannel", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <TestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialPending = Number(screen.getByTestId("pending-count").textContent);
+    expect(initialPending).toBe(2);
+
+    // Simulate another device or tab classifying tx-1
+    act(() => {
+      const channel = new BroadcastChannel("cuentaconjunta_transactions_sync");
+      channel.postMessage({
+        type: "TRANSACTIONS_SYNC",
+        inviteCode: "FITDUO",
+        transactions: [
+          {
+            id: "tx-remote-1",
+            merchant: "Compra Remota Pareja",
+            date: "14 Sep",
+            monthKey: "2026-09",
+            amount: 75.0,
+            category: "Supermercado",
+            categoryColor: "#00D09C",
+            accountLabel: "Santander Débito",
+            status: "classified",
+            payer: "memberA",
+            split: "50/50",
+            isManual: true,
+          },
+        ],
+      });
+      channel.close();
+    });
+
+    // Component immediately reflects the synchronized remote state without manual page refresh
+    expect(Number(screen.getByTestId("pending-count").textContent)).toBe(0);
+    expect(Number(screen.getByTestId("total-spent").textContent)).toBe(75.0);
+    expect(Number(screen.getByTestId("classified-count").textContent)).toBe(1);
   });
 });
