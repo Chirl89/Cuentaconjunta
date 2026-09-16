@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FitDuo / CuentaConjunta - Bank Synchronization Background Worker
  * 
  * Runs autonomously via GitHub Actions Cron every 4 hours or on demand.
@@ -175,9 +175,10 @@ async function main() {
                 updatedAccounts.push(accEntry);
               }
 
-              // Fetch transactions
+              // Fetch transactions (query past 90 days history allowed by PSD2 consent)
               try {
-                const txRes = await fetch(`https://api.enablebanking.com/accounts/${accUid}/transactions`, {
+                const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const txRes = await fetch(`https://api.enablebanking.com/accounts/${accUid}/transactions?date_from=${ninetyDaysAgo}`, {
                   headers: { Authorization: `Bearer ${jwt}` },
                 });
                 if (txRes.ok) {
