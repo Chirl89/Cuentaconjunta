@@ -1,9 +1,9 @@
-﻿name: FitDuo Automated Bank Sync
+name: FitDuo Automated Bank Sync
 
 on:
   schedule:
-    # Run every 4 hours automatically
-    - cron: '0 */4 * * *'
+    # Run every hour automatically
+    - cron: '0 * * * *'
   workflow_dispatch:
     # Allows manual trigger at any time from GitHub UI
 

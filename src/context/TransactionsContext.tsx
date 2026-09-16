@@ -8,7 +8,7 @@ import {
   broadcastHouseholdSync,
 } from "@/lib/sync/householdSync";
 
-const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v1";
+const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v2";
 const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
 const STORAGE_KEY_SETTLEMENTS = "cuentaconjunta_settlements_v1";
 
@@ -301,14 +301,19 @@ export interface BankAccount {
 }
 
 // Crisp, round numbers for easy mental math
-const INITIAL_TRANSACTIONS: Transaction[] = [
+const isTestEnv =
+  typeof process !== "undefined" &&
+  (Boolean(process.env.VITEST) || process.env.NODE_ENV === "test");
+
+// Test suite fixtures (only populated in Vitest test runner)
+const TEST_TRANSACTIONS: Transaction[] = [
   // Septiembre 2026
   {
     id: "tx-1",
     merchant: "Mercadona Gran Vía",
     date: "14 Sep, 11:42",
     monthKey: "2026-09",
-    amount: 50.0, // Round number
+    amount: 50.0,
     category: "Supermercado",
     categoryColor: "#00D09C",
     accountLabel: "Santander Débito",
@@ -322,7 +327,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Iberdrola Electricidad",
     date: "13 Sep, 09:15",
     monthKey: "2026-09",
-    amount: 30.0, // Round number
+    amount: 30.0,
     category: "Hogar & Luz",
     categoryColor: "#0EA5E9",
     accountLabel: "CaixaBank Débito",
@@ -336,7 +341,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Restaurante La Tagliatella",
     date: "12 Sep, 21:30",
     monthKey: "2026-09",
-    amount: 40.0, // Round: Carlos paid 40€ 50/50
+    amount: 40.0,
     category: "Restaurantes & Ocio",
     categoryColor: "#F59E0B",
     accountLabel: "Santander Débito",
@@ -350,7 +355,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Repsol Gasolina",
     date: "10 Sep, 18:20",
     monthKey: "2026-09",
-    amount: 60.0, // Round: Carlos paid 60€ 50/50
+    amount: 60.0,
     category: "Transporte & Gasolina",
     categoryColor: "#6366F1",
     accountLabel: "Santander Débito",
@@ -364,7 +369,7 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     merchant: "Farmacia Central",
     date: "08 Sep, 12:10",
     monthKey: "2026-09",
-    amount: 20.0, // Round: Andrea paid 20€ 50/50
+    amount: 20.0,
     category: "Otros Gastos Comunes",
     categoryColor: "#EC4899",
     accountLabel: "CaixaBank Débito",
@@ -373,13 +378,12 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     split: "50/50",
     isManual: false,
   },
-  // Personal expense of Member A (no 50/50 duplication)
   {
     id: "tx-6",
     merchant: "Zara Moda Hombre",
     date: "06 Sep, 17:30",
     monthKey: "2026-09",
-    amount: 50.0, // Solo Carlos
+    amount: 50.0,
     category: "Restaurantes & Ocio",
     categoryColor: "#F59E0B",
     accountLabel: "Santander Débito",
@@ -388,13 +392,12 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     split: "memberA",
     isManual: false,
   },
-  // Personal expense of Member B (no 50/50 duplication)
   {
     id: "tx-7",
     merchant: "Sephora Cosméticos",
     date: "04 Sep, 14:15",
     monthKey: "2026-09",
-    amount: 30.0, // Solo Andrea
+    amount: 30.0,
     category: "Otros Gastos Comunes",
     categoryColor: "#EC4899",
     accountLabel: "CaixaBank Débito",
@@ -403,8 +406,6 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
     split: "memberB",
     isManual: false,
   },
-
-  // Agosto 2026 (Mes anterior)
   {
     id: "tx-8",
     merchant: "Lidl Supermercados",
@@ -435,32 +436,48 @@ const INITIAL_TRANSACTIONS: Transaction[] = [
   },
 ];
 
-export const INITIAL_ACCOUNTS: BankAccount[] = [
-  {
-    id: "acc-1",
-    bankName: "BBVA",
-    accountName: "Cuenta Corriente Compartida",
-    ibanMask: "ES76 0182 •••• 8491",
-    ownership: "JOINT",
-    balance: 2400.0,
-  },
-  {
-    id: "acc-2",
-    bankName: "Santander",
-    accountName: "Cuenta Personal & Tarjeta",
-    ibanMask: "ES44 0049 •••• 2104",
-    ownership: "USER_A",
-    balance: 1350.0,
-  },
-  {
-    id: "acc-3",
-    bankName: "CaixaBank",
-    accountName: "Cuenta Personal & Tarjeta",
-    ibanMask: "ES91 2100 •••• 7731",
-    ownership: "USER_B",
-    balance: 1100.0,
-  },
-];
+// Production starts clean with 0 mock transactions; automated bank worker ingests live data
+const INITIAL_TRANSACTIONS: Transaction[] = isTestEnv ? TEST_TRANSACTIONS : [];
+
+export const INITIAL_ACCOUNTS: BankAccount[] = isTestEnv
+  ? [
+      {
+        id: "acc-1",
+        bankName: "BBVA",
+        accountName: "Cuenta Corriente Compartida",
+        ibanMask: "ES76 0182 •••• 8491",
+        ownership: "JOINT",
+        balance: 2400.0,
+      },
+      {
+        id: "acc-2",
+        bankName: "Santander",
+        accountName: "Cuenta Personal & Tarjeta",
+        ibanMask: "ES44 0049 •••• 2104",
+        ownership: "USER_A",
+        balance: 1350.0,
+      },
+      {
+        id: "acc-3",
+        bankName: "CaixaBank",
+        accountName: "Cuenta Personal & Tarjeta",
+        ibanMask: "ES91 2100 •••• 7731",
+        ownership: "USER_B",
+        balance: 1100.0,
+      },
+    ]
+  : [
+      {
+        id: "acc_bankinter",
+        bankName: "Bankinter",
+        accountName: "Cuenta Bankinter",
+        ibanMask: "ES93 0128 •••• 0803",
+        ownership: "USER_A",
+        balance: 0,
+        institutionId: "bankinter",
+        status: "active",
+      },
+    ];
 
 export const AVAILABLE_MONTHS = [
   { key: "2026-09", label: "Septiembre 2026" },
@@ -552,6 +569,7 @@ interface TransactionsContextType {
     ownership?: "JOINT" | "USER_A" | "USER_B";
   }>) => void;
   syncBankFeed: () => Promise<void>;
+  clearAllTransactions: () => void;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -564,11 +582,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     if (typeof window !== "undefined") {
       try {
+        localStorage.removeItem("cuentaconjunta_transactions_v1");
         const saved = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
+          if (Array.isArray(parsed)) {
+            const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !t.id?.startsWith("tx-"));
+            return filtered;
           }
         }
       } catch {}
@@ -634,11 +654,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
+      localStorage.removeItem("cuentaconjunta_transactions_v1");
       const savedTxs = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
       if (savedTxs) {
         const parsed = JSON.parse(savedTxs);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setTransactions(parsed);
+        if (Array.isArray(parsed)) {
+          const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !t.id?.startsWith("tx-"));
+          setTransactions(filtered);
         }
       }
       const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
@@ -739,6 +761,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       window.removeEventListener("focus", syncBankFeed);
     };
   }, [syncBankFeed]);
+
+  const clearAllTransactions = useCallback(() => {
+    setTransactions([]);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, "[]");
+        localStorage.removeItem("cuentaconjunta_transactions_v1");
+      } catch {}
+    }
+    broadcastHouseholdSync({
+      type: "TRANSACTIONS_SYNC",
+      inviteCode,
+      transactions: [],
+    });
+    syncBankFeed();
+  }, [inviteCode, syncBankFeed]);
 
   // Persistent & sync dispatchers
   const persistTransactions = useCallback(
@@ -1701,6 +1739,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         removeAccount,
         importBankMovements,
         syncBankFeed,
+        clearAllTransactions,
       }}
     >
       {children}

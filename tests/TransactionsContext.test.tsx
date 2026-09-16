@@ -558,4 +558,37 @@ describe("TransactionsContext Dynamic Engine", () => {
     // Balance updated to statement balance
     expect(Number(screen.getByTestId("balance-acc-bankinter-1").textContent)).toBe(1850.75);
   });
+
+  it("supports clearAllTransactions to wipe transactions completely for clean automated bank loading", () => {
+    const ClearTestComponent = () => {
+      const { transactions, clearAllTransactions } = useTransactions();
+      return (
+        <div>
+          <span data-testid="tx-count">{transactions.length}</span>
+          <button data-testid="btn-clear" onClick={clearAllTransactions}>
+            Clear All
+          </button>
+        </div>
+      );
+    };
+
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <ClearTestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    expect(Number(screen.getByTestId("tx-count").textContent)).toBeGreaterThan(0);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("btn-clear"));
+    });
+
+    expect(Number(screen.getByTestId("tx-count").textContent)).toBe(0);
+    expect(localStorage.getItem("cuentaconjunta_transactions_v2")).toBe("[]");
+    expect(localStorage.getItem("cuentaconjunta_transactions_v1")).toBeNull();
+  });
 });
+

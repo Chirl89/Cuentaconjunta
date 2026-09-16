@@ -168,6 +168,7 @@ export default function HomePage() {
     updateAccountBalance,
     removeAccount,
     syncBankFeed,
+    clearAllTransactions,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -1432,6 +1433,21 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    if (window.confirm("¿Seguro que deseas eliminar todos los movimientos y dejar la app completamente limpia para los datos reales del banco?")) {
+                      clearAllTransactions();
+                      showToast("Movimientos eliminados. Listo para cargar datos reales.");
+                    }
+                  }}
+                  className="px-3 py-2.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border border-rose-200/60"
+                  title="Vaciar movimientos para empezar desde cero con el feed bancario"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  <span>Limpiar movimientos</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
                     setBankModalInitialMode("catalog");
                     setIsBankModalOpen(true);
                   }}
@@ -1454,7 +1470,7 @@ export default function HomePage() {
                     Pasarela Segura PSD2 Open Banking & Worker en Segundo Plano
                   </span>
                   <span className="text-slate-500 text-[11px] leading-relaxed block">
-                    Lectura oficial de solo lectura. Worker autónomo programado cada 4 horas para volcar los movimientos de tus tarjetas a la app.
+                    Lectura oficial de solo lectura. Worker autónomo programado cada hora para volcar los movimientos de tus tarjetas a la app.
                   </span>
                 </div>
               </div>
@@ -1462,7 +1478,7 @@ export default function HomePage() {
               <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
                   <RefreshCw className="w-3 h-3 text-blue-600" />
-                  <span>Backend Worker: cada 4h</span>
+                  <span>Backend Worker: cada 1h</span>
                 </span>
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
