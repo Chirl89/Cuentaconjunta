@@ -539,6 +539,16 @@ interface TransactionsContextType {
   addConnectedAccounts: (newAccounts: BankAccount[]) => void;
   updateAccountOwnership: (accountId: string, ownership: "JOINT" | "USER_A" | "USER_B") => void;
   removeAccount: (accountId: string) => void;
+  importBankMovements: (movements: Array<{
+    id?: string;
+    concept: string;
+    amount: number;
+    date: string;
+    monthKey: string;
+    bankName?: string;
+    accountLabel?: string;
+    ownership?: "JOINT" | "USER_A" | "USER_B";
+  }>) => void;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -746,6 +756,54 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       persistAccounts((prev) => prev.filter((a) => a.id !== accountId));
     },
     [persistAccounts]
+  );
+
+  const importBankMovements = useCallback(
+    (
+      movements: Array<{
+        id?: string;
+        concept: string;
+        amount: number;
+        date: string;
+        monthKey: string;
+        bankName?: string;
+        accountLabel?: string;
+        ownership?: "JOINT" | "USER_A" | "USER_B";
+      }>
+    ) => {
+      const newTxs: Transaction[] = movements.map((m, idx) => {
+        const payer: PayerType =
+          m.ownership === "USER_B"
+            ? "memberB"
+            : m.ownership === "USER_A"
+            ? "memberA"
+            : "joint";
+
+        return {
+          id: m.id || `bank-stmt-${Date.now()}-${idx}`,
+          merchant: m.concept.trim() || "Movimiento Bancario",
+          date: m.date,
+          monthKey: m.monthKey,
+          amount: Math.abs(m.amount),
+          category: "Otros Gastos Comunes",
+          categoryColor: "#64748B",
+          accountLabel: m.accountLabel || m.bankName || "Bankinter",
+          status: "pending",
+          payer,
+          split: "50/50",
+          isManual: false,
+          movementType: "expense",
+          createdAt: Date.now() - idx * 1000,
+        };
+      });
+
+      persistTransactions((prev) => {
+        const existingIds = new Set(prev.map((t) => t.id));
+        const toAdd = newTxs.filter((t) => !existingIds.has(t.id));
+        return [...toAdd, ...prev];
+      });
+    },
+    [persistTransactions]
   );
 
   // Keep a ref to latest state for responsive sync handshakes
@@ -1532,6 +1590,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         addConnectedAccounts,
         updateAccountOwnership,
         removeAccount,
+        importBankMovements,
       }}
     >
       {children}

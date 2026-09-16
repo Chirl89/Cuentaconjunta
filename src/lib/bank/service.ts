@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Bank Service Module
  * Handles Open Banking PSD2 operations via Enable Banking (default) and GoCardless.
  * Compatible with Next.js static export (GitHub Pages) and client-side execution.
@@ -30,6 +30,14 @@ export interface SaveAccountInput {
   institutionId?: string;
   requisitionId?: string;
   provider?: BankProvider;
+}
+
+export function getEnableBankingAppId(): string | null {
+  return enableBanking.getApplicationId();
+}
+
+export function setEnableBankingAppId(appId: string | null): void {
+  enableBanking.setApplicationId(appId);
 }
 
 /**

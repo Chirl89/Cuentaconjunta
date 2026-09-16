@@ -147,11 +147,36 @@ export class EnableBankingClient {
       null;
   }
 
+  public getApplicationId(): string | null {
+    if (this.applicationId && this.applicationId !== "your-enablebanking-app-id") {
+      return this.applicationId;
+    }
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("enablebanking_app_id");
+      if (stored && stored.trim().length > 5) {
+        return stored.trim();
+      }
+    }
+    return null;
+  }
+
+  public setApplicationId(appId: string | null) {
+    this.applicationId = appId;
+    if (typeof window !== "undefined") {
+      if (appId && appId.trim().length > 0) {
+        localStorage.setItem("enablebanking_app_id", appId.trim());
+      } else {
+        localStorage.removeItem("enablebanking_app_id");
+      }
+    }
+  }
+
   public hasLiveCredentials(): boolean {
+    const id = this.getApplicationId();
     return !!(
-      this.applicationId &&
-      this.applicationId !== "your-enablebanking-app-id" &&
-      this.applicationId.length > 5
+      id &&
+      id !== "your-enablebanking-app-id" &&
+      id.length > 5
     );
   }
 
