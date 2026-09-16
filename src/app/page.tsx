@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useNavigation } from "@/context/NavigationContext";
 import {
@@ -14,6 +14,7 @@ import {
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
+import ConnectBankModal from "@/components/ConnectBankModal";
 import versionData from "../../version.json";
 import {
   TrendingDown,
@@ -46,6 +47,10 @@ import {
   Calendar,
   Palette,
   X,
+  ShieldCheck,
+  CreditCard,
+  RefreshCw,
+  ExternalLink,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -156,11 +161,33 @@ export default function HomePage() {
     getCategoryMonthlyBreakdown,
     allPendingTransactions,
     selectedMonth,
+    addConnectedAccounts,
+    updateAccountOwnership,
+    removeAccount,
   } = useTransactions();
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isBankModalOpen, setIsBankModalOpen] = useState(false);
+  const [bankCallbackReqId, setBankCallbackReqId] = useState<string | null>(null);
+
+  // Check for bank callback redirection in URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const authSuccess = urlParams.get("bank_auth_success");
+    const reqId = urlParams.get("requisition_id");
+
+    if (authSuccess === "true" && reqId) {
+      setActiveTab("cuentas");
+      setBankCallbackReqId(reqId);
+      setIsBankModalOpen(true);
+      // Clean up URL without reloading
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [setActiveTab]);
 
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
@@ -1358,58 +1385,205 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* TAB 6: CUENTAS BANCARIAS (CON CUENTA PARA ANDREA)            */}
+      {/* TAB 6: CUENTAS BANCARIAS (OPEN BANKING PSD2 & TITULARIDAD)    */}
       {/* ============================================================ */}
       {activeTab === "cuentas" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-                <Landmark className="w-5 h-5 text-[#00A37A]" />
-                <span>Cuentas Bancarias</span>
-              </h1>
-              <button
-                onClick={() => alert("El conector bancario automático oficial PSD2 se configurará en el Paso 5.")}
-                className="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-colors"
-              >
-                Conectar Banco
-              </button>
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
+            {/* Header with Connect Button */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+              <div>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2.5">
+                  <Landmark className="w-5 h-5 text-[#00A37A]" />
+                  <span>Cuentas Bancarias & Tarjetas</span>
+                </h1>
+                <p className="text-xs text-slate-500 mt-1">
+                  Conexión bancaria oficial PSD2 (GoCardless). Gestiona la titularidad compartida o individual.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsBankModalOpen(true)}
+                  className="px-4 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Conectar Banco (PSD2)</span>
+                </button>
+              </div>
             </div>
 
-            {/* List of accounts: Joint, Member A, Member B (Andrea) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {accounts.map((acc) => {
-                const isJoint = acc.ownership === "JOINT";
-                const isA = acc.ownership === "USER_A";
-                const ownerLabel = isJoint
-                  ? "Titularidad: Conjunta"
-                  : isA
-                  ? `Titularidad: ${memberAName}`
-                  : `Titularidad: ${memberBName}`;
+            {/* PSD2 Information & Status Banner */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center shrink-0 text-[#00A37A]">
+                  <ShieldCheck className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="font-extrabold text-slate-900 block">
+                    Pasarela Segura PSD2 Open Banking
+                  </span>
+                  <span className="text-slate-500 text-[11px] leading-relaxed block">
+                    Conexión oficial de solo lectura supervisada por la EBA y el Banco de España. Tus credenciales nunca se comparten.
+                  </span>
+                </div>
+              </div>
 
-                const badgeStyle = isJoint
-                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                  : isA
-                  ? "bg-red-50 text-red-600 border border-red-200"
-                  : "bg-blue-50 text-blue-600 border border-blue-200";
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Consentimiento activo (90 días)</span>
+                </span>
+              </div>
+            </div>
 
-                return (
-                  <div key={acc.id} className="p-5 rounded-2xl border border-slate-200/80 bg-slate-50/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-900">
-                        {acc.bankName} {acc.accountName}
-                      </span>
+            {/* Accounts Grid */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
+                  Cuentas Registradas ({accounts.length})
+                </span>
+                <span className="text-xs text-slate-500 font-semibold">
+                  Saldo total agrupado:{" "}
+                  <strong className="text-slate-900 font-extrabold">
+                    {accounts.reduce((sum, a) => sum + a.balance, 0).toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                  </strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {accounts.map((acc) => {
+                  const isJoint = acc.ownership === "JOINT";
+                  const isA = acc.ownership === "USER_A";
+                  const isB = acc.ownership === "USER_B";
+
+                  return (
+                    <div
+                      key={acc.id}
+                      className="p-5 rounded-3xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between"
+                    >
+                      {/* Card Top: Bank & Name & Remove */}
+                      <div className="space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-9 h-9 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200/60 text-slate-700">
+                              {acc.accountName.toLowerCase().includes("tarjeta") ? (
+                                <CreditCard className="w-4 h-4 text-slate-600" />
+                              ) : (
+                                <Landmark className="w-4 h-4 text-slate-600" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-xs font-black text-slate-900 block truncate">
+                                {acc.bankName}
+                              </span>
+                              <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                                {acc.accountName}
+                              </span>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm(`¿Desconectar la cuenta "${acc.bankName} ${acc.accountName}"?`)) {
+                                removeAccount(acc.id);
+                                showToast(`Cuenta ${acc.accountName} eliminada`);
+                              }
+                            }}
+                            className="text-slate-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                            title="Desconectar cuenta"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {/* Balance and IBAN */}
+                        <div className="pt-2">
+                          <div className="text-2xl font-black text-slate-900 tracking-tight">
+                            {acc.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                          </div>
+                          <span className="text-[11px] text-slate-400 font-mono block mt-0.5">
+                            {acc.ibanMask}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Interactive Ownership Switcher */}
+                      <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          <span>Titularidad asignada:</span>
+                          <span
+                            className={
+                              isJoint
+                                ? "text-[#00A37A]"
+                                : isA
+                                ? "text-red-600"
+                                : "text-blue-600"
+                            }
+                          >
+                            {isJoint ? "Compartida" : isA ? memberAName : memberBName}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateAccountOwnership(acc.id, "JOINT");
+                              showToast(`Titularidad de "${acc.accountName}" cambiada a Conjunta`);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                              isJoint
+                                ? "bg-[#00D09C] text-white shadow-xs"
+                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                            }`}
+                            title="Asignar como cuenta conjunta / compartida"
+                          >
+                            <Users className="w-3 h-3 shrink-0" />
+                            <span className="truncate">Conjunta</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateAccountOwnership(acc.id, "USER_A");
+                              showToast(`Titularidad de "${acc.accountName}" cambiada a ${memberAName}`);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                              isA
+                                ? "bg-red-500 text-white shadow-xs"
+                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                            }`}
+                            title={`Asignar a ${memberAName}`}
+                          >
+                            <User className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{memberAName}</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              updateAccountOwnership(acc.id, "USER_B");
+                              showToast(`Titularidad de "${acc.accountName}" cambiada a ${memberBName}`);
+                            }}
+                            className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                              isB
+                                ? "bg-blue-600 text-white shadow-xs"
+                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                            }`}
+                            title={`Asignar a ${memberBName}`}
+                          >
+                            <User className="w-3 h-3 shrink-0" />
+                            <span className="truncate">{memberBName}</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full inline-block ${badgeStyle}`}>
-                      {ownerLabel}
-                    </span>
-                    <div className="text-2xl font-black text-slate-900">
-                      {acc.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
-                    </div>
-                    <span className="text-xs text-slate-400 block font-mono">{acc.ibanMask}</span>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -1501,7 +1675,7 @@ export default function HomePage() {
                   <span className="text-slate-500">FitDuo Protocol • Versión v{versionData.version}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
-                  Paso 4 (v0.4.0)
+                  Paso 5 (v0.5.0)
                 </span>
               </div>
             </div>
@@ -1886,6 +2060,20 @@ export default function HomePage() {
         }}
         onSuccess={showToast}
         transactionToEdit={editingTransaction}
+      />
+
+      {/* Modal de Conexión Bancaria PSD2 Oficial (GoCardless) */}
+      <ConnectBankModal
+        isOpen={isBankModalOpen}
+        onClose={() => {
+          setIsBankModalOpen(false);
+          setBankCallbackReqId(null);
+        }}
+        initialRequisitionId={bankCallbackReqId}
+        onAccountsConnected={(newAccs) => {
+          addConnectedAccounts(newAccs);
+          showToast(`¡${newAccs.length} cuenta(s) vinculada(s) con éxito!`);
+        }}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/Sidebar";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 import { TransactionsProvider } from "@/context/TransactionsContext";
+import versionData from "../version.json";
 
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <UserNamesProvider>
@@ -80,7 +81,7 @@ describe("Sidebar Component", () => {
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("balances");
   });
 
-  it("displays the VersionBadge with Paso 4", () => {
+  it("displays the VersionBadge with the current Paso", () => {
     render(
       <TestWrapper>
         <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
@@ -88,6 +89,6 @@ describe("Sidebar Component", () => {
     );
 
     expect(screen.getByTestId("version-badge")).toBeInTheDocument();
-    expect(screen.getByText(/Paso 4/i)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`Paso ${versionData.conversation || 5}`, "i"))).toBeInTheDocument();
   });
 });

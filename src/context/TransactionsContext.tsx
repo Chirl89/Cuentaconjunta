@@ -292,6 +292,11 @@ export interface BankAccount {
   ibanMask: string;
   ownership: "JOINT" | "USER_A" | "USER_B";
   balance: number;
+  connectionId?: string;
+  institutionId?: string;
+  connectedAt?: string;
+  expiresAt?: string;
+  status?: "active" | "expired" | "error";
 }
 
 // Crisp, round numbers for easy mental math
@@ -531,6 +536,9 @@ interface TransactionsContextType {
   getCategoryUsageStatus: (categoryName: string) => CategoryUsageStatus;
   getCategoryMonthlyBreakdown: (categoryName: string) => MonthSpending[];
   allPendingTransactions: Transaction[];
+  addConnectedAccounts: (newAccounts: BankAccount[]) => void;
+  updateAccountOwnership: (accountId: string, ownership: "JOINT" | "USER_A" | "USER_B") => void;
+  removeAccount: (accountId: string) => void;
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -707,6 +715,37 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       });
     },
     [inviteCode]
+  );
+
+  const addConnectedAccounts = useCallback(
+    (newAccounts: BankAccount[]) => {
+      persistAccounts((prev) => {
+        const existingIds = new Set(prev.map((a) => a.id));
+        const toAdd = newAccounts.filter((a) => !existingIds.has(a.id));
+        const updated = prev.map((a) => {
+          const match = newAccounts.find((na) => na.id === a.id);
+          return match ? { ...a, ...match } : a;
+        });
+        return [...updated, ...toAdd];
+      });
+    },
+    [persistAccounts]
+  );
+
+  const updateAccountOwnership = useCallback(
+    (accountId: string, ownership: "JOINT" | "USER_A" | "USER_B") => {
+      persistAccounts((prev) =>
+        prev.map((a) => (a.id === accountId ? { ...a, ownership } : a))
+      );
+    },
+    [persistAccounts]
+  );
+
+  const removeAccount = useCallback(
+    (accountId: string) => {
+      persistAccounts((prev) => prev.filter((a) => a.id !== accountId));
+    },
+    [persistAccounts]
   );
 
   // Keep a ref to latest state for responsive sync handshakes
@@ -1490,6 +1529,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         getCategoryUsageStatus,
         getCategoryMonthlyBreakdown,
         allPendingTransactions,
+        addConnectedAccounts,
+        updateAccountOwnership,
+        removeAccount,
       }}
     >
       {children}
