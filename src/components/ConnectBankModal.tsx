@@ -10,6 +10,8 @@ import {
   saveDiscoveredAccounts,
   getEnableBankingAppId,
   setEnableBankingAppId,
+  getEnableBankingPrivateKey,
+  setEnableBankingPrivateKey,
 } from "@/lib/bank/service";
 import { parseSpanishBankStatement, ParsedBankMovement } from "@/lib/bank/importer";
 import {
@@ -79,10 +81,12 @@ export default function ConnectBankModal({
   const [selectedBank, setSelectedBank] = useState<BankInstitution | null>(null);
   const [hasLiveCredentials, setHasLiveCredentials] = useState(false);
 
-  // App ID config state
+  // App ID & RSA Private Key config state
   const [appIdInput, setAppIdInput] = useState("");
+  const [privateKeyInput, setPrivateKeyInput] = useState("");
   const [appIdSavedSuccess, setAppIdSavedSuccess] = useState(false);
   const [showConnectPrompt, setShowConnectPrompt] = useState(false);
+  const keyFileInputRef = useRef<HTMLInputElement>(null);
 
   // Statement import state
   const [statementText, setStatementText] = useState("");
@@ -110,14 +114,18 @@ export default function ConnectBankModal({
       setIsLoadingInstitutions(true);
 
       const currentId = getEnableBankingAppId() || "";
+      const currentKey = getEnableBankingPrivateKey() || "";
       setAppIdInput(currentId);
-      setHasLiveCredentials(currentId.length > 5);
+      setPrivateKeyInput(currentKey);
+      setHasLiveCredentials(currentId.length > 5 && currentKey.length > 10);
 
       getBankInstitutions("ES")
         .then((data) => {
           if (data.success && Array.isArray(data.institutions)) {
             setInstitutions(data.institutions);
-            setHasLiveCredentials(!!data.hasLiveCredentials || currentId.length > 5);
+            setHasLiveCredentials(
+              !!data.hasLiveCredentials || (currentId.length > 5 && currentKey.length > 10)
+            );
           }
         })
         .catch((err) => {
@@ -151,18 +159,34 @@ export default function ConnectBankModal({
     return institutions.filter((inst) => inst.name.toLowerCase().includes(term));
   }, [institutions, searchTerm]);
 
-  // Handle saving Enable Banking Application ID
+  // Handle file upload for RSA Private Key (.key / .pem / .txt)
+  const handleKeyFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        setPrivateKeyInput(content.trim());
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Handle saving Enable Banking Application ID and Private Key
   const handleSaveAppId = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!appIdInput.trim()) {
+    if (!appIdInput.trim() && !privateKeyInput.trim()) {
       setEnableBankingAppId(null);
+      setEnableBankingPrivateKey(null);
       setHasLiveCredentials(false);
       setAppIdSavedSuccess(false);
       return;
     }
 
     setEnableBankingAppId(appIdInput.trim());
-    setHasLiveCredentials(true);
+    setEnableBankingPrivateKey(privateKeyInput.trim());
+    setHasLiveCredentials(appIdInput.trim().length > 5 && privateKeyInput.trim().length > 10);
     setAppIdSavedSuccess(true);
     setTimeout(() => {
       setAppIdSavedSuccess(false);
@@ -862,36 +886,74 @@ export default function ConnectBankModal({
                 </ol>
               </div>
 
-              <form onSubmit={handleSaveAppId} className="space-y-3">
+              <form onSubmit={handleSaveAppId} className="space-y-4">
                 <div>
                   <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block mb-1">
-                    Application ID de Enable Banking:
+                    1. Application ID de Enable Banking:
                   </label>
                   <input
                     type="text"
                     value={appIdInput}
                     onChange={(e) => setAppIdInput(e.target.value)}
-                    placeholder="ej. eb_app_a1b2c3d4e5f6..."
+                    placeholder="ej. 8a7c2b4e-91fd-4b08-8f83-..."
                     className="w-full py-2.5 px-3.5 rounded-xl border border-slate-200 bg-white text-xs font-mono font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
                   />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Lo obtienes al crear la aplicación en el Control Panel de Enable Banking.
+                  </p>
                 </div>
 
-                <div className="flex items-center justify-between gap-3 pt-1">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                      2. Clave Privada RSA (.key / .pem):
+                    </label>
+                    <input
+                      type="file"
+                      ref={keyFileInputRef}
+                      accept=".key,.pem,.txt"
+                      onChange={handleKeyFileUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => keyFileInputRef.current?.click()}
+                      className="text-[11px] font-bold text-[#00A37A] hover:text-[#008761] flex items-center gap-1 cursor-pointer"
+                    >
+                      <UploadCloud className="w-3.5 h-3.5" />
+                      <span>Cargar archivo .key</span>
+                    </button>
+                  </div>
+                  <textarea
+                    value={privateKeyInput}
+                    onChange={(e) => setPrivateKeyInput(e.target.value)}
+                    placeholder="-----BEGIN RSA PRIVATE KEY-----&#10;MIIEowIBAAKCAQEA...&#10;-----END RSA PRIVATE KEY-----"
+                    rows={4}
+                    className="w-full py-2 px-3 rounded-xl border border-slate-200 bg-white text-[11px] font-mono text-slate-800 focus:outline-none focus:border-[#00D09C] resize-none"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    Es el archivo de clave privada que se descarga automáticamente al registrar la app. Se almacena localmente y de forma segura en tu navegador.
+                  </p>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100">
                   {hasLiveCredentials ? (
                     <button
                       type="button"
                       onClick={() => {
                         setEnableBankingAppId(null);
+                        setEnableBankingPrivateKey(null);
                         setAppIdInput("");
+                        setPrivateKeyInput("");
                         setHasLiveCredentials(false);
                       }}
-                      className="text-xs text-red-600 hover:text-red-800 font-bold"
+                      className="text-xs text-red-600 hover:text-red-800 font-bold cursor-pointer"
                     >
-                      Desconectar Clave Actual
+                      Desconectar Claves Actuales
                     </button>
                   ) : (
                     <span className="text-[11px] text-slate-400">
-                      Sin clave activa (Modo Simulación)
+                      Sin credenciales guardadas
                     </span>
                   )}
 
@@ -899,7 +961,7 @@ export default function ConnectBankModal({
                     type="submit"
                     className="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors cursor-pointer ml-auto"
                   >
-                    Guardar Clave
+                    Guardar Credenciales
                   </button>
                 </div>
               </form>

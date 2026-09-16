@@ -40,6 +40,14 @@ export function setEnableBankingAppId(appId: string | null): void {
   enableBanking.setApplicationId(appId);
 }
 
+export function getEnableBankingPrivateKey(): string | null {
+  return enableBanking.getPrivateKey();
+}
+
+export function setEnableBankingPrivateKey(key: string | null): void {
+  enableBanking.setPrivateKey(key);
+}
+
 /**
  * Get available bank institutions (Default: Enable Banking PSD2)
  */

@@ -11,6 +11,8 @@
  * 5. Full Sandbox & Simulation fallback for instant testability
  */
 
+import { SignJWT, importPKCS8 } from "jose";
+
 export interface ASPSP {
   name: string;
   title: string;
@@ -171,6 +173,59 @@ export class EnableBankingClient {
     }
   }
 
+  public getPrivateKey(): string | null {
+    if (typeof process !== "undefined" && process.env.ENABLEBANKING_PRIVATE_KEY) {
+      return process.env.ENABLEBANKING_PRIVATE_KEY;
+    }
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("enablebanking_private_key");
+      if (stored && stored.trim().length > 20) {
+        return stored.trim();
+      }
+    }
+    return null;
+  }
+
+  public setPrivateKey(key: string | null) {
+    if (typeof window !== "undefined") {
+      if (key && key.trim().length > 0) {
+        localStorage.setItem("enablebanking_private_key", key.trim());
+      } else {
+        localStorage.removeItem("enablebanking_private_key");
+      }
+    }
+  }
+
+  public async getSignedJWT(): Promise<string | null> {
+    const appId = this.getApplicationId();
+    const privKey = this.getPrivateKey();
+    if (!appId || !privKey) return null;
+
+    try {
+      let cleanPem = privKey.replace(/\\n/g, "\n").trim();
+      if (!cleanPem.includes("-----BEGIN")) {
+        cleanPem = `-----BEGIN PRIVATE KEY-----\n${cleanPem}\n-----END PRIVATE KEY-----`;
+      }
+      const key = await importPKCS8(cleanPem, "RS256");
+      const now = Math.floor(Date.now() / 1000);
+      return await new SignJWT({
+        iss: "enablebanking.com",
+        aud: "api.enablebanking.com",
+        iat: now,
+        exp: now + 3600,
+      })
+        .setProtectedHeader({
+          alg: "RS256",
+          typ: "JWT",
+          kid: appId,
+        })
+        .sign(key);
+    } catch (err) {
+      console.warn("Error signing Enable Banking JWT:", err);
+      return null;
+    }
+  }
+
   public hasLiveCredentials(): boolean {
     const id = this.getApplicationId();
     return !!(
@@ -186,10 +241,16 @@ export class EnableBankingClient {
   public async getASPSPs(country = "ES"): Promise<ASPSP[]> {
     if (this.hasLiveCredentials()) {
       try {
+        const jwt = await this.getSignedJWT();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (jwt) {
+          headers["Authorization"] = `Bearer ${jwt}`;
+        }
+
         const res = await fetch(`${this.apiBaseUrl}/aspsps?country=${country.toUpperCase()}`, {
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
         });
         if (res.ok) {
           const data = await res.json();
@@ -227,12 +288,18 @@ export class EnableBankingClient {
     // In live mode with credentials configured
     if (this.hasLiveCredentials() && !aspsp?.isMock) {
       try {
+        const jwt = await this.getSignedJWT();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (jwt) {
+          headers["Authorization"] = `Bearer ${jwt}`;
+        }
+
         const validUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         const res = await fetch(`${this.apiBaseUrl}/auth`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers,
           body: JSON.stringify({
             access: {
               valid_until: validUntil,
