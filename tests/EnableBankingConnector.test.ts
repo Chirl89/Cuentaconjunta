@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 import {
   EnableBankingClient,
   SPANISH_ASPSPS,
@@ -13,11 +13,12 @@ import {
 
 describe("Paso 6: Conector Open Banking (Enable Banking PSD2 - Alternativa Sin Coste y Titularidad)", () => {
   describe("1. EnableBankingClient Service & ASPSPs Catalog", () => {
-    it("initializes client and detects credentials correctly", () => {
-      const mockClient = new EnableBankingClient("app-test-id-123456");
-      expect(mockClient.hasLiveCredentials()).toBe(true);
+    it("initializes client and detects transparent built-in credentials correctly", () => {
+      const defaultClient = new EnableBankingClient();
+      expect(defaultClient.hasLiveCredentials()).toBe(true);
+      expect(defaultClient.getApplicationId()).toBe("5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f");
 
-      const unconfiguredClient = new EnableBankingClient(undefined);
+      const unconfiguredClient = new EnableBankingClient(null, null);
       expect(unconfiguredClient.hasLiveCredentials()).toBe(false);
     });
 

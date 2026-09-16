@@ -12,6 +12,10 @@
  */
 
 import { SignJWT, importPKCS8 } from "jose";
+import {
+  DEFAULT_ENABLEBANKING_APP_ID,
+  DEFAULT_ENABLEBANKING_PRIVATE_KEY,
+} from "./credentials";
 
 export interface ASPSP {
   name: string;
@@ -138,28 +142,29 @@ const mockSessionsStore = new Map<
 >();
 
 export class EnableBankingClient {
-  private applicationId: string | null;
+  private applicationId?: string | null;
+  private privateKey?: string | null;
   private apiBaseUrl = "https://api.enablebanking.com";
 
-  constructor(applicationId?: string) {
-    this.applicationId =
-      applicationId ||
-      (typeof process !== "undefined" && process.env.ENABLEBANKING_APPLICATION_ID) ||
-      (typeof process !== "undefined" && process.env.NEXT_PUBLIC_ENABLEBANKING_APP_ID) ||
-      null;
+  constructor(applicationId?: string | null, privateKey?: string | null) {
+    this.applicationId = applicationId;
+    this.privateKey = privateKey;
   }
 
   public getApplicationId(): string | null {
-    if (this.applicationId && this.applicationId !== "your-enablebanking-app-id") {
-      return this.applicationId;
-    }
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("enablebanking_app_id");
       if (stored && stored.trim().length > 5) {
         return stored.trim();
       }
     }
-    return null;
+    if (this.applicationId !== undefined) {
+      return this.applicationId;
+    }
+    if (typeof process !== "undefined" && process.env.ENABLEBANKING_APPLICATION_ID) {
+      return process.env.ENABLEBANKING_APPLICATION_ID;
+    }
+    return DEFAULT_ENABLEBANKING_APP_ID;
   }
 
   public setApplicationId(appId: string | null) {
@@ -174,19 +179,23 @@ export class EnableBankingClient {
   }
 
   public getPrivateKey(): string | null {
-    if (typeof process !== "undefined" && process.env.ENABLEBANKING_PRIVATE_KEY) {
-      return process.env.ENABLEBANKING_PRIVATE_KEY;
-    }
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("enablebanking_private_key");
       if (stored && stored.trim().length > 20) {
         return stored.trim();
       }
     }
-    return null;
+    if (this.privateKey !== undefined) {
+      return this.privateKey;
+    }
+    if (typeof process !== "undefined" && process.env.ENABLEBANKING_PRIVATE_KEY) {
+      return process.env.ENABLEBANKING_PRIVATE_KEY;
+    }
+    return DEFAULT_ENABLEBANKING_PRIVATE_KEY;
   }
 
   public setPrivateKey(key: string | null) {
+    this.privateKey = key;
     if (typeof window !== "undefined") {
       if (key && key.trim().length > 0) {
         localStorage.setItem("enablebanking_private_key", key.trim());
@@ -228,10 +237,13 @@ export class EnableBankingClient {
 
   public hasLiveCredentials(): boolean {
     const id = this.getApplicationId();
+    const key = this.getPrivateKey();
     return !!(
       id &&
       id !== "your-enablebanking-app-id" &&
-      id.length > 5
+      id.length > 5 &&
+      key &&
+      key.length > 20
     );
   }
 
@@ -386,18 +398,126 @@ export class EnableBankingClient {
   /**
    * Retrieves accounts and balances discovered in a session
    */
-  public async getAccountsFromSession(sessionId: string): Promise<{
+  public async getAccountsFromSession(sessionIdOrCode: string): Promise<{
     sessionId: string;
     accounts: EnableBankingAccount[];
     isMock: boolean;
   }> {
-    const mockSession = mockSessionsStore.get(sessionId);
+    const mockSession = mockSessionsStore.get(sessionIdOrCode);
     if (mockSession) {
       return {
-        sessionId,
+        sessionId: sessionIdOrCode,
         accounts: mockSession.accounts,
         isMock: true,
       };
+    }
+
+    if (this.hasLiveCredentials()) {
+      try {
+        const jwt = await this.getSignedJWT();
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (jwt) {
+          headers["Authorization"] = `Bearer ${jwt}`;
+        }
+
+        let sessionData: any = null;
+
+        // Try exchanging auth code via POST /sessions
+        try {
+          const res = await fetch(`${this.apiBaseUrl}/sessions`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ code: sessionIdOrCode }),
+          });
+          if (res.ok) {
+            sessionData = await res.json();
+          }
+        } catch {
+          // continue
+        }
+
+        // If not successful by code, try GET /sessions/{session_id}
+        if (!sessionData) {
+          try {
+            const getRes = await fetch(`${this.apiBaseUrl}/sessions/${sessionIdOrCode}`, {
+              headers,
+            });
+            if (getRes.ok) {
+              sessionData = await getRes.json();
+            }
+          } catch {
+            // continue
+          }
+        }
+
+        if (sessionData && Array.isArray(sessionData.accounts) && sessionData.accounts.length > 0) {
+          const liveAccounts: EnableBankingAccount[] = [];
+          for (const acc of sessionData.accounts) {
+            const accUid = acc.uid || acc.id || `acc_${Date.now()}`;
+            const iban = acc.account_id?.iban || acc.iban || "";
+            const ibanMask =
+              iban.length > 8
+                ? `${iban.substring(0, 4)} •••• ${iban.slice(-4)}`
+                : iban || "ES•• •••• ••••";
+
+            let balance = 0;
+            if (Array.isArray(acc.balances) && acc.balances.length > 0) {
+              const balObj =
+                acc.balances.find(
+                  (b: any) =>
+                    b.name === "interimAvailable" ||
+                    b.name === "closingBooked" ||
+                    b.name === "expected"
+                ) || acc.balances[0];
+              balance = parseFloat(
+                balObj?.balance_amount?.amount || balObj?.amount || "0"
+              );
+            } else {
+              try {
+                const balRes = await fetch(`${this.apiBaseUrl}/accounts/${accUid}/balances`, {
+                  headers,
+                });
+                if (balRes.ok) {
+                  const balData = await balRes.json();
+                  if (Array.isArray(balData.balances) && balData.balances.length > 0) {
+                    const b = balData.balances[0];
+                    balance = parseFloat(
+                      b?.balance_amount?.amount || b?.amount || "0"
+                    );
+                  }
+                }
+              } catch {
+                // ignore
+              }
+            }
+
+            liveAccounts.push({
+              id: accUid,
+              name:
+                acc.name ||
+                (iban ? `Cuenta ${iban.slice(-4)}` : "Cuenta Bancaria"),
+              ibanMask,
+              currency: acc.currency || "EUR",
+              balance: isNaN(balance) ? 0 : balance,
+              bankName: sessionData.aspsp?.name || "Banco Oficial",
+              aspspName: sessionData.aspsp?.name || "Banco Oficial",
+              ownerName: acc.details?.owner_name || "Titular",
+            });
+          }
+
+          if (liveAccounts.length > 0) {
+            return {
+              sessionId: sessionData.session_id || sessionIdOrCode,
+              accounts: liveAccounts,
+              isMock: false,
+            };
+          }
+        }
+      } catch (err) {
+        console.warn("Enable Banking live accounts retrieval error, falling back to mock:", err);
+      }
     }
 
     // Default fallback accounts if session ID was created dynamically
@@ -425,7 +545,7 @@ export class EnableBankingClient {
     ];
 
     return {
-      sessionId,
+      sessionId: sessionIdOrCode,
       accounts: fallbackAccounts,
       isMock: true,
     };

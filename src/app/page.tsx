@@ -172,16 +172,21 @@ export default function HomePage() {
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [bankCallbackReqId, setBankCallbackReqId] = useState<string | null>(null);
 
-  // Check for bank callback redirection in URL
+  // Check for bank callback redirection in URL (PSD2 OAuth redirect)
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
     const authSuccess = urlParams.get("bank_auth_success");
+    const code = urlParams.get("code");
+    const sessionId = urlParams.get("session_id");
     const reqId = urlParams.get("requisition_id");
 
-    if (authSuccess === "true" && reqId) {
+    const callbackId =
+      authSuccess === "true" && reqId ? reqId : code || sessionId || reqId;
+
+    if (callbackId) {
       setActiveTab("cuentas");
-      setBankCallbackReqId(reqId);
+      setBankCallbackReqId(callbackId);
       setIsBankModalOpen(true);
       // Clean up URL without reloading
       const newUrl = window.location.pathname;
