@@ -2,9 +2,9 @@ import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 
 const supabaseUrl =
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://mock-instance.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://egougygfqnnzfqpceggn.supabase.co";
 const supabaseAnonKey =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "mock-anon-key";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_hGjr4Hb-601X2np1wi1d4g_gPGdg192";
 
 let browserClient: SupabaseClient<Database> | null = null;
 

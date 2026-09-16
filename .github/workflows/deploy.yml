@@ -43,6 +43,8 @@ jobs:
           touch ./out/.nojekyll
         env:
           GITHUB_ACTIONS: "true"
+          NEXT_PUBLIC_SUPABASE_URL: "https://egougygfqnnzfqpceggn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_hGjr4Hb-601X2np1wi1d4g_gPGdg192"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
