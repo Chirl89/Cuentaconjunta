@@ -609,6 +609,33 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return CATEGORIES_LIST;
   });
 
+  // Explicit client hydration on mount (ensures Next.js static prerender doesn't overwrite saved data)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const savedTxs = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
+      if (savedTxs) {
+        const parsed = JSON.parse(savedTxs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTransactions(parsed);
+        }
+      }
+      const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
+      if (savedAccs) {
+        const parsed = JSON.parse(savedAccs);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setAccounts(parsed);
+        }
+      }
+      const savedSettlements = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
+      if (savedSettlements) {
+        setSettlementCutoffs(JSON.parse(savedSettlements));
+      }
+    } catch (e) {
+      console.warn("Hydration failed:", e);
+    }
+  }, []);
+
   // Persistent & sync dispatchers
   const persistTransactions = useCallback(
     (newTxs: Transaction[] | ((prev: Transaction[]) => Transaction[]), broadcast = true) => {
