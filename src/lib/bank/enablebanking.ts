@@ -49,77 +49,105 @@ export interface EnableBankingAuthSession {
 // Curated Spanish ASPSPs catalog
 export const SPANISH_ASPSPS: ASPSP[] = [
   {
-    name: "Santander ES",
-    title: "Banco Santander",
-    country: "ES",
-    bic: "BSANESMMXXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "BBVA ES",
-    title: "BBVA",
-    country: "ES",
-    bic: "BBVAESMMXXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "CaixaBank ES",
-    title: "CaixaBank / Imagin",
-    country: "ES",
-    bic: "CAIXESBBXXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "Revolut ES",
-    title: "Revolut (IBAN ES)",
-    country: "ES",
-    bic: "REVUES21XXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "ING ES",
-    title: "ING",
-    country: "ES",
-    bic: "INGDESMMXXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "Sabadell ES",
-    title: "Banco Sabadell",
-    country: "ES",
-    bic: "BSABESBBXXX",
-    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
-  },
-  {
-    name: "Bankinter ES",
+    name: "Bankinter",
     title: "Bankinter",
     country: "ES",
     bic: "BKTRESMMXXX",
     logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
   },
   {
-    name: "Openbank ES",
+    name: "BBVA",
+    title: "BBVA",
+    country: "ES",
+    bic: "BBVAESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "CaixaBank",
+    title: "CaixaBank / Imagin",
+    country: "ES",
+    bic: "CAIXESBBXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Banco Santander",
+    title: "Banco Santander",
+    country: "ES",
+    bic: "BSANESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Banco de Sabadell",
+    title: "Banco Sabadell",
+    country: "ES",
+    bic: "BSABESBBXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Revolut",
+    title: "Revolut (IBAN ES)",
+    country: "ES",
+    bic: "REVUES21XXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "ING",
+    title: "ING",
+    country: "ES",
+    bic: "INGDESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Openbank",
     title: "Openbank",
     country: "ES",
     bic: "OPENESMMXXX",
     logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
   },
   {
-    name: "N26 ES",
+    name: "N26",
     title: "N26",
     country: "ES",
     bic: "N26DESMMXXX",
     logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
   },
   {
-    name: "Abanca ES",
+    name: "Abanca",
     title: "Abanca",
     country: "ES",
     bic: "CAGLESMMXXX",
     logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
   },
   {
-    name: "Enable Banking Sandbox ES",
+    name: "imagin",
+    title: "imagin",
+    country: "ES",
+    bic: "CAIXESBBXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Trade Republic",
+    title: "Trade Republic",
+    country: "ES",
+    bic: "TREPESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "MyInvestor Banco",
+    title: "MyInvestor",
+    country: "ES",
+    bic: "ANDBESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Swan",
+    title: "Swan (Cobee)",
+    country: "ES",
+    bic: "SWANESMMXXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
+    name: "Enable Banking Sandbox Bank",
     title: "Enable Banking Sandbox Bank",
     country: "ES",
     bic: "ENABESMMXXX",
@@ -294,8 +322,18 @@ export class EnableBankingClient {
   }): Promise<EnableBankingAuthSession> {
     const { aspspName, redirectUrl } = params;
     const state = params.state || `st_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-    const aspsp = SPANISH_ASPSPS.find((a) => a.name === aspspName);
-    const bankName = aspsp ? aspsp.title : aspspName;
+
+    let targetAspspName = aspspName.replace(/\s+ES$/i, "").trim();
+    if (targetAspspName.toLowerCase() === "santander") targetAspspName = "Banco Santander";
+    if (targetAspspName.toLowerCase() === "sabadell") targetAspspName = "Banco de Sabadell";
+
+    const aspsp = SPANISH_ASPSPS.find(
+      (a) =>
+        a.name.toLowerCase() === aspspName.toLowerCase() ||
+        a.name.toLowerCase() === targetAspspName.toLowerCase() ||
+        a.title.toLowerCase() === aspspName.toLowerCase()
+    );
+    const bankName = aspsp ? aspsp.title : targetAspspName;
 
     const isTestEnv =
       typeof process !== "undefined" &&
@@ -321,7 +359,7 @@ export class EnableBankingClient {
               valid_until: validUntil,
             },
             aspsp: {
-              name: aspspName,
+              name: targetAspspName,
               country: aspsp?.country || "ES",
             },
             state: state,
@@ -332,9 +370,9 @@ export class EnableBankingClient {
         if (res.ok) {
           const data = await res.json();
           return {
-            sessionId: data.session_id || state,
+            sessionId: data.authorization_id || data.session_id || state,
             url: data.url,
-            aspspName,
+            aspspName: targetAspspName,
             state,
             isMock: false,
             expiresAt: validUntil,

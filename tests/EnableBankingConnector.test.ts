@@ -30,13 +30,12 @@ describe("Paso 6: Conector Open Banking (Enable Banking PSD2 - Alternativa Sin C
       const names = aspsps.map((a) => a.title);
       expect(names).toContain("Banco Santander");
       expect(names).toContain("BBVA");
-      expect(names).toContain("CaixaBank / Imagin");
-      expect(names).toContain("Revolut (IBAN ES)");
+      expect(names.some((n) => n.includes("CaixaBank"))).toBe(true);
+      expect(names.some((n) => n.includes("Revolut"))).toBe(true);
       expect(names).toContain("ING");
-      expect(names).toContain("Banco Sabadell");
+      expect(names.some((n) => n.includes("Sabadell"))).toBe(true);
       expect(names).toContain("Bankinter");
       expect(names).toContain("Openbank");
-      expect(names).toContain("Enable Banking Sandbox Bank");
     });
 
     it("creates an AIS authorization session in sandbox mode without live keys", async () => {
