@@ -14,7 +14,6 @@ import {
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
-import AuthModal from "@/components/AuthModal";
 import versionData from "../../version.json";
 import {
   TrendingDown,
@@ -162,7 +161,6 @@ export default function HomePage() {
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
@@ -1432,7 +1430,6 @@ export default function HomePage() {
 
             {/* Household & Couple Profile Linking Card */}
             <CoupleLinkingCard
-              onOpenAuthModal={() => setIsAuthModalOpen(true)}
               onToast={showToast}
             />
 
@@ -1889,13 +1886,6 @@ export default function HomePage() {
         }}
         onSuccess={showToast}
         transactionToEdit={editingTransaction}
-      />
-
-      {/* Modal de Acceso y Registro Supabase Auth */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={showToast}
       />
     </div>
   );

@@ -8,34 +8,23 @@ import {
   Copy,
   Check,
   RefreshCw,
-  Users,
   User,
   ShieldCheck,
   KeyRound,
-  LogOut,
-  LogIn,
-  Sparkles,
   Link2,
 } from "lucide-react";
 
 interface CoupleLinkingCardProps {
-  onOpenAuthModal: () => void;
   onToast: (msg: string) => void;
 }
 
-export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
-  onOpenAuthModal,
-  onToast,
-}) => {
+export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({ onToast }) => {
   const {
-    user,
     household,
     activeRole,
     switchActiveRole,
     joinHouseholdByCode,
     generateNewInviteCode,
-    signOut,
-    isDemoMode,
   } = useAuth();
 
   const { memberAName, memberBName } = useUserNames();
@@ -69,7 +58,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
 
   return (
     <div className="space-y-5">
-      {/* 1. Account & Household Banner */}
+      {/* 1. Household Banner (Sin interfaz de login ni credenciales) */}
       <div className="p-5 sm:p-6 rounded-3xl bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-slate-50 border border-emerald-200/70 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -85,49 +74,16 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
                   {household.isPartnerLinked ? "2 Miembros Vinculados" : "1 Miembro Vinculado"}
                 </span>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {isDemoMode ? (
-                  <span className="flex items-center gap-1 text-slate-600 font-medium">
-                    Modo Local / Demo • Sincronización multi-pestaña activa
-                  </span>
-                ) : (
-                  <span className="flex items-center gap-1 text-emerald-700 font-semibold">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    Conectado con Supabase ({user?.email})
-                  </span>
-                )}
+              <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Sincronización en segundo plano activa • Sin necesidad de credenciales</span>
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            {isDemoMode ? (
-              <button
-                type="button"
-                onClick={onOpenAuthModal}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <LogIn className="w-3.5 h-3.5" />
-                <span>Acceder con Supabase</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={async () => {
-                  await signOut();
-                  onToast("Sesión cerrada");
-                }}
-                className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>Cerrar Sesión</span>
-              </button>
-            )}
           </div>
         </div>
       </div>
 
-      {/* 2. Active Role & Profile Selector */}
+      {/* 2. Active Role & Profile Selector (Carlos / Andrea en 1 clic) */}
       <div className="p-5 rounded-2xl bg-white border border-slate-200/80 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -135,7 +91,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
             <span>Perfil Activo en este Dispositivo</span>
           </div>
           <span className="text-[11px] text-slate-400">
-            Define quién realiza o visualiza los gastos en esta pantalla
+            Cambia quién visualiza o registra los gastos al instante
           </span>
         </div>
 
@@ -231,7 +187,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
                 const code = generateNewInviteCode();
                 onToast(`Nuevo código generado: ${code}`);
               }}
-              className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors"
+              className="text-slate-400 hover:text-slate-700 p-1 rounded-md transition-colors cursor-pointer"
               title="Generar nuevo código aleatorio"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -239,7 +195,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
           </div>
 
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Comparte este código con tu pareja para que se vincule a las mismas cuentas y gastos desde su dispositivo.
+            Comparte este código con tu pareja para vincular ambos dispositivos al mismo hogar compartido.
           </p>
 
           <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl border border-slate-200">
@@ -265,7 +221,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({
           </span>
 
           <p className="text-[11px] text-slate-500 leading-relaxed">
-            Si tu pareja ya ha creado un hogar, introduce su código para vincular ambos teléfonos y cuentas.
+            Si tu pareja ya tiene un código de hogar, introdúcelo aquí para emparejar ambos dispositivos.
           </p>
 
           <form onSubmit={handleJoinByCode} className="flex items-center gap-2">

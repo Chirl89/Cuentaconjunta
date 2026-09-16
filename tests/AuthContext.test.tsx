@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CoupleLinkingCard } from "@/components/CoupleLinkingCard";
-import { AuthModal } from "@/components/AuthModal";
 import { UserNamesProvider } from "@/context/UserNamesContext";
 
 const AuthTester = () => {
@@ -45,7 +44,7 @@ const AuthTester = () => {
   );
 };
 
-describe("Paso 4: Multi-User Authentication & Couple Household Linking", () => {
+describe("Paso 4: Multi-User Authentication & Couple Household Linking (Headless / Sin Interfaz de Credenciales)", () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
@@ -141,12 +140,12 @@ describe("Paso 4: Multi-User Authentication & Couple Household Linking", () => {
     });
   });
 
-  describe("2. CoupleLinkingCard UI Component", () => {
-    it("renders household status, both partner cards, and invite code", async () => {
+  describe("2. CoupleLinkingCard UI Component (Zero-Friction, Headless Sync)", () => {
+    it("renders household status, both partner cards, and invite code without any credentials UI", async () => {
       render(
         <AuthProvider>
           <UserNamesProvider>
-            <CoupleLinkingCard onOpenAuthModal={() => {}} onToast={() => {}} />
+            <CoupleLinkingCard onToast={() => {}} />
           </UserNamesProvider>
         </AuthProvider>
       );
@@ -156,28 +155,41 @@ describe("Paso 4: Multi-User Authentication & Couple Household Linking", () => {
       });
       expect(screen.getByText(/Unirme al Hogar de mi Pareja/i)).toBeInTheDocument();
       expect(screen.getByText(/Perfil Activo en este Dispositivo/i)).toBeInTheDocument();
-      expect(screen.getByText(/Acceder con Supabase/i)).toBeInTheDocument();
-    });
-  });
+      expect(
+        screen.getByText(/Sincronización en segundo plano activa • Sin necesidad de credenciales/i)
+      ).toBeInTheDocument();
 
-  describe("3. AuthModal Dialog Component", () => {
-    it("renders Magic Link, Password, and Register tabs with form fields", async () => {
+      // Ensure no login buttons, password fields or credential inputs exist in the UI
+      expect(screen.queryByText(/Acceder con Supabase/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Iniciar Sesión/i)).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/contraseña/i)).not.toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/tu-email/i)).not.toBeInTheDocument();
+    });
+
+    it("allows switching active partner profile in 1 click", async () => {
       render(
         <AuthProvider>
-          <AuthModal isOpen={true} onClose={() => {}} />
+          <UserNamesProvider initialNames={{ memberA: "Carlos", memberB: "Andrea" }}>
+            <CoupleLinkingCard onToast={() => {}} />
+          </UserNamesProvider>
         </AuthProvider>
       );
 
       await waitFor(() => {
-        expect(screen.getByText(/Acceso Seguro con Enlace/i)).toBeInTheDocument();
+        expect(screen.getByText("Carlos")).toBeInTheDocument();
+        expect(screen.getByText("Andrea")).toBeInTheDocument();
       });
-      expect(screen.getByPlaceholderText(/tu-email@ejemplo.com/i)).toBeInTheDocument();
 
-      // Switch to Register tab
-      fireEvent.click(screen.getByText("Registrarse"));
-      expect(screen.getByText(/Crear Cuenta de Hogar/i)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/ej. Carlos o Andrea/i)).toBeInTheDocument();
-      expect(screen.getByPlaceholderText(/ej. FITDUO/i)).toBeInTheDocument();
+      // Initially Carlos (Member A) is active
+      expect(screen.getByText(/Tú \(Activo\)/i)).toBeInTheDocument();
+
+      // Click on Andrea's card to switch
+      fireEvent.click(screen.getByText("Andrea"));
+
+      // Now Andrea has the active tag
+      await waitFor(() => {
+        expect(screen.getByText(/Miembro B \(Acento Azul\)/i)).toBeInTheDocument();
+      });
     });
   });
 });
