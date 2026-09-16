@@ -357,11 +357,14 @@ export class EnableBankingClient {
           body: JSON.stringify({
             access: {
               valid_until: validUntil,
+              balances: true,
+              transactions: true,
             },
             aspsp: {
               name: targetAspspName,
               country: aspsp?.country || "ES",
             },
+            psu_type: "personal",
             state: state,
             redirect_url: redirectUrl,
           }),

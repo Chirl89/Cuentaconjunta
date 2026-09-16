@@ -45,8 +45,13 @@ async function main() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({
-      access: { valid_until: new Date(Date.now() + 90 * 86400000).toISOString() },
+      access: {
+        valid_until: new Date(Date.now() + 90 * 86400000).toISOString(),
+        balances: true,
+        transactions: true,
+      },
       aspsp: { name: bankName, country: 'ES' },
+      psu_type: 'personal',
       state: `${bankName.toLowerCase()}_${Date.now()}`,
       redirect_url: 'https://chirl89.github.io/Cuentaconjunta/',
     }),
