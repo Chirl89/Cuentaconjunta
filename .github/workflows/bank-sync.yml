@@ -5,7 +5,16 @@ on:
     # Run every hour automatically
     - cron: '0 * * * *'
   workflow_dispatch:
-    # Allows manual trigger at any time from GitHub UI
+    inputs:
+      auth_code:
+        description: 'Código de autorización (?code=... tras autorizar el banco en el enlace)'
+        required: false
+        type: string
+      bank_name:
+        description: 'Nombre de la entidad bancaria (ej. Bankinter, BBVA, Revolut)'
+        required: false
+        default: 'Bankinter'
+        type: string
 
 permissions:
   contents: write
@@ -32,8 +41,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Bank Sync Background Worker
-        run: node scripts/sync-banks.js
+      - name: Complete Bank Auth or Run Bank Sync
+        run: |
+          if [ -n "${{ github.event.inputs.auth_code }}" ]; then
+            echo "Processing bank authorization code for ${{ github.event.inputs.bank_name }}..."
+            node scripts/complete-auth.js --code="${{ github.event.inputs.auth_code }}" --bank="${{ github.event.inputs.bank_name }}"
+          else
+            echo "Running scheduled bank synchronization..."
+            node scripts/sync-banks.js
+          fi
         env:
           ENABLEBANKING_APP_ID: ${{ secrets.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f' }}
           ENABLEBANKING_PRIVATE_KEY: ${{ secrets.ENABLEBANKING_PRIVATE_KEY }}
