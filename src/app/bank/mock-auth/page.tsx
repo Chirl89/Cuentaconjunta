@@ -1,16 +1,22 @@
-"use client";
+﻿"use client";
 
 import React, { Suspense, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ShieldCheck, CheckCircle2, Lock, ArrowRight, Building2, AlertTriangle } from "lucide-react";
+import { ShieldCheck, CheckCircle2, Lock, ArrowRight, Building2, AlertTriangle, Sparkles } from "lucide-react";
 
 function MockAuthContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const requisitionId = searchParams.get("requisition_id") || "mock_req_demo";
+  const sessionId =
+    searchParams.get("session_id") ||
+    searchParams.get("requisition_id") ||
+    "eb_session_demo";
   const bankName = searchParams.get("bank_name") || "Banco Santander";
   const redirectUrl = searchParams.get("redirect_url") || "/";
+  const provider =
+    searchParams.get("provider") ||
+    (sessionId.startsWith("eb_") ? "enablebanking" : "gocardless");
 
   const [isAuthorizing, setIsAuthorizing] = useState(false);
 
@@ -23,12 +29,16 @@ function MockAuthContent() {
           ? "/Cuentaconjunta"
           : "";
       try {
-        const url = new URL(redirectUrl, window.location.origin);
+        const target = redirectUrl.startsWith("http")
+          ? redirectUrl
+          : `${window.location.origin}${redirectUrl.startsWith("/") ? "" : "/"}${redirectUrl}`;
+        const url = new URL(target);
         url.searchParams.set("bank_auth_success", "true");
-        url.searchParams.set("requisition_id", requisitionId);
+        url.searchParams.set("requisition_id", sessionId);
+        url.searchParams.set("provider", provider);
         window.location.href = url.toString();
       } catch {
-        window.location.href = `${basePath}/?bank_auth_success=true&requisition_id=${requisitionId}`;
+        window.location.href = `${basePath}/?bank_auth_success=true&requisition_id=${sessionId}&provider=${provider}`;
       }
     }, 900);
   };
@@ -49,8 +59,10 @@ function MockAuthContent() {
               </div>
               <div>
                 <h2 className="font-extrabold text-base tracking-tight">{bankName}</h2>
-                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">
-                  Pasarela PSD2 Oficial
+                <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                  <span>PSD2 Oficial</span>
+                  <span>•</span>
+                  <span>{provider === "enablebanking" ? "Enable Banking" : "GoCardless"}</span>
                 </span>
               </div>
             </div>
@@ -73,7 +85,7 @@ function MockAuthContent() {
               <span>Solicitud de Consentimiento Bancario</span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              La aplicación <strong>Cuenta Conjunta</strong> solicita acceso de lectura a tus cuentas y tarjetas en <strong>{bankName}</strong>.
+              La aplicación <strong>Cuenta Conjunta</strong> solicita acceso de lectura a tus cuentas y tarjetas en <strong>{bankName}</strong> mediante la pasarela segura de <strong>Enable Banking</strong>.
             </p>
           </div>
 
@@ -88,14 +100,14 @@ function MockAuthContent() {
             </div>
             <div className="flex items-start gap-2.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <span><strong>Cero capacidad de emitir pagos o transferencias</strong> (acceso 100% protegido).</span>
+              <span><strong>Cero capacidad de emitir pagos o transferencias</strong> (acceso 100% seguro).</span>
             </div>
           </div>
 
           <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-2.5">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-[11px] text-amber-800 leading-relaxed">
-              Estás en el simulador Sandbox de Open Banking. Al pulsar el botón inferior se simulará una autorización exitosa y descubrirás las cuentas para asignar su titularidad.
+              Estás en el simulador Sandbox de Open Banking (Enable Banking). Al pulsar el botón inferior se simulará una autorización exitosa y descubrirás las cuentas para asignar su titularidad.
             </p>
           </div>
 

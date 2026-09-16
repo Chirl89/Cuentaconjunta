@@ -237,7 +237,7 @@ export default function ConnectBankModal({
             </div>
             <div>
               <h2 className="text-base font-extrabold text-slate-900 leading-tight">
-                Conectar Banco (PSD2 Oficial)
+                Conectar Banco (Enable Banking PSD2)
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
                 {step === "SELECT_BANK" && "Paso 1: Selecciona tu entidad bancaria"}
@@ -271,7 +271,7 @@ export default function ConnectBankModal({
           {/* ========================================================= */}
           {step === "SELECT_BANK" && (
             <div className="space-y-4">
-              {/* Informative Banner regarding GoCardless setup */}
+              {/* Informative Banner regarding Enable Banking setup */}
               <div
                 className={`p-3.5 rounded-2xl border text-xs leading-relaxed space-y-1.5 ${
                   hasLiveCredentials
@@ -283,19 +283,19 @@ export default function ConnectBankModal({
                   {hasLiveCredentials ? (
                     <>
                       <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span>Conexión Real GoCardless PSD2 Activa</span>
+                      <span>Conexión Real Enable Banking PSD2 Activa</span>
                     </>
                   ) : (
                     <>
                       <Info className="w-4 h-4 text-blue-600" />
-                      <span>Modo Sandbox & Simulación Bancaria Listo</span>
+                      <span>Proveedor: Enable Banking (Sandbox & Simulación Listo)</span>
                     </>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-600">
                   {hasLiveCredentials
-                    ? "Conectado a la API oficial de GoCardless Bank Account Data. Puedes enlazar bancos reales de España y Europa."
-                    : "Puedes probar todo el flujo de conexión y asignación de titularidad de inmediato con cualquiera de los bancos españoles. Para conectar tus bancos reales de verdad, solo necesitas añadir tus claves gratuitas de GoCardless en .env.local (GOCARDLESS_SECRET_ID y GOCARDLESS_SECRET_KEY)."}
+                    ? "Conectado a la API oficial de Enable Banking. Puedes enlazar bancos reales de España y Europa sin costes por movimiento."
+                    : "Integrado con la plataforma abierta de Enable Banking. Puedes probar el descubrimiento y asignación de titularidad de tus cuentas de inmediato. Para conectar en modo real, introduce tu Application ID de Enable Banking en .env.local (ENABLEBANKING_APPLICATION_ID)."}
                 </p>
               </div>
 

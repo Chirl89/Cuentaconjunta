@@ -1,13 +1,24 @@
 ﻿/**
  * Bank Service Module
- * Handles Open Banking institutions catalog, requisition link generation,
- * account discovery, and persistence validation.
+ * Handles Open Banking PSD2 operations via Enable Banking (default) and GoCardless.
  * Compatible with Next.js static export (GitHub Pages) and client-side execution.
  */
 
+import { enableBanking, ASPSP, EnableBankingAccount } from "./enablebanking";
 import { gocardless, Institution, DiscoveredAccount } from "./gocardless";
 import { BankAccount } from "@/context/TransactionsContext";
 import { supabase } from "@/lib/supabase/client";
+
+export type BankProvider = "enablebanking" | "gocardless";
+
+export interface UnifiedBankInstitution {
+  id: string;
+  name: string;
+  bic?: string;
+  logo: string;
+  isMock?: boolean;
+  provider: BankProvider;
+}
 
 export interface SaveAccountInput {
   id: string;
@@ -18,46 +29,85 @@ export interface SaveAccountInput {
   balance: number;
   institutionId?: string;
   requisitionId?: string;
+  provider?: BankProvider;
 }
 
 /**
- * Get available bank institutions
+ * Get available bank institutions (Default: Enable Banking PSD2)
  */
-export async function getBankInstitutions(country = "ES"): Promise<{
+export async function getBankInstitutions(
+  country = "ES",
+  provider: BankProvider = "enablebanking"
+): Promise<{
   success: boolean;
-  institutions: Institution[];
+  provider: BankProvider;
+  institutions: UnifiedBankInstitution[];
   hasLiveCredentials: boolean;
   mode: "live" | "sandbox";
 }> {
-  const institutions = await gocardless.getInstitutions(country);
+  if (provider === "enablebanking") {
+    const aspsps = await enableBanking.getASPSPs(country);
+    const hasLive = enableBanking.hasLiveCredentials();
+
+    const unified: UnifiedBankInstitution[] = aspsps.map((a) => ({
+      id: a.name,
+      name: a.title,
+      bic: a.bic,
+      logo: a.logo,
+      isMock: a.isMock,
+      provider: "enablebanking",
+    }));
+
+    return {
+      success: true,
+      provider: "enablebanking",
+      institutions: unified,
+      hasLiveCredentials: hasLive,
+      mode: hasLive ? "live" : "sandbox",
+    };
+  }
+
+  // GoCardless fallback
+  const gcInstitutions = await gocardless.getInstitutions(country);
   const hasLive = gocardless.hasLiveCredentials();
   return {
     success: true,
-    institutions,
+    provider: "gocardless",
+    institutions: gcInstitutions.map((i) => ({
+      id: i.id,
+      name: i.name,
+      bic: i.bic,
+      logo: i.logo,
+      isMock: i.isMock,
+      provider: "gocardless",
+    })),
     hasLiveCredentials: hasLive,
     mode: hasLive ? "live" : "sandbox",
   };
 }
 
 /**
- * Create Open Banking auth link (requisition)
+ * Create Open Banking auth link (Default: Enable Banking)
  */
 export async function createBankAuthLink(params: {
   institutionId: string;
+  provider?: BankProvider;
   redirectUrl?: string;
 }): Promise<{
   success: boolean;
+  provider: BankProvider;
   requisitionId?: string;
   authUrl?: string;
   status?: string;
   isMock?: boolean;
   error?: string;
 }> {
-  const { institutionId, redirectUrl } = params;
+  const { institutionId, provider = "enablebanking", redirectUrl } = params;
 
   if (!institutionId) {
     return {
       success: false,
+      provider,
       error: "El identificador de la institución (institutionId) es requerido",
     };
   }
@@ -69,6 +119,22 @@ export async function createBankAuthLink(params: {
   }
 
   try {
+    if (provider === "enablebanking") {
+      const session = await enableBanking.startAuthorization({
+        aspspName: institutionId,
+        redirectUrl: finalRedirect || "http://localhost:3000/",
+      });
+
+      return {
+        success: true,
+        provider: "enablebanking",
+        requisitionId: session.sessionId,
+        authUrl: session.url,
+        status: "AUTHORIZED_READY",
+        isMock: session.isMock,
+      };
+    }
+
     const requisition = await gocardless.createAuthLink({
       institutionId,
       redirectUrl: finalRedirect || "http://localhost:3000/",
@@ -76,6 +142,7 @@ export async function createBankAuthLink(params: {
 
     return {
       success: true,
+      provider: "gocardless",
       requisitionId: requisition.id,
       authUrl: requisition.link,
       status: requisition.status,
@@ -84,33 +151,67 @@ export async function createBankAuthLink(params: {
   } catch (err: any) {
     return {
       success: false,
+      provider,
       error: err?.message || "Error al generar enlace de autorización bancaria PSD2",
     };
   }
 }
 
 /**
- * Retrieve discovered accounts from a requisition
+ * Retrieve discovered accounts from a session or requisition
  */
-export async function getAccountsFromBankRequisition(requisitionId: string): Promise<{
+export async function getAccountsFromBankRequisition(
+  sessionIdOrReqId: string,
+  provider?: BankProvider
+): Promise<{
   success: boolean;
+  provider: BankProvider;
   requisitionId?: string;
   status?: string;
-  accounts?: DiscoveredAccount[];
+  accounts?: Array<{
+    id: string;
+    name: string;
+    ibanMask: string;
+    currency: string;
+    balance: number;
+    bankName: string;
+    institutionId: string;
+    ownerName?: string;
+  }>;
   isMock?: boolean;
   error?: string;
 }> {
-  if (!requisitionId) {
+  if (!sessionIdOrReqId) {
     return {
       success: false,
-      error: "requisition_id es requerido",
+      provider: provider || "enablebanking",
+      error: "El identificador de sesión bancaria es requerido",
     };
   }
 
+  const isEb = sessionIdOrReqId.startsWith("eb_") || provider === "enablebanking";
+  const activeProvider: BankProvider = isEb ? "enablebanking" : "gocardless";
+
   try {
-    const result = await gocardless.getAccountsFromRequisition(requisitionId);
+    if (activeProvider === "enablebanking") {
+      const result = await enableBanking.getAccountsFromSession(sessionIdOrReqId);
+      return {
+        success: true,
+        provider: "enablebanking",
+        requisitionId: result.sessionId,
+        status: "ACTIVE",
+        accounts: result.accounts.map((a) => ({
+          ...a,
+          institutionId: a.aspspName,
+        })),
+        isMock: result.isMock,
+      };
+    }
+
+    const result = await gocardless.getAccountsFromRequisition(sessionIdOrReqId);
     return {
       success: true,
+      provider: "gocardless",
       requisitionId: result.requisitionId,
       status: result.status,
       accounts: result.accounts,
@@ -119,6 +220,7 @@ export async function getAccountsFromBankRequisition(requisitionId: string): Pro
   } catch (err: any) {
     return {
       success: false,
+      provider: activeProvider,
       error: err?.message || "Error al recuperar cuentas del banco",
     };
   }
