@@ -29,10 +29,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
   const { activeTab, setActiveTab } = useNavigation();
-  const { pendingTransactions } = useTransactions();
+  const { allPendingTransactions } = useTransactions();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const pendingCount = pendingTransactions.length;
+  const pendingCount = allPendingTransactions.length;
 
   const graphItems: {
     key: TabKey;

@@ -22,7 +22,7 @@ export const VersionBadge: React.FC<VersionBadgeProps> = ({ className = "", show
       <span>v{version}</span>
       {showDetails && (
         <span className="text-[10px] text-slate-500 border-l border-emerald-300 pl-1.5 font-normal">
-          Paso 2
+          Paso {versionData.conversation || 4}
         </span>
       )}
     </div>

@@ -80,7 +80,7 @@ describe("Sidebar Component", () => {
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("balances");
   });
 
-  it("displays the VersionBadge", () => {
+  it("displays the VersionBadge with Paso 4", () => {
     render(
       <TestWrapper>
         <Sidebar isMobileOpen={false} setIsMobileOpen={() => {}} />
@@ -88,5 +88,6 @@ describe("Sidebar Component", () => {
     );
 
     expect(screen.getByTestId("version-badge")).toBeInTheDocument();
+    expect(screen.getByText(/Paso 4/i)).toBeInTheDocument();
   });
 });

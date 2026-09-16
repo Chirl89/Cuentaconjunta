@@ -15,6 +15,6 @@ describe("VersionBadge Component", () => {
   it("displays step details when showDetails is true", () => {
     render(<VersionBadge showDetails={true} />);
     const badge = screen.getByTestId("version-badge");
-    expect(badge.textContent).toContain("Paso 2");
+    expect(badge.textContent).toContain(`Paso ${versionData.conversation || 4}`);
   });
 });
