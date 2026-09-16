@@ -275,7 +275,11 @@ export class GoCardlessClient {
       createdAt: new Date().toISOString(),
     });
 
-    const mockAuthUrl = `/bank/mock-auth?requisition_id=${mockId}&institution_id=${institutionId}&bank_name=${encodeURIComponent(
+    const basePath =
+      typeof window !== "undefined" && window.location.pathname.startsWith("/Cuentaconjunta")
+        ? "/Cuentaconjunta"
+        : "";
+    const mockAuthUrl = `${basePath}/bank/mock-auth?requisition_id=${mockId}&institution_id=${institutionId}&bank_name=${encodeURIComponent(
       bankName
     )}&redirect_url=${encodeURIComponent(redirectUrl)}`;
 

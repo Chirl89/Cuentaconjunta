@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+﻿import { describe, it, expect } from "vitest";
 import { GoCardlessClient, SPANISH_INSTITUTIONS, gocardless } from "../src/lib/bank/gocardless";
-import { GET as getInstitutionsHandler } from "../src/app/api/bank/institutions/route";
-import { POST as authLinkHandler } from "../src/app/api/bank/auth-link/route";
-import { GET as callbackHandler } from "../src/app/api/bank/callback/route";
-import { POST as saveAccountsHandler } from "../src/app/api/bank/save-accounts/route";
+import {
+  getBankInstitutions,
+  createBankAuthLink,
+  getAccountsFromBankRequisition,
+  saveDiscoveredAccounts,
+} from "../src/lib/bank/service";
 
 describe("Paso 5: Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y Titularidad)", () => {
   describe("1. GoCardlessClient Service & Sandbox Provider", () => {
@@ -35,7 +37,7 @@ describe("Paso 5: Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y 
       const client = new GoCardlessClient();
       const res = await client.createAuthLink({
         institutionId: "SANTANDER_BSANESMM",
-        redirectUrl: "http://localhost:3000/api/bank/callback",
+        redirectUrl: "http://localhost:3000/",
       });
 
       expect(res.id).toBeDefined();
@@ -49,7 +51,7 @@ describe("Paso 5: Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y 
       const client = new GoCardlessClient();
       const auth = await client.createAuthLink({
         institutionId: "BBVA_BBVAESMM",
-        redirectUrl: "http://localhost:3000/api/bank/callback",
+        redirectUrl: "http://localhost:3000/",
       });
 
       const discovered = await client.getAccountsFromRequisition(auth.id);
@@ -61,113 +63,86 @@ describe("Paso 5: Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y 
     });
   });
 
-  describe("2. Backend API Endpoints (/api/bank/*)", () => {
-    it("GET /api/bank/institutions returns institutions list and mode", async () => {
-      const req = new Request("http://localhost:3000/api/bank/institutions?country=ES");
-      const res = await getInstitutionsHandler(req);
-      const data = await res.json();
+  describe("2. Bank Service Operations (Static Export & Client Ready)", () => {
+    it("getBankInstitutions returns institutions list and mode", async () => {
+      const data = await getBankInstitutions("ES");
 
-      expect(res.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.country).toBe("ES");
       expect(Array.isArray(data.institutions)).toBe(true);
       expect(data.institutions.length).toBeGreaterThan(0);
     });
 
-    it("POST /api/bank/auth-link validates parameters and generates requisition", async () => {
+    it("createBankAuthLink validates parameters and generates requisition", async () => {
       // Missing institutionId
-      const badReq = new Request("http://localhost:3000/api/bank/auth-link", {
-        method: "POST",
-        body: JSON.stringify({}),
-      });
-      const badRes = await authLinkHandler(badReq);
-      expect(badRes.status).toBe(400);
+      const badRes = await createBankAuthLink({ institutionId: "" });
+      expect(badRes.success).toBe(false);
+      expect(badRes.error).toBeDefined();
 
       // Valid call
-      const req = new Request("http://localhost:3000/api/bank/auth-link", {
-        method: "POST",
-        body: JSON.stringify({ institutionId: "CAIXABANK_CAIXESBB" }),
-      });
-      const res = await authLinkHandler(req);
-      const data = await res.json();
-
-      expect(res.status).toBe(200);
-      expect(data.success).toBe(true);
-      expect(data.requisitionId).toBeDefined();
-      expect(data.authUrl).toBeDefined();
+      const res = await createBankAuthLink({ institutionId: "CAIXABANK_CAIXESBB" });
+      expect(res.success).toBe(true);
+      expect(res.requisitionId).toBeDefined();
+      expect(res.authUrl).toBeDefined();
     });
 
-    it("GET /api/bank/callback returns accounts in JSON format", async () => {
+    it("getAccountsFromBankRequisition returns accounts list", async () => {
       const auth = await gocardless.createAuthLink({
         institutionId: "REVOLUT_REVUES21",
-        redirectUrl: "http://localhost:3000/api/bank/callback",
+        redirectUrl: "http://localhost:3000/",
       });
 
-      const req = new Request(
-        `http://localhost:3000/api/bank/callback?requisition_id=${auth.id}&format=json`
-      );
-      const res = await callbackHandler(req);
-      const data = await res.json();
+      const data = await getAccountsFromBankRequisition(auth.id);
 
-      expect(res.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.accounts.length).toBeGreaterThan(0);
-      expect(data.accounts[0].ibanMask).toBeDefined();
+      expect(data.accounts).toBeDefined();
+      expect(data.accounts!.length).toBeGreaterThan(0);
+      expect(data.accounts![0].ibanMask).toBeDefined();
     });
 
-    it("POST /api/bank/save-accounts validates and persists accounts with ownership", async () => {
+    it("saveDiscoveredAccounts validates and returns accounts with ownership", async () => {
       // Invalid ownership
-      const invalidReq = new Request("http://localhost:3000/api/bank/save-accounts", {
-        method: "POST",
-        body: JSON.stringify({
-          accounts: [
-            {
-              id: "acc-test-1",
-              bankName: "BBVA",
-              accountName: "Cuenta Nómina",
-              ibanMask: "ES12 •••• 1234",
-              ownership: "INVALID_OWNER",
-              balance: 1500,
-            },
-          ],
-        }),
+      const invalidRes = await saveDiscoveredAccounts({
+        accounts: [
+          {
+            id: "acc-test-1",
+            bankName: "BBVA",
+            accountName: "Cuenta Nómina",
+            ibanMask: "ES12 •••• 1234",
+            ownership: "INVALID_OWNER" as any,
+            balance: 1500,
+          },
+        ],
       });
-      const invalidRes = await saveAccountsHandler(invalidReq);
-      expect(invalidRes.status).toBe(400);
+      expect(invalidRes.success).toBe(false);
 
       // Valid ownerships (USER_A, USER_B, JOINT)
-      const validReq = new Request("http://localhost:3000/api/bank/save-accounts", {
-        method: "POST",
-        body: JSON.stringify({
-          accounts: [
-            {
-              id: "acc-test-a",
-              bankName: "BBVA",
-              accountName: "Cuenta Personal Carlos",
-              ibanMask: "ES12 •••• 1234",
-              ownership: "USER_A",
-              balance: 1500,
-            },
-            {
-              id: "acc-test-joint",
-              bankName: "Santander",
-              accountName: "Cuenta Hogar",
-              ibanMask: "ES44 •••• 5678",
-              ownership: "JOINT",
-              balance: 3200,
-            },
-          ],
-        }),
+      const validRes = await saveDiscoveredAccounts({
+        accounts: [
+          {
+            id: "acc-test-a",
+            bankName: "BBVA",
+            accountName: "Cuenta Personal Carlos",
+            ibanMask: "ES12 •••• 1234",
+            ownership: "USER_A",
+            balance: 1500,
+          },
+          {
+            id: "acc-test-joint",
+            bankName: "Santander",
+            accountName: "Cuenta Hogar",
+            ibanMask: "ES44 •••• 5678",
+            ownership: "JOINT",
+            balance: 3200,
+          },
+        ],
       });
 
-      const validRes = await saveAccountsHandler(validReq);
-      const validData = await validRes.json();
-
-      expect(validRes.status).toBe(200);
-      expect(validData.success).toBe(true);
-      expect(validData.savedCount).toBe(2);
-      expect(validData.accounts[0].status).toBe("active");
-      expect(validData.accounts[0].expiresAt).toBeDefined();
+      expect(validRes.success).toBe(true);
+      expect(validRes.savedCount).toBe(2);
+      expect(validRes.accounts![0].status).toBe("active");
+      expect(validRes.accounts![0].expiresAt).toBeDefined();
+      expect(validRes.accounts![0].ownership).toBe("USER_A");
+      expect(validRes.accounts![1].ownership).toBe("JOINT");
     });
   });
 });

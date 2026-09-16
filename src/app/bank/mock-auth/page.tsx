@@ -18,13 +18,17 @@ function MockAuthContent() {
     setIsAuthorizing(true);
     setTimeout(() => {
       // Build final redirect
+      const basePath =
+        typeof window !== "undefined" && window.location.pathname.startsWith("/Cuentaconjunta")
+          ? "/Cuentaconjunta"
+          : "";
       try {
         const url = new URL(redirectUrl, window.location.origin);
         url.searchParams.set("bank_auth_success", "true");
         url.searchParams.set("requisition_id", requisitionId);
         window.location.href = url.toString();
       } catch {
-        window.location.href = `/?bank_auth_success=true&requisition_id=${requisitionId}`;
+        window.location.href = `${basePath}/?bank_auth_success=true&requisition_id=${requisitionId}`;
       }
     }, 900);
   };

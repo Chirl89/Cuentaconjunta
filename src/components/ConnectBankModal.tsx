@@ -4,6 +4,12 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useUserNames } from "@/context/UserNamesContext";
 import { BankAccount } from "@/context/TransactionsContext";
 import {
+  getBankInstitutions,
+  createBankAuthLink,
+  getAccountsFromBankRequisition,
+  saveDiscoveredAccounts,
+} from "@/lib/bank/service";
+import {
   Landmark,
   X,
   Search,
@@ -77,8 +83,7 @@ export default function ConnectBankModal({
     if (isOpen) {
       setErrorMessage(null);
       setIsLoadingInstitutions(true);
-      fetch("/api/bank/institutions?country=ES")
-        .then((res) => res.json())
+      getBankInstitutions("ES")
         .then((data) => {
           if (data.success && Array.isArray(data.institutions)) {
             setInstitutions(data.institutions);
@@ -120,25 +125,17 @@ export default function ConnectBankModal({
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/bank/auth-link", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          institutionId: bank.id,
-          redirectUrl: `${window.location.origin}/api/bank/callback`,
-        }),
+      const data = await createBankAuthLink({
+        institutionId: bank.id,
       });
 
-      const data = await res.json();
-      if (!data.success) {
+      if (!data.success || !data.requisitionId || !data.authUrl) {
         throw new Error(data.error || "No se pudo generar el enlace bancario");
       }
 
       setRequisitionId(data.requisitionId);
       setAuthUrl(data.authUrl);
       setStep("AUTHORIZING");
-
-      // If mock flow, we can provide immediate simulation or button
     } catch (err: any) {
       setErrorMessage(err.message || "Error al conectar con la entidad");
     } finally {
@@ -152,8 +149,7 @@ export default function ConnectBankModal({
     setErrorMessage(null);
 
     try {
-      const res = await fetch(`/api/bank/callback?requisition_id=${reqId}&format=json`);
-      const data = await res.json();
+      const data = await getAccountsFromBankRequisition(reqId);
 
       if (!data.success) {
         throw new Error(data.error || "Error al recuperar cuentas del banco");
@@ -199,43 +195,24 @@ export default function ConnectBankModal({
     setErrorMessage(null);
 
     try {
-      const res = await fetch("/api/bank/save-accounts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          requisitionId,
-          accounts: discoveredAccounts.map((acc) => ({
-            id: acc.id,
-            bankName: acc.bankName,
-            accountName: acc.name,
-            ibanMask: acc.ibanMask,
-            ownership: acc.ownership,
-            balance: acc.balance,
-            institutionId: acc.institutionId,
-          })),
-        }),
+      const data = await saveDiscoveredAccounts({
+        requisitionId: requisitionId || undefined,
+        accounts: discoveredAccounts.map((acc) => ({
+          id: acc.id,
+          bankName: acc.bankName,
+          accountName: acc.name,
+          ibanMask: acc.ibanMask,
+          ownership: acc.ownership,
+          balance: acc.balance,
+          institutionId: acc.institutionId,
+        })),
       });
 
-      const data = await res.json();
-      if (!data.success) {
+      if (!data.success || !data.accounts) {
         throw new Error(data.error || "Error al guardar cuentas");
       }
 
-      // Convert to context format
-      const newBankAccounts: BankAccount[] = discoveredAccounts.map((acc) => ({
-        id: acc.id,
-        bankName: acc.bankName,
-        accountName: acc.name,
-        ibanMask: acc.ibanMask,
-        ownership: acc.ownership,
-        balance: acc.balance,
-        institutionId: acc.institutionId,
-        connectedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "active",
-      }));
-
-      onAccountsConnected(newBankAccounts);
+      onAccountsConnected(data.accounts);
       setStep("SUCCESS");
       setTimeout(() => {
         onClose();
