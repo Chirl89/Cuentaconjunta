@@ -41,6 +41,8 @@ interface ConnectBankModalProps {
   onClose: () => void;
   onAccountsConnected: (accounts: BankAccount[]) => void;
   initialRequisitionId?: string | null;
+  initialMode?: "catalog" | "statement" | "config";
+  initialBankName?: string;
 }
 
 interface BankInstitution {
@@ -67,6 +69,8 @@ export default function ConnectBankModal({
   onClose,
   onAccountsConnected,
   initialRequisitionId,
+  initialMode,
+  initialBankName,
 }: ConnectBankModalProps) {
   const { memberAName, memberBName } = useUserNames();
   const { importBankMovements } = useTransactions();
@@ -109,6 +113,8 @@ export default function ConnectBankModal({
   // Load institutions & App ID when modal opens
   useEffect(() => {
     if (isOpen) {
+      if (initialMode) setActiveMode(initialMode);
+      if (initialBankName) setStatementBankName(initialBankName);
       setErrorMessage(null);
       setShowConnectPrompt(false);
       setIsLoadingInstitutions(true);
@@ -151,7 +157,7 @@ export default function ConnectBankModal({
       setParsedMovements([]);
       setStatementText("");
     }
-  }, [isOpen, initialRequisitionId]);
+  }, [isOpen, initialRequisitionId, initialMode, initialBankName]);
 
   const filteredInstitutions = useMemo(() => {
     if (!searchTerm.trim()) return institutions;

@@ -457,4 +457,105 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(Number(screen.getByTestId("total-spent").textContent)).toBe(75.0);
     expect(Number(screen.getByTestId("classified-count").textContent)).toBe(1);
   });
+
+  it("supports updating account balance directly and merges imported statements into existing accounts", () => {
+    const AccountTestComponent = () => {
+      const { accounts, addConnectedAccounts, updateAccountBalance } = useTransactions();
+
+      return (
+        <div>
+          <div data-testid="accounts-count">{accounts.length}</div>
+          {accounts.map((acc) => (
+            <div key={acc.id} data-testid={`acc-${acc.id}`}>
+              <span data-testid={`balance-${acc.id}`}>{acc.balance}</span>
+              <span data-testid={`bank-${acc.id}`}>{acc.bankName}</span>
+              <button
+                data-testid={`btn-update-bal-${acc.id}`}
+                onClick={() => updateAccountBalance(acc.id, 2450.5)}
+              >
+                Set Balance
+              </button>
+            </div>
+          ))}
+          <button
+            data-testid="btn-add-account"
+            onClick={() =>
+              addConnectedAccounts([
+                {
+                  id: "acc-bankinter-1",
+                  bankName: "Bankinter",
+                  accountName: "Cuenta Corriente",
+                  ibanMask: "ES93 •••• 0803",
+                  ownership: "USER_A",
+                  balance: 0,
+                  institutionId: "bankinter",
+                  connectedAt: new Date().toISOString(),
+                  expiresAt: new Date().toISOString(),
+                  status: "active",
+                },
+              ])
+            }
+          >
+            Add Bankinter
+          </button>
+          <button
+            data-testid="btn-import-statement-update"
+            onClick={() =>
+              addConnectedAccounts([
+                {
+                  id: "real_acc_new",
+                  bankName: "Bankinter",
+                  accountName: "Cuenta Bankinter",
+                  ibanMask: "ES93 •••• 0803",
+                  ownership: "JOINT",
+                  balance: 1850.75,
+                  institutionId: "bankinter",
+                  connectedAt: new Date().toISOString(),
+                  expiresAt: new Date().toISOString(),
+                  status: "active",
+                },
+              ])
+            }
+          >
+            Import Bankinter Statement
+          </button>
+        </div>
+      );
+    };
+
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <AccountTestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    // Initial count
+    const initialCount = Number(screen.getByTestId("accounts-count").textContent);
+
+    // Add Bankinter account with 0 balance
+    act(() => {
+      fireEvent.click(screen.getByTestId("btn-add-account"));
+    });
+
+    expect(Number(screen.getByTestId("accounts-count").textContent)).toBe(initialCount + 1);
+    expect(Number(screen.getByTestId("balance-acc-bankinter-1").textContent)).toBe(0);
+
+    // Update balance directly via updateAccountBalance
+    act(() => {
+      fireEvent.click(screen.getByTestId("btn-update-bal-acc-bankinter-1"));
+    });
+    expect(Number(screen.getByTestId("balance-acc-bankinter-1").textContent)).toBe(2450.5);
+
+    // Merging statement with matching IBAN does NOT create duplicate, but updates balance
+    act(() => {
+      fireEvent.click(screen.getByTestId("btn-import-statement-update"));
+    });
+
+    // Count remains unchanged (no duplicate)
+    expect(Number(screen.getByTestId("accounts-count").textContent)).toBe(initialCount + 1);
+    // Balance updated to statement balance
+    expect(Number(screen.getByTestId("balance-acc-bankinter-1").textContent)).toBe(1850.75);
+  });
 });

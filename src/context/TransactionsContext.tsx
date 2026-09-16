@@ -538,6 +538,7 @@ interface TransactionsContextType {
   allPendingTransactions: Transaction[];
   addConnectedAccounts: (newAccounts: BankAccount[]) => void;
   updateAccountOwnership: (accountId: string, ownership: "JOINT" | "USER_A" | "USER_B") => void;
+  updateAccountBalance: (accountId: string, balance: number) => void;
   removeAccount: (accountId: string) => void;
   importBankMovements: (movements: Array<{
     id?: string;
@@ -730,14 +731,36 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const addConnectedAccounts = useCallback(
     (newAccounts: BankAccount[]) => {
       persistAccounts((prev) => {
-        const existingIds = new Set(prev.map((a) => a.id));
-        const toAdd = newAccounts.filter((a) => !existingIds.has(a.id));
-        const updated = prev.map((a) => {
-          const match = newAccounts.find((na) => na.id === a.id);
-          return match ? { ...a, ...match } : a;
-        });
-        return [...updated, ...toAdd];
+        const updated = [...prev];
+        for (const na of newAccounts) {
+          const idx = updated.findIndex(
+            (a) =>
+              a.id === na.id ||
+              (na.ibanMask && a.ibanMask && na.ibanMask === a.ibanMask) ||
+              (na.bankName && a.bankName.toLowerCase() === na.bankName.toLowerCase())
+          );
+          if (idx >= 0) {
+            updated[idx] = {
+              ...updated[idx],
+              ...na,
+              id: updated[idx].id,
+              ownership: updated[idx].ownership || na.ownership,
+            };
+          } else {
+            updated.push(na);
+          }
+        }
+        return updated;
       });
+    },
+    [persistAccounts]
+  );
+
+  const updateAccountBalance = useCallback(
+    (accountId: string, balance: number) => {
+      persistAccounts((prev) =>
+        prev.map((a) => (a.id === accountId ? { ...a, balance } : a))
+      );
     },
     [persistAccounts]
   );
@@ -1589,6 +1612,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         allPendingTransactions,
         addConnectedAccounts,
         updateAccountOwnership,
+        updateAccountBalance,
         removeAccount,
         importBankMovements,
       }}
