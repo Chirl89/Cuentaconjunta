@@ -219,13 +219,18 @@ export default function ConnectBankModal({
         institutionId: bank.id,
       });
 
-      if (!data.success || !data.requisitionId || !data.authUrl) {
+      if (!data.success || !data.requisitionId) {
         throw new Error(data.error || "No se pudo generar el enlace bancario");
       }
 
       setRequisitionId(data.requisitionId);
-      setAuthUrl(data.authUrl);
-      setStep("AUTHORIZING");
+
+      if (data.authUrl && data.authUrl.length > 5) {
+        setAuthUrl(data.authUrl);
+        setStep("AUTHORIZING");
+      } else {
+        await loadAccountsFromRequisition(data.requisitionId);
+      }
     } catch (err: any) {
       setErrorMessage(err.message || "Error al conectar con la entidad");
     } finally {
