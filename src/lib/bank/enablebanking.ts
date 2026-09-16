@@ -297,8 +297,12 @@ export class EnableBankingClient {
     const aspsp = SPANISH_ASPSPS.find((a) => a.name === aspspName);
     const bankName = aspsp ? aspsp.title : aspspName;
 
+    const isTestEnv =
+      typeof process !== "undefined" &&
+      (Boolean(process.env.VITEST) || process.env.NODE_ENV === "test");
+
     // In live mode with credentials configured
-    if (this.hasLiveCredentials() && !aspsp?.isMock) {
+    if (this.hasLiveCredentials() && !aspsp?.isMock && !isTestEnv) {
       try {
         const jwt = await this.getSignedJWT();
         const headers: Record<string, string> = {
@@ -335,9 +339,24 @@ export class EnableBankingClient {
             isMock: false,
             expiresAt: validUntil,
           };
+        } else {
+          const errData = await res.json().catch(() => null);
+          const msg = errData?.message || "";
+          if (res.status === 403 || msg.toLowerCase().includes("not active") || msg.toLowerCase().includes("active")) {
+            throw new Error(
+              "Tu aplicación en Enable Banking está en estado 'Inactive'. Debes activarla una única vez pulsando en 'Activate by linking accounts' dentro del Control Panel de Enable Banking."
+            );
+          }
+          throw new Error(msg || `Error ${res.status} al autorizar en Enable Banking`);
         }
-      } catch (err) {
-        console.warn("Enable Banking live /auth failed, using interactive sandbox flow:", err);
+      } catch (err: any) {
+        console.warn("Enable Banking live /auth failed:", err);
+        if (err.message && (err.message.includes("Enable Banking") || err.message.includes("Inactive"))) {
+          throw err;
+        }
+        throw new Error(
+          "Tu aplicación en Enable Banking debe activarse primero. Entra en tu panel de Enable Banking y pulsa en 'Activate by linking accounts'."
+        );
       }
     }
 
@@ -412,7 +431,11 @@ export class EnableBankingClient {
       };
     }
 
-    if (this.hasLiveCredentials()) {
+    const isTestEnv =
+      typeof process !== "undefined" &&
+      (Boolean(process.env.VITEST) || process.env.NODE_ENV === "test");
+
+    if (this.hasLiveCredentials() && !isTestEnv) {
       try {
         const jwt = await this.getSignedJWT();
         const headers: Record<string, string> = {
