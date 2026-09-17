@@ -12,6 +12,7 @@ import {
   AlertCircle,
   Upload,
   ShieldCheck,
+  ExternalLink,
 } from "lucide-react";
 
 interface SyncModalProps {
@@ -32,9 +33,51 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   const [parsedCardMovements, setParsedCardMovements] = useState<ParsedBankMovement[]>([]);
   const [cardError, setCardError] = useState<string | null>(null);
   const [cardSuccessMsg, setCardSuccessMsg] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"account" | "card">("account");
+  const [activeSubTab, setActiveSubTab] = useState<"account" | "card">("card");
+  const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
+  const [browserSyncStatus, setBrowserSyncStatus] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleLaunchBankinterBrowser = async () => {
+    setIsLaunchingBrowser(true);
+    setBrowserSyncStatus("Iniciando pasarela oficial de Bankinter...");
+    try {
+      const res = await fetch("/api/sync/launch-card-sync", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setBrowserSyncStatus("Ventana de Bankinter abierta en tu pantalla. Introduce tus claves en Bankinter.");
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusRes = await fetch("/api/sync/launch-card-sync");
+            const statusData = await statusRes.json();
+            if (statusData.status === "WAITING_USER_LOGIN") {
+              setBrowserSyncStatus("Introduce tu usuario y contraseña en la ventana de Bankinter...");
+            } else if (statusData.status === "EXTRACTING") {
+              setBrowserSyncStatus("¡Sesión iniciada con éxito! Extrayendo compras de la tarjeta...");
+            } else if (statusData.status === "COMPLETED") {
+              clearInterval(pollInterval);
+              setIsLaunchingBrowser(false);
+              setBrowserSyncStatus("✅ ¡Sincronización completada! Compras de la tarjeta incorporadas.");
+              await syncBankFeed();
+            } else if (statusData.status === "ERROR") {
+              clearInterval(pollInterval);
+              setIsLaunchingBrowser(false);
+              setBrowserSyncStatus("⚠️ " + (statusData.error || "Se detuvo la sincronización."));
+            }
+          } catch {
+            // ignore poll error
+          }
+        }, 2000);
+      } else {
+        setIsLaunchingBrowser(false);
+        setBrowserSyncStatus("Error: " + (data.error || "No se pudo abrir la ventana."));
+      }
+    } catch (err: any) {
+      setIsLaunchingBrowser(false);
+      setBrowserSyncStatus("Error de conexión: " + err.message);
+    }
+  };
 
   const bankinterAccount = accounts.find(
     (a) => a.bankName.toLowerCase().includes("bankinter") || a.id.includes("bankinter")
@@ -228,61 +271,70 @@ export const SyncModal: React.FC<SyncModalProps> = ({
           {activeSubTab === "card" && (
             <div className="space-y-4">
               <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-2">
-                <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4 text-indigo-600" />
-                  <span className="text-xs font-black text-indigo-950">
-                    Compras y Movimientos de Tarjeta VISA
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-indigo-600" />
+                    <span className="text-xs font-black text-indigo-950">
+                      Sincronización Directa de Tarjeta VISA
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold bg-indigo-200/80 text-indigo-900 px-2 py-0.5 rounded-full">
+                    100% Automático
                   </span>
                 </div>
                 <p className="text-xs text-indigo-900 leading-relaxed">
-                  Bankinter únicamente expone cuentas corrientes en la API abierta europea PSD2. 
-                  Para incorporar tus compras diarias de la VISA Clásica sin bloqueos anti-bot, 
-                  carga el extracto descargado desde la App de Bankinter:
+                  Para que <strong>nunca tengas que subir archivos manuales</strong> ni guardar contraseñas en variables de código, 
+                  pulsa el botón a continuación para abrir la pasarela oficial de Bankinter:
                 </p>
               </div>
 
-              {/* Upload file or paste text */}
+              {/* In-app Browser Launcher Button */}
               <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <label className="flex-1 py-2.5 px-3 rounded-xl border border-dashed border-indigo-300 bg-indigo-50/40 hover:bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-colors">
-                    <Upload className="w-4 h-4" />
-                    <span>Seleccionar archivo (Excel/CSV de Bankinter)</span>
-                    <input
-                      type="file"
-                      accept=".csv,.txt,.xlsx,.xls"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-
-                <div className="space-y-1">
-                  <span className="text-[11px] font-bold text-slate-500">
-                    O pega el texto/tabla de movimientos aquí:
+                <button
+                  type="button"
+                  onClick={handleLaunchBankinterBrowser}
+                  disabled={isLaunchingBrowser}
+                  className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2.5 shadow-md shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  <span>
+                    {isLaunchingBrowser ? "Ventana Oficial de Bankinter Abierta..." : "Abrir Ventana de Bankinter y Sincronizar Tarjeta"}
                   </span>
-                  <textarea
-                    rows={3}
-                    value={cardExtractText}
-                    onChange={(e) => handleCardTextChange(e.target.value)}
-                    placeholder="Fecha;Concepto;Importe&#10;15/09/2026;Mercadona;-45,30&#10;12/09/2026;Restaurante;-32,00"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-mono text-[11px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500"
-                  />
+                </button>
+
+                {browserSyncStatus && (
+                  <div
+                    className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2.5 ${
+                      browserSyncStatus.includes("✅")
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : browserSyncStatus.includes("⚠️") || browserSyncStatus.includes("Error")
+                        ? "bg-red-50 border-red-200 text-red-700"
+                        : "bg-indigo-50 border-indigo-200 text-indigo-950"
+                    }`}
+                  >
+                    {isLaunchingBrowser ? (
+                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
+                    ) : browserSyncStatus.includes("✅") ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                    )}
+                    <span className="leading-snug">{browserSyncStatus}</span>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1.5">
+                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Seguridad y Privacidad Estricta:</span>
+                  </div>
+                  <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-500">
+                    <li>Introduces tus claves directamente en la web oficial de Bankinter.</li>
+                    <li>La app no almacena ni ve ninguna contraseña.</li>
+                    <li>Al validar tu acceso, las compras de la tarjeta se vuelcan solas.</li>
+                  </ul>
                 </div>
               </div>
-
-              {cardError && (
-                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-                  <span>{cardError}</span>
-                </div>
-              )}
-
-              {cardSuccessMsg && (
-                <div className="p-3 rounded-xl bg-emerald-100/70 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{cardSuccessMsg}</span>
-                </div>
-              )}
 
               {/* Parsed movements preview */}
               {parsedCardMovements.length > 0 && (
