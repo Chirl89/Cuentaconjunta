@@ -305,6 +305,25 @@ const isTestEnv =
   typeof process !== "undefined" &&
   (Boolean(process.env.VITEST) || process.env.NODE_ENV === "test");
 
+export function isFictionalTransaction(t: any): boolean {
+  if (!t) return true;
+  if (typeof t.id === "string" && t.id.startsWith("tx-")) return true;
+  if (typeof t.id === "string" && t.id.startsWith("eb_bk_")) return true;
+  if (typeof t.bankMovementId === "string" && t.bankMovementId.startsWith("bk_tx_")) return true;
+  const m = (t.merchant || "").toLowerCase();
+  if (m.includes("mercadona gran vía")) return true;
+  if (m.includes("iberdrola electricidad")) return true;
+  if (m.includes("la tagliatella")) return true;
+  if (m.includes("repsol gasolina")) return true;
+  if (m.includes("farmacia central")) return true;
+  if (m.includes("mercadona madrid")) return true;
+  if (m.includes("recibo iberdrola electricidad")) return true;
+  if (m.includes("gasolinera repsol m-30")) return true;
+  if (m.includes("restaurante el corte ingles")) return true;
+  if (m.includes("transferencia nomina empresa")) return true;
+  return false;
+}
+
 // Test suite fixtures (only populated in Vitest test runner)
 const TEST_TRANSACTIONS: Transaction[] = [
   // Septiembre 2026
@@ -587,7 +606,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !t.id?.startsWith("tx-"));
+            const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
             return filtered;
           }
         }
@@ -664,8 +683,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (savedTxs) {
         const parsed = JSON.parse(savedTxs);
         if (Array.isArray(parsed)) {
-          const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !t.id?.startsWith("tx-"));
+          const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
           setTransactions(filtered);
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(filtered));
         }
       }
       const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
@@ -709,17 +729,20 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       if (Array.isArray(feed.transactions) && feed.transactions.length > 0) {
         setTransactions((prev) => {
-          const existingIds = new Set(prev.map((t) => t.id));
+          const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
+          const existingIds = new Set(cleanPrev.map((t) => t.id));
           const existingBankIds = new Set(
-            prev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
+            cleanPrev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
           );
-          const toAdd = feed.transactions.filter(
-            (ft: Transaction) =>
-              !existingIds.has(ft.id) &&
-              (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
-          );
-          if (toAdd.length === 0) return prev;
-          const merged = [...toAdd, ...prev];
+          const toAdd = feed.transactions
+            .filter((ft: any) => isTestEnv || !isFictionalTransaction(ft))
+            .filter(
+              (ft: Transaction) =>
+                !existingIds.has(ft.id) &&
+                (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
+            );
+          if (toAdd.length === 0) return cleanPrev;
+          const merged = [...toAdd, ...cleanPrev];
           try {
             localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
           } catch {}

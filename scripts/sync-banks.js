@@ -14,13 +14,25 @@ const path = require('path');
 const { importPKCS8, SignJWT } = require('jose');
 const { createClient } = require('@supabase/supabase-js');
 
+function cleanConcept(raw) {
+  if (!raw) return 'Movimiento Bancario';
+  let s = String(raw).trim();
+  s = s.replace(/^\/TXT\/[DH]\|/i, '');
+  s = s.replace(/^\/TXT\//i, '');
+  s = s.replace(/^RECIBO?\s*\/?/i, 'Recibo ');
+  s = s.replace(/^TRANSF?\s*(NOMI|DE)?\s*\/?/i, 'Transferencia ');
+  s = s.replace(/^PAGO BIZUM A\s*/i, 'Bizum a ');
+  s = s.replace(/^\/\s*/, '');
+  return s.trim() || raw;
+}
+
 // Auto-categorization rules
 function detectCategory(concept) {
   const c = (concept || '').toLowerCase();
   if (c.includes('mercadona') || c.includes('carrefour') || c.includes('lidl') || c.includes('dia') || c.includes('alcampo') || c.includes('supermercado') || c.includes('consum') || c.includes('aldi')) {
     return { name: 'Supermercado', color: '#00D09C' };
   }
-  if (c.includes('iberdrola') || c.includes('endesa') || c.includes('naturgy') || c.includes('aqualia') || c.includes('comunidad') || c.includes('alquiler') || c.includes('vodafone') || c.includes('movistar') || c.includes('orange') || c.includes('digi') || c.includes('luz') || c.includes('gas') || c.includes('agua')) {
+  if (c.includes('iberdrola') || c.includes('endesa') || c.includes('naturgy') || c.includes('aqualia') || c.includes('comunidad') || c.includes('alquiler') || c.includes('testa') || c.includes('socimi') || c.includes('vodafone') || c.includes('movistar') || c.includes('orange') || c.includes('digi') || c.includes('luz') || c.includes('gas') || c.includes('agua')) {
     return { name: 'Hogar & Luz', color: '#0EA5E9' };
   }
   if (c.includes('restaurante') || c.includes('bar ') || c.includes('cafeteria') || c.includes('uber eats') || c.includes('just eat') || c.includes('glovo') || c.includes('mcdonald') || c.includes('burger') || c.includes('kfc') || c.includes('cine') || c.includes('teatro') || c.includes('entradas') || c.includes('starbucks')) {
@@ -218,7 +230,8 @@ async function main() {
                       const txId = `eb_${movementId}`;
                       if (!existingTxIds.has(txId)) {
                         const amountRaw = parseFloat(rt.transaction_amount?.amount || '0');
-                        const concept = (rt.remittance_information && rt.remittance_information.length > 0 ? rt.remittance_information.join(' ') : null) || rt.creditor_name || rt.debtor_name || rt.additional_information || 'Movimiento Bancario';
+                        const rawConcept = (rt.remittance_information && rt.remittance_information.length > 0 ? rt.remittance_information.join(' ') : null) || rt.creditor_name || rt.debtor_name || rt.additional_information || 'Movimiento Bancario';
+                        const concept = cleanConcept(rawConcept);
                         const cat = detectCategory(concept);
                         const bookingDate = rt.booking_date || rt.value_date || nowIso.split('T')[0];
 
@@ -237,7 +250,7 @@ async function main() {
                           isManual: false,
                           bankMovementId: movementId,
                           currency: rt.transaction_amount?.currency || 'EUR',
-                          isCredit: rt.credit_debit_indicator === 'CRDT' || amountRaw > 0,
+                          isCredit: rt.credit_debit_indicator === 'CRDT',
                         };
 
                         newTransactions.push(txItem);
