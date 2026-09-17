@@ -34,11 +34,9 @@ async function getDirectBankLink(bankName = 'Bankinter') {
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT', kid: appId })
     .sign(key);
 
-  // 1. Create auth session
-  const iban = 'ES9301280082940100030803';
+  // 1. Create auth session (all accounts and cards)
   const accessObj = {
     valid_until: new Date(Date.now() + 90 * 86400000).toISOString(),
-    accounts: [{ iban }],
     balances: true,
     transactions: true,
   };

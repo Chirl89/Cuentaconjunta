@@ -249,7 +249,9 @@ async function main() {
                           monthKey: formatMonthKey(bookingDate),
                           category: cat.name,
                           categoryColor: cat.color,
-                          accountLabel: `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
+                          accountLabel: (acc?.cash_account_type === 'CARD' || acc?.product?.toLowerCase().includes('tarjeta') || acc?.product?.toLowerCase().includes('visa'))
+                            ? `Tarjeta Bankinter (${acc.card_number ? acc.card_number.slice(-4) : 'VISA'})`
+                            : `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
                           status: isCredit ? 'classified' : 'pending',
                           payer: ownerPayer,
                           split: isCredit ? ownerSplit : '50/50',
