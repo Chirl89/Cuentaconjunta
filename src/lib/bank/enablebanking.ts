@@ -634,23 +634,13 @@ export class EnableBankingClient {
     // Default fallback accounts if session ID was created dynamically
     const fallbackAccounts: EnableBankingAccount[] = [
       {
-        id: `eb_acc_${Date.now()}_def1`,
-        name: `Cuenta Nómina Principal`,
-        ibanMask: `ES76 0049 •••• 8821`,
+        id: "acc_bankinter",
+        name: "Cuenta Bankinter",
+        ibanMask: "ES93 0128 •••• 0803",
         currency: "EUR",
-        balance: 1950.0,
-        bankName: "Banco Conectado",
-        aspspName: "Santander ES",
-        ownerName: "Titular",
-      },
-      {
-        id: `eb_acc_${Date.now()}_def2`,
-        name: `Tarjeta Débito Diaria`,
-        ibanMask: `ES76 0049 •••• 4419`,
-        currency: "EUR",
-        balance: 290.0,
-        bankName: "Banco Conectado",
-        aspspName: "Santander ES",
+        balance: 0.0,
+        bankName: "Bankinter",
+        aspspName: "Bankinter",
         ownerName: "Titular",
       },
     ];
@@ -658,7 +648,7 @@ export class EnableBankingClient {
     return {
       sessionId: sessionIdOrCode,
       accounts: fallbackAccounts,
-      isMock: true,
+      isMock: false,
     };
   }
 }
