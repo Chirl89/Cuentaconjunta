@@ -308,6 +308,66 @@ const isTestEnv =
   typeof process !== "undefined" &&
   (Boolean(process.env.VITEST) || process.env.NODE_ENV === "test");
 
+/**
+ * Resolves a comparable numerical timestamp from any transaction (bank or manual),
+ * ensuring strictly newest-to-oldest chronological ordering.
+ */
+export function getTransactionSortTimestamp(t: {
+  date?: string;
+  monthKey?: string;
+  id?: string;
+  createdAt?: number;
+  bankMovementId?: string;
+}): number {
+  const idStr = `${t.bankMovementId || ""} ${t.id || ""}`;
+  const isoMatch = idStr.match(/(\d{4})-(\d{2})-(\d{2})(?:\.(\d+))?/);
+  if (isoMatch) {
+    const y = parseInt(isoMatch[1], 10);
+    const m = parseInt(isoMatch[2], 10) - 1;
+    const d = parseInt(isoMatch[3], 10);
+    const subIndex = isoMatch[4] ? parseInt(isoMatch[4], 10) : 0;
+    return new Date(y, m, d, 12, 0, 0).getTime() + subIndex * 1000;
+  }
+
+  let year = 2026;
+  let month = 9;
+  if (t.monthKey && t.monthKey.includes("-")) {
+    const parts = t.monthKey.split("-");
+    year = parseInt(parts[0], 10) || 2026;
+    month = parseInt(parts[1], 10) || 9;
+  }
+
+  let day = 1;
+  let hour = 12;
+  let minute = 0;
+
+  if (t.date) {
+    const dayMonthMatch = t.date.match(/(\d{1,2})\s+([A-Za-z]{3})/i);
+    if (dayMonthMatch) {
+      day = parseInt(dayMonthMatch[1], 10);
+      const MONTHS_MAP: Record<string, number> = {
+        ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6,
+        jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
+      };
+      const key = dayMonthMatch[2].toLowerCase().substring(0, 3);
+      if (MONTHS_MAP[key]) {
+        month = MONTHS_MAP[key];
+      }
+    }
+    const timeMatch = t.date.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      hour = parseInt(timeMatch[1], 10);
+      minute = parseInt(timeMatch[2], 10);
+    }
+  }
+
+  if (t.createdAt && t.createdAt > 1000000000000) {
+    return t.createdAt;
+  }
+
+  return new Date(year, month - 1, day, hour, minute).getTime();
+}
+
 export function isFictionalTransaction(t: any): boolean {
   if (!t) return true;
   if (typeof t.id === "string" && t.id.startsWith("tx-")) return true;
@@ -505,6 +565,7 @@ export const AVAILABLE_MONTHS = [
   { key: "2026-09", label: "Septiembre 2026" },
   { key: "2026-08", label: "Agosto 2026" },
   { key: "2026-07", label: "Julio 2026" },
+  { key: "2026-06", label: "Junio 2026" },
 ];
 
 interface TransactionsContextType {
@@ -1388,9 +1449,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return `${tx.accountLabel || "BBVA Conjunta"} (Conjunta)`;
   };
 
-  // Filtered by selected month
+  // Filtered by selected month and strictly sorted newest to oldest
   const filteredTransactions = useMemo(
-    () => transactions.filter((t) => t.monthKey === selectedMonth),
+    () =>
+      transactions
+        .filter((t) => t.monthKey === selectedMonth)
+        .sort((a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)),
     [transactions, selectedMonth]
   );
 
@@ -1400,7 +1464,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const allPendingTransactions = useMemo(
-    () => transactions.filter((t) => t.status === "pending" && !t.isCredit),
+    () =>
+      transactions
+        .filter((t) => t.status === "pending" && !t.isCredit)
+        .sort((a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)),
     [transactions]
   );
 

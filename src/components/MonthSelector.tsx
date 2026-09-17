@@ -33,9 +33,21 @@ export const MonthSelector: React.FC<{ className?: string }> = ({ className = ""
         <ChevronLeft className="w-3.5 h-3.5" />
       </button>
 
-      <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold text-slate-800 select-none whitespace-nowrap">
+      <div className="relative flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold text-slate-800 cursor-pointer select-none whitespace-nowrap group">
         <Calendar className="w-3 h-3 text-[#00A37A] shrink-0" />
-        <span className="whitespace-nowrap">{currentLabel}</span>
+        <span className="whitespace-nowrap group-hover:text-[#00A37A] transition-colors">{currentLabel}</span>
+        <select
+          value={selectedMonth}
+          onChange={(e) => setSelectedMonth(e.target.value)}
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+          title="Seleccionar mes"
+        >
+          {AVAILABLE_MONTHS.map((m) => (
+            <option key={m.key} value={m.key}>
+              {m.label}
+            </option>
+          ))}
+        </select>
       </div>
 
       <button

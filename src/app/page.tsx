@@ -1101,18 +1101,30 @@ export default function HomePage() {
 
           {/* SECTION 2: HISTÓRICO RECLASIFICABLE */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+              <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-[#00A37A]" />
-                <span>Histórico de Movimientos</span>
-              </h2>
-              <span className="text-xs font-bold text-slate-500">
-                {classifiedTransactions.length} clasificados
-              </span>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Histórico de Movimientos
+                </h2>
+                <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                  {classifiedTransactions.length}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <MonthSelector className="scale-90 sm:scale-95 origin-left sm:origin-right" />
+              </div>
             </div>
 
-            <div className="divide-y divide-slate-100">
-              {classifiedTransactions.map((tx) => (
+            {classifiedTransactions.length === 0 ? (
+              <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                <span className="font-semibold text-slate-700 block">No hay movimientos en este mes</span>
+                <span className="text-slate-400 block mt-0.5">Usa el selector para ver otros meses del histórico.</span>
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100">
+                {classifiedTransactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="py-2.5 px-1 flex items-center justify-between gap-2 hover:bg-slate-50/60 rounded-2xl transition-colors"
@@ -1288,6 +1300,7 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
       )}
