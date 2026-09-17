@@ -232,7 +232,10 @@ async function main() {
                         const amountRaw = parseFloat(rt.transaction_amount?.amount || '0');
                         const rawConcept = (rt.remittance_information && rt.remittance_information.length > 0 ? rt.remittance_information.join(' ') : null) || rt.creditor_name || rt.debtor_name || rt.additional_information || 'Movimiento Bancario';
                         const concept = cleanConcept(rawConcept);
-                        const cat = detectCategory(concept);
+                        const isCredit = rt.credit_debit_indicator === 'CRDT' || (amountRaw > 0 && rt.credit_debit_indicator !== 'DBIT');
+                        const cat = isCredit
+                          ? { name: 'Ingreso / Nómina', color: '#10B981' }
+                          : detectCategory(concept);
                         const bookingDate = rt.booking_date || rt.value_date || nowIso.split('T')[0];
 
                         const txItem = {
@@ -246,11 +249,11 @@ async function main() {
                           accountLabel: `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
                           status: 'pending',
                           payer: conn.ownership === 'USER_B' ? 'memberB' : conn.ownership === 'JOINT' ? 'joint' : 'memberA',
-                          split: '50/50',
+                          split: isCredit ? (conn.ownership === 'USER_B' ? 'memberB' : 'memberA') : '50/50',
                           isManual: false,
                           bankMovementId: movementId,
                           currency: rt.transaction_amount?.currency || 'EUR',
-                          isCredit: rt.credit_debit_indicator === 'CRDT',
+                          isCredit,
                         };
 
                         newTransactions.push(txItem);

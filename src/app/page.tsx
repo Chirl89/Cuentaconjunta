@@ -20,7 +20,9 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import versionData from "../../version.json";
 import {
   TrendingDown,
+  TrendingUp,
   ArrowRight,
+  ArrowDownLeft,
   ShoppingCart,
   Zap,
   Utensils,
@@ -713,9 +715,13 @@ export default function HomePage() {
                             {truncateConcept(tx.merchant, 24)}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                        </span>
                       </div>
-                      <span className="text-sm font-black text-slate-900 whitespace-nowrap">{tx.amount.toFixed(2)} €</span>
+                      <span className={`text-sm font-black whitespace-nowrap ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                        {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -857,9 +863,13 @@ export default function HomePage() {
                             {truncateConcept(tx.merchant, 24)}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                        <span className="text-[10px] text-slate-400">
+                          {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                        </span>
                       </div>
-                      <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
+                      <span className={`text-sm font-black whitespace-nowrap ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                        {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -924,10 +934,23 @@ export default function HomePage() {
                   >
                     <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
                       <div
-                        className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0"
-                        style={{ backgroundColor: `${tx.categoryColor}20`, color: tx.categoryColor }}
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                          tx.isCredit
+                            ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                            : ""
+                        }`}
+                        style={
+                          tx.isCredit
+                            ? undefined
+                            : { backgroundColor: `${tx.categoryColor}20`, color: tx.categoryColor }
+                        }
+                        title={tx.isCredit ? "Ingreso / Abono bancario" : tx.category}
                       >
-                        <ShoppingCart className="w-4 h-4" />
+                        {tx.isCredit ? (
+                          <ArrowDownLeft className="w-4 h-4" />
+                        ) : (
+                          <ShoppingCart className="w-4 h-4" />
+                        )}
                       </div>
                       <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
                         {/* Línea 1: Concepto con límite de caracteres */}
@@ -935,7 +958,11 @@ export default function HomePage() {
                           <button
                             type="button"
                             onClick={() => setEditingTransaction(tx)}
-                            className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-amber-800 hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer"
+                            className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer ${
+                              tx.isCredit
+                                ? "text-emerald-950 hover:text-emerald-700"
+                                : "text-slate-900 hover:text-amber-800"
+                            }`}
                             title="Gasto manual: Pulsar para editar o eliminar"
                           >
                             <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
@@ -944,7 +971,11 @@ export default function HomePage() {
                             </span>
                           </button>
                         ) : (
-                          <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate w-full leading-tight">
+                          <span
+                            className={`font-bold text-xs sm:text-sm block truncate w-full leading-tight ${
+                              tx.isCredit ? "text-emerald-950" : "text-slate-900"
+                            }`}
+                          >
                             {truncateConcept(tx.merchant, 28)}
                           </span>
                         )}
@@ -972,9 +1003,14 @@ export default function HomePage() {
                           <span className="text-[10px] sm:text-[11px] text-slate-500 truncate leading-tight">
                             {tx.date} • {getAccountDisplay(tx)}
                           </span>
+                          {tx.isCredit && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              💰 Ingreso / Abono
+                            </span>
+                          )}
                           {tx.monthKey !== selectedMonth && (
                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-200/90 text-amber-950 border border-amber-300">
-                              📅 Gasto original de {tx.monthKey === "2026-08" ? "Agosto 2026" : tx.monthKey}
+                              📅 Original de {tx.monthKey === "2026-08" ? "Agosto 2026" : tx.monthKey}
                             </span>
                           )}
                           {tx.payer === "memberA" && tx.split === "memberB" && (
@@ -992,29 +1028,66 @@ export default function HomePage() {
                     </div>
 
                     <div className="flex flex-col items-end justify-center gap-1 shrink-0 ml-2">
-                      <span className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap text-right leading-none">
-                        {tx.amount.toFixed(2)} €
+                      <span
+                        className={`text-sm sm:text-base font-black whitespace-nowrap text-right leading-none ${
+                          tx.isCredit ? "text-emerald-600 font-extrabold" : "text-slate-900"
+                        }`}
+                      >
+                        {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                       </span>
 
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
-                          onClick={() => handleTriage(tx.id, "50/50", "1/2 (Compartido)")}
-                          className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] sm:text-xs font-bold shadow-xs whitespace-nowrap"
+                          onClick={() =>
+                            handleTriage(
+                              tx.id,
+                              "50/50",
+                              tx.isCredit ? "Abono 50/50 (Compartido)" : "1/2 (Compartido)"
+                            )
+                          }
+                          className={`px-1.5 sm:px-2 py-0.5 rounded-lg text-white text-[10px] sm:text-xs font-bold shadow-xs whitespace-nowrap ${
+                            tx.isCredit
+                              ? "bg-emerald-700 hover:bg-emerald-800"
+                              : "bg-slate-900 hover:bg-slate-800"
+                          }`}
+                          title={tx.isCredit ? "Abono compartido al 50%" : "Gasto compartido 50/50"}
                         >
-                          1/2
+                          {tx.isCredit ? "1/2 Abono" : "1/2"}
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleTriage(tx.id, "memberA", `Solo ${memberAName}`)}
+                          onClick={() =>
+                            handleTriage(
+                              tx.id,
+                              "memberA",
+                              tx.isCredit ? `Ingreso de ${memberAName}` : `Solo ${memberAName}`
+                            )
+                          }
                           className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-white hover:bg-red-50 text-red-600 text-[10px] sm:text-xs font-bold border border-slate-200 hover:border-red-300 whitespace-nowrap"
+                          title={
+                            tx.isCredit
+                              ? `Ingreso exclusivo de ${memberAName}`
+                              : `Solo ${memberAName}`
+                          }
                         >
                           {memberAName}
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleTriage(tx.id, "memberB", `Solo ${memberBName}`)}
+                          onClick={() =>
+                            handleTriage(
+                              tx.id,
+                              "memberB",
+                              tx.isCredit ? `Ingreso de ${memberBName}` : `Solo ${memberBName}`
+                            )
+                          }
                           className="px-1.5 sm:px-2 py-0.5 rounded-lg bg-white hover:bg-blue-50 text-blue-600 text-[10px] sm:text-xs font-bold border border-slate-200 hover:border-blue-300 whitespace-nowrap"
+                          title={
+                            tx.isCredit
+                              ? `Ingreso exclusivo de ${memberBName}`
+                              : `Solo ${memberBName}`
+                          }
                         >
                           {memberBName}
                         </button>
@@ -1046,10 +1119,23 @@ export default function HomePage() {
                 >
                   <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
                     <div
-                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                      style={{ backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }}
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        tx.isCredit
+                          ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
+                          : ""
+                      }`}
+                      style={
+                        tx.isCredit
+                          ? undefined
+                          : { backgroundColor: `${tx.categoryColor}15`, color: tx.categoryColor }
+                      }
+                      title={tx.isCredit ? "Ingreso / Abono bancario" : tx.category}
                     >
-                      <ShoppingCart className="w-4 h-4" />
+                      {tx.isCredit ? (
+                        <ArrowDownLeft className="w-4 h-4" />
+                      ) : (
+                        <ShoppingCart className="w-4 h-4" />
+                      )}
                     </div>
                     <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
                       {/* Línea 1: Concepto alineado a la izquierda */}
@@ -1057,7 +1143,11 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => setEditingTransaction(tx)}
-                          className="text-left font-bold text-slate-900 text-xs sm:text-sm hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer"
+                          className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer ${
+                            tx.isCredit
+                              ? "text-emerald-950 hover:text-emerald-700"
+                              : "text-slate-900 hover:text-[#00A37A]"
+                          }`}
                           title="Gasto manual: Pulsar para editar o eliminar"
                         >
                           <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
@@ -1066,7 +1156,11 @@ export default function HomePage() {
                           </span>
                         </button>
                       ) : (
-                        <span className="font-bold text-slate-900 text-xs sm:text-sm block truncate w-full leading-tight">
+                        <span
+                          className={`font-bold text-xs sm:text-sm block truncate w-full leading-tight ${
+                            tx.isCredit ? "text-emerald-950" : "text-slate-900"
+                          }`}
+                        >
                           {truncateConcept(tx.merchant, 28)}
                         </span>
                       )}
@@ -1094,6 +1188,11 @@ export default function HomePage() {
                         <span className="text-[10px] sm:text-[11px] text-slate-400 truncate leading-tight">
                           {tx.date} • {getAccountDisplay(tx)}
                         </span>
+                        {tx.isCredit && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
+                            💰 Ingreso / Abono
+                          </span>
+                        )}
                         {tx.payer === "memberA" && tx.split === "memberB" && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
                             Para {memberBName} (100% deuda)
@@ -1110,42 +1209,77 @@ export default function HomePage() {
 
                   {/* Alineado a la derecha: importe arriba, selector debajo */}
                   <div className="flex flex-col items-end justify-center gap-1 shrink-0 ml-2">
-                    <span className="text-sm sm:text-base font-black text-slate-900 whitespace-nowrap text-right leading-none">
-                      {tx.amount.toFixed(2)} €
+                    <span
+                      className={`text-sm sm:text-base font-black whitespace-nowrap text-right leading-none ${
+                        tx.isCredit ? "text-emerald-600 font-extrabold" : "text-slate-900"
+                      }`}
+                    >
+                      {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                     </span>
 
                     {/* Reclassification Split Pill */}
                     <div className="flex items-center bg-slate-100 p-0.5 rounded-xl gap-0.5 text-[10px] sm:text-[11px] shrink-0">
                       <button
                         type="button"
-                        onClick={() => handleReclassify(tx.id, "50/50", "1/2 (Compartido)")}
+                        onClick={() =>
+                          handleReclassify(
+                            tx.id,
+                            "50/50",
+                            tx.isCredit ? "Abono 50/50" : "1/2 (Compartido)"
+                          )
+                        }
                         className={`px-1.5 sm:px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap ${
                           tx.split === "50/50"
-                            ? "bg-slate-900 text-white shadow-xs"
+                            ? tx.isCredit
+                              ? "bg-emerald-700 text-white shadow-xs"
+                              : "bg-slate-900 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title={tx.isCredit ? "Abono compartido al 50%" : "Gasto compartido 50/50"}
                       >
-                        1/2
+                        {tx.isCredit ? "1/2 Abono" : "1/2"}
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleReclassify(tx.id, "memberA", `Solo ${memberAName}`)}
+                        onClick={() =>
+                          handleReclassify(
+                            tx.id,
+                            "memberA",
+                            tx.isCredit ? `Ingreso de ${memberAName}` : `Solo ${memberAName}`
+                          )
+                        }
                         className={`px-1.5 sm:px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap ${
                           tx.split === "memberA"
                             ? "bg-red-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title={
+                          tx.isCredit
+                            ? `Ingreso exclusivo de ${memberAName}`
+                            : `Solo ${memberAName}`
+                        }
                       >
                         {memberAName}
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleReclassify(tx.id, "memberB", `Solo ${memberBName}`)}
+                        onClick={() =>
+                          handleReclassify(
+                            tx.id,
+                            "memberB",
+                            tx.isCredit ? `Ingreso de ${memberBName}` : `Solo ${memberBName}`
+                          )
+                        }
                         className={`px-1.5 sm:px-2 py-0.5 rounded-lg font-bold transition-all whitespace-nowrap ${
                           tx.split === "memberB"
                             ? "bg-blue-500 text-white shadow-xs"
                             : "text-slate-600 hover:text-slate-900"
                         }`}
+                        title={
+                          tx.isCredit
+                            ? `Ingreso exclusivo de ${memberBName}`
+                            : `Solo ${memberBName}`
+                        }
                       >
                         {memberBName}
                       </button>

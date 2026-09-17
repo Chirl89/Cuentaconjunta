@@ -100,7 +100,8 @@ export const CATEGORIES_LIST: CategoryInfo[] = [
   { name: "Restaurantes & Ocio", color: "#F59E0B", isSystem: true },
   { name: "Transporte & Gasolina", color: "#6366F1", isSystem: true },
   { name: "Otros Gastos Comunes", color: "#EC4899", isSystem: true },
-  { name: "Aportación Conjunta", color: "#10B981", isSystem: true },
+  { name: "Ingreso / Nómina", color: "#10B981", isSystem: true },
+  { name: "Aportación Conjunta", color: "#059669", isSystem: true },
   { name: "Liquidación / Neteo", color: "#8B5CF6", isSystem: true },
 ];
 
@@ -265,6 +266,8 @@ export interface Transaction {
   movementType?: "expense" | "transfer_to_joint" | "settlement";
   createdAt?: number;
   bankMovementId?: string;
+  currency?: string;
+  isCredit?: boolean;
 }
 
 export interface DebtMovementItem {
@@ -684,8 +687,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const parsed = JSON.parse(savedTxs);
         if (Array.isArray(parsed)) {
           const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-          setTransactions(filtered);
-          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(filtered));
+          const sanitized = filtered.map((t: any) => {
+            const m = (t.merchant || "").toLowerCase();
+            const isCredit = t.isCredit ?? (m.includes("nfoque") || m.includes("bizum de") || m.includes("transferencia inm"));
+            if (isCredit && t.category === "Otros Gastos Comunes") {
+              return { ...t, isCredit: true, category: "Ingreso / Nómina", categoryColor: "#10B981" };
+            }
+            return isCredit ? { ...t, isCredit: true } : t;
+          });
+          setTransactions(sanitized);
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(sanitized));
         }
       }
       const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
@@ -730,9 +741,32 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (Array.isArray(feed.transactions) && feed.transactions.length > 0) {
         setTransactions((prev) => {
           const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
-          const existingIds = new Set(cleanPrev.map((t) => t.id));
+          const feedMap = new Map(feed.transactions.map((ft: any) => [ft.id, ft]));
+
+          // Refresh existing items with feed flags (e.g. isCredit, updated categories)
+          let hasModifications = false;
+          const updatedPrev = cleanPrev.map((t) => {
+            const ft = feedMap.get(t.id) || (t.bankMovementId ? feed.transactions.find((f: any) => f.bankMovementId === t.bankMovementId) : null);
+            if (ft) {
+              const shouldBeCredit = Boolean(ft.isCredit);
+              const needsCreditUpdate = t.isCredit !== shouldBeCredit;
+              const needsCategoryUpdate = shouldBeCredit && t.category === "Otros Gastos Comunes";
+              if (needsCreditUpdate || needsCategoryUpdate) {
+                hasModifications = true;
+                return {
+                  ...t,
+                  isCredit: shouldBeCredit,
+                  category: needsCategoryUpdate ? (ft.category || "Ingreso / Nómina") : t.category,
+                  categoryColor: needsCategoryUpdate ? (ft.categoryColor || "#10B981") : t.categoryColor,
+                };
+              }
+            }
+            return t;
+          });
+
+          const existingIds = new Set(updatedPrev.map((t) => t.id));
           const existingBankIds = new Set(
-            cleanPrev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
+            updatedPrev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
           );
           const toAdd = feed.transactions
             .filter((ft: any) => isTestEnv || !isFictionalTransaction(ft))
@@ -741,8 +775,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 !existingIds.has(ft.id) &&
                 (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
             );
-          if (toAdd.length === 0) return cleanPrev;
-          const merged = [...toAdd, ...cleanPrev];
+          if (toAdd.length === 0 && !hasModifications) return cleanPrev;
+          const merged = [...toAdd, ...updatedPrev];
           try {
             localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
           } catch {}
@@ -1349,24 +1383,24 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [filteredTransactions]
   );
 
-  // 1. Joint Shared 50/50 expenses (excluding internal fund transfers)
+  // 1. Joint Shared 50/50 expenses (excluding internal fund transfers and credit/incomes)
   const jointClassifiedTransactions = useMemo(
     () =>
       classifiedTransactions.filter(
-        (t) => t.split === "50/50" && t.movementType !== "transfer_to_joint"
+        (t) => t.split === "50/50" && t.movementType !== "transfer_to_joint" && !t.isCredit
       ),
     [classifiedTransactions]
   );
 
-  // 2. Personal Member A expenses (exclusive to A, NOT 50/50 to avoid duplication)
+  // 2. Personal Member A expenses (exclusive to A, NOT 50/50 to avoid duplication, and NOT income)
   const memberAClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberA"),
+    () => classifiedTransactions.filter((t) => t.split === "memberA" && !t.isCredit),
     [classifiedTransactions]
   );
 
-  // 3. Personal Member B expenses (exclusive to B, NOT 50/50 to avoid duplication)
+  // 3. Personal Member B expenses (exclusive to B, NOT 50/50 to avoid duplication, and NOT income)
   const memberBClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberB"),
+    () => classifiedTransactions.filter((t) => t.split === "memberB" && !t.isCredit),
     [classifiedTransactions]
   );
 
@@ -1538,9 +1572,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ticketAmount: t.amount,
             payer: t.payer,
             split: t.split,
-            typeLabel: "50/50 (50%)",
+            typeLabel: t.isCredit ? "Abono 50/50 (-50%)" : "50/50 (50%)",
             debtImpact: t.amount / 2,
-            beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+            beneficiary: t.isCredit
+              ? (t.payer === "memberA" ? "memberB" : "memberA")
+              : (t.payer === "memberA" ? "memberA" : "memberB"),
             isManual: t.isManual,
             rawTransaction: t,
           });
@@ -1623,9 +1659,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           ticketAmount: t.amount,
           payer: t.payer,
           split: t.split,
-          typeLabel: "50/50 (50%)",
+          typeLabel: t.isCredit ? "Abono 50/50 (-50%)" : "50/50 (50%)",
           debtImpact: t.amount / 2,
-          beneficiary: t.payer === "memberA" ? "memberA" : "memberB",
+          beneficiary: t.isCredit
+            ? (t.payer === "memberA" ? "memberB" : "memberA")
+            : (t.payer === "memberA" ? "memberA" : "memberB"),
           isManual: t.isManual,
           rawTransaction: t,
         });
