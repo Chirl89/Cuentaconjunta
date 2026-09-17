@@ -15,6 +15,7 @@ import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import versionData from "../../version.json";
 import {
   TrendingDown,
@@ -181,6 +182,9 @@ export default function HomePage() {
   const [editingBalanceAccountId, setEditingBalanceAccountId] = useState<string | null>(null);
   const [editingBalanceValue, setEditingBalanceValue] = useState<string>("");
 
+  const [bankAuthCodeReceived, setBankAuthCodeReceived] = useState<string | null>(null);
+  const [bankAuthCodeCopied, setBankAuthCodeCopied] = useState(false);
+
   // Check for bank callback redirection in URL (PSD2 OAuth redirect)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -193,7 +197,27 @@ export default function HomePage() {
 
     if (code) {
       localStorage.setItem("last_bank_auth_code", code);
-      setToastMsg(`✅ Código bancario recibido: ${code.substring(0, 8)}...`);
+      setBankAuthCodeReceived(code);
+      setToastMsg(`✅ Código bancario recibido de Bankinter`);
+
+      // Broadcast to Supabase Realtime so background sync worker can auto-catch it
+      try {
+        const supabase = getSupabaseClient();
+        if (supabase) {
+          const ch = supabase.channel("household_room_FITDUO");
+          ch.subscribe((status) => {
+            if (status === "SUBSCRIBED") {
+              ch.send({
+                type: "broadcast",
+                event: "BANK_AUTH_CODE",
+                payload: { code, bank: "Bankinter", timestamp: Date.now() },
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Could not broadcast bank auth code:", err);
+      }
     }
 
     if (errorParam) {
@@ -201,14 +225,17 @@ export default function HomePage() {
       setToastMsg(`⚠️ Aviso del banco: ${errorParam}`);
     }
 
-    const callbackId =
-      authSuccess === "true" && reqId ? reqId : code || sessionId || reqId;
+    // Only open the connect modal for GoCardless requisitions or explicit session IDs, NEVER for raw OAuth codes
+    const callbackId = authSuccess === "true" && reqId ? reqId : sessionId;
 
     if (callbackId) {
       setActiveTab("cuentas");
       setBankCallbackReqId(callbackId);
       setIsBankModalOpen(true);
-      // Clean up URL without reloading
+    }
+
+    // Clean up URL parameters if code or callback was received
+    if (code || callbackId || errorParam) {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, "", newUrl);
     }
@@ -2214,6 +2241,52 @@ export default function HomePage() {
         onSuccess={showToast}
         transactionToEdit={editingTransaction}
       />
+
+      {/* Modal / Banner de Autorización Bancaria Recibida */}
+      {bankAuthCodeReceived && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+          <div className="bg-[#1C2438] border border-emerald-500/40 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-400 shrink-0">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-white">Bankinter Conectado</h3>
+                <p className="text-xs text-slate-400">Autorización PSD2 completada con éxito</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-slate-300">
+              Tu entidad bancaria ha verificado tu identidad. Tu código de autorización bancaria recibido es:
+            </p>
+
+            <div className="bg-[#0B0E14] border border-slate-700/60 rounded-xl p-3 flex items-center justify-between font-mono text-xs text-emerald-300 break-all select-all">
+              <span className="truncate mr-2">{bankAuthCodeReceived}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(bankAuthCodeReceived);
+                  setBankAuthCodeCopied(true);
+                  setTimeout(() => setBankAuthCodeCopied(false), 2000);
+                }}
+                className="shrink-0 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold flex items-center gap-1 transition-all"
+              >
+                {bankAuthCodeCopied ? "¡Copiado!" : "Copiar"}
+              </button>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setBankAuthCodeReceived(null)}
+                className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-sm font-medium transition-all"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Conexión Bancaria PSD2 Oficial (Enable Banking) */}
       <ConnectBankModal

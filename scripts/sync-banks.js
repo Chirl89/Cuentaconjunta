@@ -138,9 +138,12 @@ async function main() {
           const session = await sessionRes.json();
           if (Array.isArray(session.accounts)) {
             for (const acc of session.accounts) {
-              const accUid = acc.uid || acc.id;
-
-              // Fetch balances
+              const accUid = typeof acc === 'string' ? acc : (acc?.uid || acc?.id);
+              if (!accUid) {
+                console.warn('⚠️ Could not resolve accUid from account item:', acc);
+                continue;
+              }
+              console.log(`🏦 Processing account UID: ${accUid}`);
               let balance = conn.balance || 0;
               try {
                 const balRes = await fetch(`https://api.enablebanking.com/accounts/${accUid}/balances`, {
@@ -175,44 +178,90 @@ async function main() {
                 updatedAccounts.push(accEntry);
               }
 
-              // Fetch transactions (query past 90 days history allowed by PSD2 consent)
+              // Fetch transactions (using strategy=longest and pagination continuation_key)
               try {
+                let continuationKey = null;
+                let page = 0;
+                let totalTxsFetched = 0;
                 const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-                const txRes = await fetch(`https://api.enablebanking.com/accounts/${accUid}/transactions?date_from=${ninetyDaysAgo}`, {
-                  headers: { Authorization: `Bearer ${jwt}` },
-                });
-                if (txRes.ok) {
-                  const txData = await txRes.json();
-                  const rawTxs = txData.transactions || [];
-                  for (const rt of rawTxs) {
-                    const txId = `eb_${rt.transaction_id || Math.random().toString(36).substring(2, 9)}`;
-                    if (!existingTxIds.has(txId)) {
-                      const amountRaw = parseFloat(rt.transaction_amount?.amount || '0');
-                      const concept = rt.remittance_information?.[0] || rt.creditor_name || 'Movimiento Bancario';
-                      const cat = detectCategory(concept);
-                      const bookingDate = rt.booking_date || rt.value_date || nowIso.split('T')[0];
 
-                      const txItem = {
-                        id: txId,
-                        merchant: concept,
-                        amount: Math.abs(amountRaw),
-                        date: formatDate(bookingDate),
-                        monthKey: formatMonthKey(bookingDate),
-                        category: cat.name,
-                        categoryColor: cat.color,
-                        accountLabel: `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
-                        status: 'pending',
-                        payer: conn.ownership === 'USER_B' ? 'memberB' : conn.ownership === 'JOINT' ? 'joint' : 'memberA',
-                        split: '50/50',
-                        isManual: false,
-                        bankMovementId: rt.transaction_id,
-                      };
+                console.log(`📡 Fetching transactions for account ${accUid}...`);
 
-                      newTransactions.push(txItem);
-                      existingTxIds.add(txId);
-                    }
+                do {
+                  page++;
+                  let endpoint = `https://api.enablebanking.com/accounts/${accUid}/transactions?strategy=longest`;
+                  if (continuationKey) {
+                    endpoint += `&continuation_key=${encodeURIComponent(continuationKey)}`;
                   }
-                }
+
+                  let txRes = await fetch(endpoint, {
+                    headers: { Authorization: `Bearer ${jwt}` },
+                  });
+
+                  // If strategy=longest is not supported or returns error on first page, try standard date_from
+                  if (!txRes.ok && page === 1) {
+                    console.log(`⚠️ strategy=longest returned ${txRes.status}. Retrying with date_from=${ninetyDaysAgo}...`);
+                    endpoint = `https://api.enablebanking.com/accounts/${accUid}/transactions?date_from=${ninetyDaysAgo}`;
+                    txRes = await fetch(endpoint, {
+                      headers: { Authorization: `Bearer ${jwt}` },
+                    });
+                  }
+
+                  // If still not ok, try without date_from
+                  if (!txRes.ok && page === 1) {
+                    console.log(`⚠️ date_from query returned ${txRes.status}. Retrying without parameters...`);
+                    endpoint = `https://api.enablebanking.com/accounts/${accUid}/transactions`;
+                    txRes = await fetch(endpoint, {
+                      headers: { Authorization: `Bearer ${jwt}` },
+                    });
+                  }
+
+                  if (txRes.ok) {
+                    const txData = await txRes.json();
+                    continuationKey = txData.continuation_key || null;
+                    const rawTxs = txData.transactions || [];
+                    console.log(`📦 Page ${page}: retrieved ${rawTxs.length} transactions (continuation: ${Boolean(continuationKey)})`);
+
+                    for (const rt of rawTxs) {
+                      const movementId = rt.transaction_id || rt.entry_reference || `${rt.booking_date}_${rt.transaction_amount?.amount}_${Math.random().toString(36).substring(2, 7)}`;
+                      const txId = `eb_${movementId}`;
+                      if (!existingTxIds.has(txId)) {
+                        const amountRaw = parseFloat(rt.transaction_amount?.amount || '0');
+                        const concept = (rt.remittance_information && rt.remittance_information.length > 0 ? rt.remittance_information.join(' ') : null) || rt.creditor_name || rt.debtor_name || rt.additional_information || 'Movimiento Bancario';
+                        const cat = detectCategory(concept);
+                        const bookingDate = rt.booking_date || rt.value_date || nowIso.split('T')[0];
+
+                        const txItem = {
+                          id: txId,
+                          merchant: concept,
+                          amount: Math.abs(amountRaw),
+                          date: formatDate(bookingDate),
+                          monthKey: formatMonthKey(bookingDate),
+                          category: cat.name,
+                          categoryColor: cat.color,
+                          accountLabel: `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
+                          status: 'pending',
+                          payer: conn.ownership === 'USER_B' ? 'memberB' : conn.ownership === 'JOINT' ? 'joint' : 'memberA',
+                          split: '50/50',
+                          isManual: false,
+                          bankMovementId: movementId,
+                          currency: rt.transaction_amount?.currency || 'EUR',
+                          isCredit: rt.credit_debit_indicator === 'CRDT' || amountRaw > 0,
+                        };
+
+                        newTransactions.push(txItem);
+                        existingTxIds.add(txId);
+                        totalTxsFetched++;
+                      }
+                    }
+                  } else {
+                    const errBody = await txRes.text().catch(() => '');
+                    console.warn(`Could not fetch transactions for ${accUid} (${txRes.status}): ${errBody}`);
+                    break;
+                  }
+                } while (continuationKey && page < 20);
+
+                console.log(`✅ Total new transactions added for ${conn.bankName}: ${totalTxsFetched}`);
               } catch (e) {
                 console.warn(`Could not fetch transactions for ${accUid}:`, e.message);
               }

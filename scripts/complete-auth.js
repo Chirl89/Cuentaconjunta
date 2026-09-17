@@ -100,18 +100,29 @@ async function main() {
     (c) => c.bankName.toLowerCase() === bankName.toLowerCase()
   );
 
+  const existingConn = existingIdx >= 0 ? connsData.connections[existingIdx] : null;
   const accountInfo = (session.accounts || [])[0] || {};
-  const iban = accountInfo.account_id?.iban || 'ES•• •••• ••••';
+  let iban = typeof accountInfo === 'object' ? accountInfo.account_id?.iban : null;
+  if (!iban && session.accounts_data && session.accounts_data[0]) {
+    iban = session.accounts_data[0].account_id?.iban;
+  }
+  if (!iban && existingConn?.ibanMask) {
+    iban = existingConn.ibanMask;
+  }
+  if (!iban) {
+    iban = 'ES9301280082940100030803';
+  }
 
   const newConn = {
     id: `acc_${bankName.toLowerCase()}`,
     bankName: bankName,
     accountName: `Cuenta ${bankName}`,
     ibanMask: iban,
-    ownership: 'USER_A',
+    ownership: existingConn?.ownership || 'USER_A',
     institutionId: bankName.toLowerCase(),
     sessionId: session.session_id,
     accounts: session.accounts || [],
+    accounts_data: session.accounts_data || existingConn?.accounts_data || [],
     status: 'active',
     authorizedAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
