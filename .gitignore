@@ -29,3 +29,7 @@ node_modules/
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+data/chrome-profile/
+data/*.html
+data/*.png
