@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-09-17T08:56:11.114Z",
+  "lastSyncAt": "2026-09-17T09:07:52.464Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -8,7 +8,7 @@
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
       "balance": 12546.57,
-      "lastUpdated": "2026-09-17T08:56:11.114Z"
+      "lastUpdated": "2026-09-17T09:07:52.464Z"
     }
   ],
   "transactions": []

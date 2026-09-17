@@ -149,8 +149,8 @@ async function main() {
 
   // 5. Query Enable Banking API for each active connection
   for (const conn of connectionsData.connections || []) {
-    console.log(`📡 Checking connection for: ${conn.bankName} (${conn.ibanMask || 'No IBAN'})`);
-
+    if (jwt && conn.sessionId) {
+      try {
         const sessionPsuHeaders = {
           Authorization: `Bearer ${jwt}`,
           'Psu-Ip-Address': psuIp,
@@ -302,7 +302,6 @@ async function main() {
               }
             }
           }
-        }
       } catch (err) {
         console.warn(`Error querying Enable Banking for ${conn.bankName}:`, err.message);
       }

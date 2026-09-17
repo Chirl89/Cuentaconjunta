@@ -10,7 +10,7 @@
       "pendingSessionId": "7ca51d0f-a1dc-4a69-8df1-b80dc1e7984d",
       "lastSyncAt": null,
       "id": "acc_bankinter",
-      "sessionId": "6dd8371f-4e43-4f59-a0ed-107a1fec3674",
+      "sessionId": "2c8608f4-f773-4fe2-a6dc-c2a6b3c7ea7f",
       "accounts": [
         {
           "account_id": {
@@ -39,7 +39,7 @@
           "credit_limit": null,
           "legal_age": null,
           "postal_address": null,
-          "uid": "76245287-0446-4280-8999-60b93d151117",
+          "uid": "74310b3c-36e1-407d-b51c-4e4592b24c4c",
           "identification_hash": "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXSwKWwoiYWNjb3VudCIsCiJjdXJyZW5jeSIKXQpd.KzuWbC5auAOQ0J4jtRwe9lXnPu7Vj0adOfurqzmFbmk=",
           "identification_hashes": [
             "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXQpd.HGM3FYSiWXmWFSfEeqlkvINZztq8khMCC2EK6bzoiZo=",
@@ -49,8 +49,8 @@
           ]
         }
       ],
-      "authorizedAt": "2026-09-17T08:56:10.753Z",
-      "expiresAt": "2026-12-16T08:56:10.755Z",
+      "authorizedAt": "2026-09-17T09:07:04.239Z",
+      "expiresAt": "2026-12-16T09:07:04.241Z",
       "accounts_data": []
     }
   ]
