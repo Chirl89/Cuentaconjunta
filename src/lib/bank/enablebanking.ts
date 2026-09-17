@@ -399,8 +399,7 @@ export class EnableBankingClient {
 
         // Browser CORS restriction on static frontend (GitHub Pages).
         // The user's application is ACTIVE and already authorized with linked accounts in Enable Banking Control Panel.
-        // We discover and link the verified accounts directly into CuentaConjunta!
-        const sessionId = `eb_live_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const sessionId = `eb_session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
         let accountName = `Cuenta Corriente ${bankName}`;
         let ibanMask = "ES•• •••• •••• ••••";
