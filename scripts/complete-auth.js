@@ -71,13 +71,35 @@ async function main() {
     .setProtectedHeader({ alg: 'RS256', typ: 'JWT', kid: appId })
     .sign(key);
 
+  if (!psuIp) {
+    try {
+      const ipRes = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        psuIp = ipData.ip;
+      }
+    } catch {}
+    if (!psuIp) psuIp = '87.221.33.127';
+  }
+  if (!psuUserAgent) {
+    psuUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+  }
+
+  console.log(`🌐 PSU Context: IP=${psuIp}`);
+
   // 2. Exchange code for session via POST /sessions
+  const sessionHeaders = {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${jwt}`,
+    'Psu-Ip-Address': psuIp,
+    'Psu-User-Agent': psuUserAgent,
+    'Psu-Accept': 'application/json',
+    'Psu-Accept-Charset': 'utf-8',
+  };
+
   const res = await fetch('https://api.enablebanking.com/sessions', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${jwt}`,
-    },
+    headers: sessionHeaders,
     body: JSON.stringify({ code }),
   });
 

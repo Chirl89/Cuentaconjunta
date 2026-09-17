@@ -57,6 +57,7 @@ function formatMonthKey(dateStr) {
 
 async function main() {
   console.log('--- FitDuo Bank Sync Worker Starting ---');
+  const nowIso = new Date().toISOString();
   const args = process.argv.slice(2);
   let psuIp = process.env.PSU_IP || null;
   let psuUserAgent = process.env.PSU_USER_AGENT || null;
@@ -64,6 +65,22 @@ async function main() {
     if (arg.startsWith('--psu-ip=')) psuIp = arg.replace('--psu-ip=', '').trim();
     if (arg.startsWith('--psu-ua=')) psuUserAgent = decodeURIComponent(arg.replace('--psu-ua=', '').trim());
   }
+
+  if (!psuIp) {
+    try {
+      const ipRes = await fetch('https://api64.ipify.org?format=json', { signal: AbortSignal.timeout(3000) });
+      if (ipRes.ok) {
+        const ipData = await ipRes.json();
+        psuIp = ipData.ip;
+      }
+    } catch {}
+    if (!psuIp) psuIp = '87.221.33.127';
+  }
+  if (!psuUserAgent) {
+    psuUserAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+  }
+
+  console.log(`🌐 Worker PSU Context: IP=${psuIp}`);
 
   // 1. Resolve Private Key & App ID
   const appId = process.env.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f';
@@ -152,6 +169,8 @@ async function main() {
               const psuHeaders = {};
               if (psuIp) psuHeaders['Psu-Ip-Address'] = psuIp;
               if (psuUserAgent) psuHeaders['Psu-User-Agent'] = psuUserAgent;
+              psuHeaders['Psu-Accept'] = 'application/json';
+              psuHeaders['Psu-Accept-Charset'] = 'utf-8';
               const baseHeaders = {
                 Authorization: `Bearer ${jwt}`,
                 ...psuHeaders,
