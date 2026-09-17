@@ -91,11 +91,9 @@ async function main() {
   const sessionHeaders = {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${jwt}`,
-    'Psu-Ip-Address': psuIp,
-    'Psu-User-Agent': psuUserAgent,
-    'Psu-Accept': 'application/json',
-    'Psu-Accept-Charset': 'utf-8',
   };
+  if (psuIp) sessionHeaders['psu-ip-address'] = psuIp;
+  if (psuUserAgent) sessionHeaders['psu-user-agent'] = psuUserAgent;
 
   const res = await fetch('https://api.enablebanking.com/sessions', {
     method: 'POST',

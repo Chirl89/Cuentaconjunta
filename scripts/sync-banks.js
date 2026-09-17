@@ -151,15 +151,11 @@ async function main() {
   for (const conn of connectionsData.connections || []) {
     if (jwt && conn.sessionId) {
       try {
-        const sessionPsuHeaders = {
+        const baseHeaders = {
           Authorization: `Bearer ${jwt}`,
-          'Psu-Ip-Address': psuIp,
-          'Psu-User-Agent': psuUserAgent,
-          'Psu-Accept': 'application/json',
-          'Psu-Accept-Charset': 'utf-8',
         };
         const sessionRes = await fetch(`https://api.enablebanking.com/sessions/${conn.sessionId}`, {
-          headers: sessionPsuHeaders,
+          headers: baseHeaders,
         });
 
         let session = null;
@@ -178,14 +174,8 @@ async function main() {
                 console.warn('⚠️ Could not resolve accUid from account item:', acc);
                 continue;
               }
-              const psuHeaders = {};
-              if (psuIp) psuHeaders['Psu-Ip-Address'] = psuIp;
-              if (psuUserAgent) psuHeaders['Psu-User-Agent'] = psuUserAgent;
-              psuHeaders['Psu-Accept'] = 'application/json';
-              psuHeaders['Psu-Accept-Charset'] = 'utf-8';
-              const baseHeaders = {
+              const accountHeaders = {
                 Authorization: `Bearer ${jwt}`,
-                ...psuHeaders,
               };
 
               // Fetch transactions FIRST (primary goal, avoids session cancellation)
@@ -195,7 +185,7 @@ async function main() {
                 let totalTxsFetched = 0;
                 const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-                console.log(`📡 Fetching transactions for account ${accUid} (with PSU headers: ${Boolean(psuIp)})...`);
+                console.log(`📡 Fetching transactions for account ${accUid}...`);
 
                 do {
                   page++;
