@@ -189,6 +189,17 @@ export default function HomePage() {
     const code = urlParams.get("code");
     const sessionId = urlParams.get("session_id");
     const reqId = urlParams.get("requisition_id");
+    const errorParam = urlParams.get("error");
+
+    if (code) {
+      localStorage.setItem("last_bank_auth_code", code);
+      setToastMsg(`✅ Código bancario recibido: ${code.substring(0, 8)}...`);
+    }
+
+    if (errorParam) {
+      console.warn("Bank OAuth redirect error:", errorParam);
+      setToastMsg(`⚠️ Aviso del banco: ${errorParam}`);
+    }
 
     const callbackId =
       authSuccess === "true" && reqId ? reqId : code || sessionId || reqId;
