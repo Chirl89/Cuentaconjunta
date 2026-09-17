@@ -15,6 +15,7 @@ import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
+import BankSyncConsole from "@/components/BankSyncConsole";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import versionData from "../../version.json";
 import {
@@ -1766,6 +1767,9 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+
+          {/* Consola de Diagnóstico & Sincronización en Vivo */}
+          <BankSyncConsole />
         </div>
       )}
 

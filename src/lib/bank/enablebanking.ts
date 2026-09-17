@@ -279,7 +279,8 @@ export class EnableBankingClient {
    * Retrieves ASPSPs (Banks) list for a country
    */
   public async getASPSPs(country = "ES"): Promise<ASPSP[]> {
-    if (this.hasLiveCredentials()) {
+    const isBrowser = typeof window !== "undefined";
+    if (this.hasLiveCredentials() && !isBrowser) {
       try {
         const jwt = await this.getSignedJWT();
         const headers: Record<string, string> = {

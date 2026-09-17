@@ -45,6 +45,7 @@ export default function RootLayout({
   return (
     <html lang="es" className={plusJakartaSans.variable}>
       <head>
+        <meta name="mobile-web-app-capable" content="yes" />
         <link rel="apple-touch-icon" href={`${basePath}/icons/icon-192.svg`} />
       </head>
       <body className="min-h-screen bg-[#F8FAFC] text-slate-900 font-sans antialiased selection:bg-[#00D09C]/20 selection:text-[#00A37A]">
