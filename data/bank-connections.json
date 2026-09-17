@@ -3,12 +3,54 @@
     {
       "bankName": "Bankinter",
       "accountName": "Cuenta Bankinter",
-      "ibanMask": "ES93 0128 •••• 0803",
+      "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
       "institutionId": "bankinter",
       "status": "active",
       "pendingSessionId": "f8e63e2e-0772-46f5-88a3-d78fa503e539",
-      "lastSyncAt": null
+      "lastSyncAt": null,
+      "id": "acc_bankinter",
+      "sessionId": "9e489aac-e735-4b33-971b-dbce2087154c",
+      "accounts": [
+        {
+          "account_id": {
+            "iban": "ES9301280082940100030803",
+            "other": null
+          },
+          "all_account_ids": [
+            {
+              "identification": "ES9301280082940100030803",
+              "scheme_name": "IBAN",
+              "issuer": null
+            }
+          ],
+          "account_servicer": {
+            "bic_fi": "BKBKESMM",
+            "clearing_system_member_id": null,
+            "name": null
+          },
+          "name": "CARLOS GOMEZ LAZARO",
+          "details": null,
+          "usage": null,
+          "cash_account_type": "CACC",
+          "product": "CUENTA NÓMINA",
+          "currency": "EUR",
+          "psu_status": "enabled",
+          "credit_limit": null,
+          "legal_age": null,
+          "postal_address": null,
+          "uid": "8cbcfc32-cf58-40d5-8702-d254cd1306b4",
+          "identification_hash": "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXSwKWwoiYWNjb3VudCIsCiJjdXJyZW5jeSIKXQpd.KzuWbC5auAOQ0J4jtRwe9lXnPu7Vj0adOfurqzmFbmk=",
+          "identification_hashes": [
+            "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXQpd.HGM3FYSiWXmWFSfEeqlkvINZztq8khMCC2EK6bzoiZo=",
+            "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXSwKWwoiYWNjb3VudCIsCiJjdXJyZW5jeSIKXQpd.KzuWbC5auAOQ0J4jtRwe9lXnPu7Vj0adOfurqzmFbmk=",
+            "WwpbCiJhc3BzcF9uYW1lIgpdLApbCiJhc3BzcF9jb3VudHJ5IgpdLApbCiJhY2NvdW50IiwKInJlc291cmNlX2lkIgpdCl0=.peyPIq6VL+U7I6etZVFeCOaP5mz4g9y2CJJgGJz0xaM=",
+            "WwpbCiJhc3BzcF9uYW1lIgpdLApbCiJhc3BzcF9jb3VudHJ5IgpdLApbCiJhY2NvdW50IiwKIm5hbWUiCl0KXQ==.VhgcPpT22Sw1vQW5b+iR99PYm6CMKhbLFPxpI/lBl+4="
+          ]
+        }
+      ],
+      "authorizedAt": "2026-09-17T07:28:00.632Z",
+      "expiresAt": "2026-12-16T07:28:00.634Z"
     }
   ]
 }

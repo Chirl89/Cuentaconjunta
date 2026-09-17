@@ -1,14 +1,14 @@
 {
-  "lastSyncAt": "2026-09-17T05:42:54.895Z",
+  "lastSyncAt": "2026-09-17T07:28:04.649Z",
   "accounts": [
     {
       "id": "acc_bankinter",
       "bankName": "Bankinter",
       "accountName": "Cuenta Bankinter",
-      "ibanMask": "ES93 0128 •••• 0803",
+      "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 12546.57,
-      "lastUpdated": "2026-09-17T09:22:00.000Z"
+      "balance": 0,
+      "lastUpdated": "2026-09-17T07:28:04.649Z"
     }
   ],
   "transactions": []
