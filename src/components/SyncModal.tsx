@@ -13,6 +13,9 @@ import {
   Upload,
   ShieldCheck,
   ExternalLink,
+  Clipboard,
+  Smartphone,
+  Laptop,
 } from "lucide-react";
 
 interface SyncModalProps {
@@ -39,17 +42,57 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handlePasteFromClipboard = async () => {
+    try {
+      setCardError(null);
+      if (!navigator.clipboard || !navigator.clipboard.readText) {
+        setCardError("Tu navegador no permite acceso directo al portapapeles. Pega el texto directamente en el recuadro.");
+        return;
+      }
+      const text = await navigator.clipboard.readText();
+      if (!text || text.trim().length === 0) {
+        setCardError("El portapapeles está vacío. Copia los movimientos en Bankinter y vuelve a pulsar este botón.");
+        return;
+      }
+      handleCardTextChange(text);
+    } catch (err: any) {
+      setCardError("No se pudo leer el portapapeles: concede permisos a Safari o pega el texto en el área inferior.");
+    }
+  };
+
   const handleLaunchBankinterBrowser = async () => {
     setIsLaunchingBrowser(true);
     setBrowserSyncStatus("Iniciando pasarela oficial de Bankinter...");
     try {
+      // Detect static web deployments (GitHub Pages) where Next.js Node API routes do not run
+      const isStaticHosting = typeof window !== "undefined" && (window.location.hostname.includes("github.io") || window.location.protocol === "file:");
+      if (isStaticHosting) {
+        setIsLaunchingBrowser(false);
+        setBrowserSyncStatus("ℹ️ En la Web móvil (GitHub Pages) no hay servidor local ejecutándose. Para extraer movimientos en tu móvil, pulsa 'Abrir Web de Bankinter' abajo, copia los movimientos y pulsa 'Pegar del Portapapeles'.");
+        return;
+      }
+
       const res = await fetch("/api/sync/launch-card-sync", { method: "POST" });
+      if (!res.ok) {
+        setIsLaunchingBrowser(false);
+        setBrowserSyncStatus(`Aviso: Servidor devolvió estado ${res.status}. Esta función requiere el servidor local en PC.`);
+        return;
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        setIsLaunchingBrowser(false);
+        setBrowserSyncStatus("Aviso: El servidor no devolvió una respuesta JSON válida.");
+        return;
+      }
       const data = await res.json();
       if (data.success) {
         setBrowserSyncStatus("Ventana de Bankinter abierta en tu pantalla. Introduce tus claves en Bankinter.");
         const pollInterval = setInterval(async () => {
           try {
             const statusRes = await fetch("/api/sync/launch-card-sync");
+            if (!statusRes.ok) return;
+            const ct = statusRes.headers.get("content-type") || "";
+            if (!ct.includes("application/json")) return;
             const statusData = await statusRes.json();
             if (statusData.status === "WAITING_USER_LOGIN") {
               setBrowserSyncStatus("Introduce tu usuario y contraseña en la ventana de Bankinter...");
@@ -75,7 +118,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
       }
     } catch (err: any) {
       setIsLaunchingBrowser(false);
-      setBrowserSyncStatus("Error de conexión: " + err.message);
+      setBrowserSyncStatus("Aviso de sincronización: " + (err.message || "Error al contactar con el servicio."));
     }
   };
 
@@ -283,24 +326,64 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                   </span>
                 </div>
                 <p className="text-xs text-indigo-900 leading-relaxed">
-                  Para que <strong>nunca tengas que subir archivos manuales</strong> ni guardar contraseñas en variables de código, 
-                  pulsa el botón a continuación para abrir la pasarela oficial de Bankinter:
+                  Bankinter no expone tarjetas de crédito en su pasarela PSD2 (solo cuentas con IBAN). 
+                  Para tener tus compras sin guardar contraseñas en código, elige tu método:
                 </p>
               </div>
 
-              {/* In-app Browser Launcher Button */}
+              {/* Action Buttons: Mobile 1-Tap & Desktop Browser */}
               <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={handleLaunchBankinterBrowser}
-                  disabled={isLaunchingBrowser}
-                  className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2.5 shadow-md shadow-indigo-600/25 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                  <span>
-                    {isLaunchingBrowser ? "Ventana Oficial de Bankinter Abierta..." : "Abrir Ventana de Bankinter y Sincronizar Tarjeta"}
-                  </span>
-                </button>
+                {/* 1. Mobile Quick Flow */}
+                <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2.5">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                    <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Desde Móvil (iPhone / Safari):</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <a
+                      href="https://bancaonline.bankinter.com/gestion/login.xhtml"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="py-2.5 px-3 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs text-center"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                      <span>1. Abrir Bankinter</span>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={handlePasteFromClipboard}
+                      className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
+                    >
+                      <Clipboard className="w-3.5 h-3.5 shrink-0" />
+                      <span>2. Pegar Datos</span>
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-indigo-800/80 leading-tight">
+                    Entra a Bankinter, copia el texto de tus últimos movimientos de la tarjeta y pulsa <strong>Pegar Datos</strong>. Se incorporarán automáticamente.
+                  </p>
+                </div>
+
+                {/* 2. Desktop Auto Runner */}
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <Laptop className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Desde PC (Servidor Local):</span>
+                    </div>
+                    <span className="text-[10px] font-semibold text-slate-400">Automatizado</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLaunchBankinterBrowser}
+                    disabled={isLaunchingBrowser}
+                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>
+                      {isLaunchingBrowser ? "Ventana Abierta en Pantalla..." : "Abrir Ventana Chrome en PC"}
+                    </span>
+                  </button>
+                </div>
 
                 {browserSyncStatus && (
                   <div
@@ -323,16 +406,28 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                   </div>
                 )}
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1.5">
+                {cardError && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{cardError}</span>
+                  </div>
+                )}
+
+                {cardSuccessMsg && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                    <span>{cardSuccessMsg}</span>
+                  </div>
+                )}
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
                   <div className="font-bold text-slate-800 flex items-center gap-1.5">
                     <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Seguridad y Privacidad Estricta:</span>
                   </div>
-                  <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-500">
-                    <li>Introduces tus claves directamente en la web oficial de Bankinter.</li>
-                    <li>La app no almacena ni ve ninguna contraseña.</li>
-                    <li>Al validar tu acceso, las compras de la tarjeta se vuelcan solas.</li>
-                  </ul>
+                  <p className="text-[11px] text-slate-500">
+                    Tus credenciales nunca se guardan en variables ni en repositorios; te autenticas siempre directamente en el entorno oficial de Bankinter.
+                  </p>
                 </div>
               </div>
 
