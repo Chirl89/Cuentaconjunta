@@ -47,6 +47,7 @@ async function main() {
     body: JSON.stringify({
       access: {
         valid_until: new Date(Date.now() + 90 * 86400000).toISOString(),
+        accounts: [{ iban: 'ES9301280082940100030803' }],
         balances: true,
         transactions: true,
       },

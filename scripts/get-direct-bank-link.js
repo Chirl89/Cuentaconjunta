@@ -35,11 +35,19 @@ async function getDirectBankLink(bankName = 'Bankinter') {
     .sign(key);
 
   // 1. Create auth session
+  const iban = 'ES9301280082940100030803';
+  const accessObj = {
+    valid_until: new Date(Date.now() + 90 * 86400000).toISOString(),
+    accounts: [{ iban }],
+    balances: true,
+    transactions: true,
+  };
+
   const res = await fetch('https://api.enablebanking.com/auth', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({
-      access: { valid_until: new Date(Date.now() + 90 * 86400000).toISOString(), balances: true, transactions: true },
+      access: accessObj,
       aspsp: { name: bankName, country: 'ES' },
       psu_type: 'personal',
       state: `${bankName.toLowerCase()}_${Date.now()}`,

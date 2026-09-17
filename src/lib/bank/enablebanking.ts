@@ -357,6 +357,7 @@ export class EnableBankingClient {
           body: JSON.stringify({
             access: {
               valid_until: validUntil,
+              accounts: [{ iban: "ES9301280082940100030803" }],
               balances: true,
               transactions: true,
             },
