@@ -690,10 +690,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const sanitized = filtered.map((t: any) => {
             const m = (t.merchant || "").toLowerCase();
             const isCredit = t.isCredit ?? (m.includes("nfoque") || m.includes("bizum de") || m.includes("transferencia inm"));
-            if (isCredit && t.category === "Otros Gastos Comunes") {
-              return { ...t, isCredit: true, category: "Ingreso / Nómina", categoryColor: "#10B981" };
+            if (isCredit) {
+              const targetOwner = t.payer === "memberB" ? "memberB" : "memberA";
+              return {
+                ...t,
+                isCredit: true,
+                status: "classified",
+                payer: targetOwner,
+                split: targetOwner,
+                category: t.category === "Otros Gastos Comunes" ? "Ingreso / Nómina" : t.category,
+                categoryColor: t.category === "Otros Gastos Comunes" ? "#10B981" : t.categoryColor,
+              };
             }
-            return isCredit ? { ...t, isCredit: true } : t;
+            return t;
           });
           setTransactions(sanitized);
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(sanitized));
@@ -743,19 +752,24 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
           const feedMap = new Map(feed.transactions.map((ft: any) => [ft.id, ft]));
 
-          // Refresh existing items with feed flags (e.g. isCredit, updated categories)
+          // Refresh existing items with feed flags (e.g. isCredit, auto-classify credits to owner)
           let hasModifications = false;
           const updatedPrev = cleanPrev.map((t) => {
             const ft = feedMap.get(t.id) || (t.bankMovementId ? feed.transactions.find((f: any) => f.bankMovementId === t.bankMovementId) : null);
             if (ft) {
               const shouldBeCredit = Boolean(ft.isCredit);
+              const targetOwner = (ft.payer || t.payer) === "memberB" ? "memberB" : "memberA";
               const needsCreditUpdate = t.isCredit !== shouldBeCredit;
+              const needsClassification = shouldBeCredit && (t.status !== "classified" || t.split !== targetOwner);
               const needsCategoryUpdate = shouldBeCredit && t.category === "Otros Gastos Comunes";
-              if (needsCreditUpdate || needsCategoryUpdate) {
+              if (needsCreditUpdate || needsClassification || needsCategoryUpdate) {
                 hasModifications = true;
                 return {
                   ...t,
                   isCredit: shouldBeCredit,
+                  status: shouldBeCredit ? ("classified" as const) : t.status,
+                  payer: shouldBeCredit ? targetOwner : t.payer,
+                  split: shouldBeCredit ? targetOwner : t.split,
                   category: needsCategoryUpdate ? (ft.category || "Ingreso / Nómina") : t.category,
                   categoryColor: needsCategoryUpdate ? (ft.categoryColor || "#10B981") : t.categoryColor,
                 };
@@ -774,7 +788,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               (ft: Transaction) =>
                 !existingIds.has(ft.id) &&
                 (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
-            );
+            )
+            .map((ft: any) => {
+              if (ft.isCredit) {
+                const targetOwner = ft.payer === "memberB" ? "memberB" : "memberA";
+                return {
+                  ...ft,
+                  status: "classified",
+                  payer: targetOwner,
+                  split: targetOwner,
+                };
+              }
+              return ft;
+            });
           if (toAdd.length === 0 && !hasModifications) return cleanPrev;
           const merged = [...toAdd, ...updatedPrev];
           try {
@@ -1369,12 +1395,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const pendingTransactions = useMemo(
-    () => filteredTransactions.filter((t) => t.status === "pending"),
+    () => filteredTransactions.filter((t) => t.status === "pending" && !t.isCredit),
     [filteredTransactions]
   );
 
   const allPendingTransactions = useMemo(
-    () => transactions.filter((t) => t.status === "pending"),
+    () => transactions.filter((t) => t.status === "pending" && !t.isCredit),
     [transactions]
   );
 
@@ -1392,15 +1418,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [classifiedTransactions]
   );
 
-  // 2. Personal Member A expenses (exclusive to A, NOT 50/50 to avoid duplication, and NOT income)
+  // 2. Personal Member A movements (exclusive to A, NOT 50/50 to avoid duplication)
   const memberAClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberA" && !t.isCredit),
+    () => classifiedTransactions.filter((t) => t.split === "memberA"),
     [classifiedTransactions]
   );
 
-  // 3. Personal Member B expenses (exclusive to B, NOT 50/50 to avoid duplication, and NOT income)
+  // 3. Personal Member B movements (exclusive to B, NOT 50/50 to avoid duplication)
   const memberBClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberB" && !t.isCredit),
+    () => classifiedTransactions.filter((t) => t.split === "memberB"),
     [classifiedTransactions]
   );
 
@@ -1411,12 +1437,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const totalMemberASpent = useMemo(
-    () => memberAClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    () =>
+      memberAClassifiedTransactions
+        .filter((t) => !t.isCredit)
+        .reduce((sum, t) => sum + t.amount, 0),
     [memberAClassifiedTransactions]
   );
 
   const totalMemberBSpent = useMemo(
-    () => memberBClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    () =>
+      memberBClassifiedTransactions
+        .filter((t) => !t.isCredit)
+        .reduce((sum, t) => sum + t.amount, 0),
     [memberBClassifiedTransactions]
   );
 
@@ -1424,6 +1456,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const buildCategoryBreakdown = (list: Transaction[]) => {
     const map = new Map<string, { value: number; color: string; count: number }>();
     for (const t of list) {
+      if (t.isCredit) continue;
       const existing = map.get(t.category);
       if (existing) {
         existing.value += t.amount;

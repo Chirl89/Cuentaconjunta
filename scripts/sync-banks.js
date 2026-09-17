@@ -238,6 +238,9 @@ async function main() {
                           : detectCategory(concept);
                         const bookingDate = rt.booking_date || rt.value_date || nowIso.split('T')[0];
 
+                        const ownerPayer = conn.ownership === 'USER_B' ? 'memberB' : conn.ownership === 'JOINT' ? 'joint' : 'memberA';
+                        const ownerSplit = conn.ownership === 'USER_B' ? 'memberB' : 'memberA';
+
                         const txItem = {
                           id: txId,
                           merchant: concept,
@@ -247,9 +250,9 @@ async function main() {
                           category: cat.name,
                           categoryColor: cat.color,
                           accountLabel: `${conn.bankName} (${conn.ibanMask || ''})`.trim(),
-                          status: 'pending',
-                          payer: conn.ownership === 'USER_B' ? 'memberB' : conn.ownership === 'JOINT' ? 'joint' : 'memberA',
-                          split: isCredit ? (conn.ownership === 'USER_B' ? 'memberB' : 'memberA') : '50/50',
+                          status: isCredit ? 'classified' : 'pending',
+                          payer: ownerPayer,
+                          split: isCredit ? ownerSplit : '50/50',
                           isManual: false,
                           bankMovementId: movementId,
                           currency: rt.transaction_amount?.currency || 'EUR',
