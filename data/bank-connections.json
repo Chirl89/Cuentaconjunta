@@ -11,7 +11,7 @@
       "lastSyncAt": null,
       "balance": 12546.57,
       "id": "acc_bankinter",
-      "sessionId": "c99559c4-8535-47c2-8d76-b2a6910fbb33",
+      "sessionId": "3cf03342-c1ca-41dc-b012-d9ea16f86d9c",
       "accounts": [
         {
           "account_id": {
@@ -40,7 +40,7 @@
           "credit_limit": null,
           "legal_age": null,
           "postal_address": null,
-          "uid": "564d3aa4-05b7-48d0-bf0b-c43463629662",
+          "uid": "84991d65-eb00-4f91-90c3-f576fe8b03b1",
           "identification_hash": "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXSwKWwoiYWNjb3VudCIsCiJjdXJyZW5jeSIKXQpd.KzuWbC5auAOQ0J4jtRwe9lXnPu7Vj0adOfurqzmFbmk=",
           "identification_hashes": [
             "WwpbCiJhY2NvdW50IiwKImFjY291bnRfaWQiLAoiaWJhbiIKXQpd.HGM3FYSiWXmWFSfEeqlkvINZztq8khMCC2EK6bzoiZo=",
@@ -50,8 +50,8 @@
           ]
         }
       ],
-      "authorizedAt": "2026-09-17T13:50:14.394Z",
-      "expiresAt": "2026-12-16T13:50:14.397Z",
+      "authorizedAt": "2026-09-17T14:37:26.592Z",
+      "expiresAt": "2026-12-16T14:37:26.596Z",
       "accounts_data": []
     }
   ]

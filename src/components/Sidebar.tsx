@@ -18,14 +18,16 @@ import {
   ChevronRight,
   X,
   HeartHandshake,
+  RefreshCw,
 } from "lucide-react";
 
 interface SidebarProps {
   isMobileOpen: boolean;
   setIsMobileOpen: (open: boolean) => void;
+  onOpenSyncModal?: () => void;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onOpenSyncModal }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
   const { activeTab, setActiveTab } = useNavigation();
@@ -174,6 +176,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen 
                 </button>
               </div>
             )}
+          </div>
+        )}
+
+        {/* Sync Button */}
+        {onOpenSyncModal && (
+          <div className="px-3 mt-2.5">
+            <button
+              type="button"
+              onClick={onOpenSyncModal}
+              className="w-full py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#008761] border border-emerald-200 text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-98"
+              title="Sincronizar cuenta y tarjeta"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-[#00A37A]" />
+              {(!isCollapsed || isMobileOpen) && <span>Sincronizar Banco</span>}
+            </button>
           </div>
         )}
 
