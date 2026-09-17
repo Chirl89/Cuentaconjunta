@@ -203,10 +203,10 @@ export default function HomePage() {
 
       // Broadcast to Supabase Realtime so background sync worker can auto-catch it
       try {
-        const supabase = getSupabaseClient();
+        const supabase = getSupabaseBrowserClient();
         if (supabase) {
           const ch = supabase.channel("household_room_FITDUO");
-          ch.subscribe((status) => {
+          ch.subscribe((status: any) => {
             if (status === "SUBSCRIBED") {
               ch.send({
                 type: "broadcast",
