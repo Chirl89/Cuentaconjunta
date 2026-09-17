@@ -151,17 +151,29 @@ async function main() {
   for (const conn of connectionsData.connections || []) {
     console.log(`📡 Checking connection for: ${conn.bankName} (${conn.ibanMask || 'No IBAN'})`);
 
-    if (jwt && conn.sessionId) {
-      try {
+        const sessionPsuHeaders = {
+          Authorization: `Bearer ${jwt}`,
+          'Psu-Ip-Address': psuIp,
+          'Psu-User-Agent': psuUserAgent,
+          'Psu-Accept': 'application/json',
+          'Psu-Accept-Charset': 'utf-8',
+        };
         const sessionRes = await fetch(`https://api.enablebanking.com/sessions/${conn.sessionId}`, {
-          headers: { Authorization: `Bearer ${jwt}` },
+          headers: sessionPsuHeaders,
         });
 
+        let session = null;
         if (sessionRes.ok) {
-          const session = await sessionRes.json();
-          if (Array.isArray(session.accounts)) {
-            for (const acc of session.accounts) {
-              const accUid = typeof acc === 'string' ? acc : (acc?.uid || acc?.id);
+          session = await sessionRes.json();
+        }
+
+        const accountsList = (session && Array.isArray(session.accounts) && session.accounts.length > 0)
+          ? session.accounts
+          : (conn.accounts || []);
+
+        if (accountsList.length > 0) {
+          for (const acc of accountsList) {
+            const accUid = typeof acc === 'string' ? acc : (acc?.uid || acc?.id);
               if (!accUid) {
                 console.warn('⚠️ Could not resolve accUid from account item:', acc);
                 continue;
