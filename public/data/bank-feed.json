@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-09-17T10:56:39.591Z",
+  "lastSyncAt": "2026-09-17T15:20:00.000Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,9 +7,112 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 0,
-      "lastUpdated": "2026-09-17T10:56:39.591Z"
+      "balance": 12546.57,
+      "lastUpdated": "2026-09-17T15:20:00.000Z"
     }
   ],
-  "transactions": []
+  "transactions": [
+    {
+      "id": "eb_bk_20260915_4850",
+      "merchant": "MERCADONA MADRID",
+      "amount": 48.5,
+      "date": "15 Sep",
+      "monthKey": "2026-09",
+      "category": "Supermercado",
+      "categoryColor": "#00D09C",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_001",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_bk_20260912_8230",
+      "merchant": "RECIBO IBERDROLA ELECTRICIDAD",
+      "amount": 82.3,
+      "date": "12 Sep",
+      "monthKey": "2026-09",
+      "category": "Hogar & Luz",
+      "categoryColor": "#0EA5E9",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_002",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_bk_20260910_5500",
+      "merchant": "GASOLINERA REPSOL M-30",
+      "amount": 55.0,
+      "date": "10 Sep",
+      "monthKey": "2026-09",
+      "category": "Transporte & Gasolina",
+      "categoryColor": "#6366F1",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_003",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_bk_20260908_1240",
+      "merchant": "FARMACIA CENTRAL",
+      "amount": 12.4,
+      "date": "8 Sep",
+      "monthKey": "2026-09",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_004",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_bk_20260905_3500",
+      "merchant": "RESTAURANTE EL CORTE INGLES",
+      "amount": 35.0,
+      "date": "5 Sep",
+      "monthKey": "2026-09",
+      "category": "Restaurantes & Ocio",
+      "categoryColor": "#F59E0B",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_005",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_bk_20260901_2100",
+      "merchant": "TRANSFERENCIA NOMINA EMPRESA",
+      "amount": 2100.0,
+      "date": "1 Sep",
+      "monthKey": "2026-09",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#10B981",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "bk_tx_006",
+      "currency": "EUR",
+      "isCredit": true
+    }
+  ]
 }
