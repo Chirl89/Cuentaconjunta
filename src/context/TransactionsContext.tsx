@@ -667,7 +667,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (savedAccs) {
         const parsed = JSON.parse(savedAccs);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setAccounts(parsed);
+          const cleaned = parsed.filter(
+            (a: any) =>
+              !a.bankName.toLowerCase().includes("santander") &&
+              !a.id?.startsWith("eb_acc_") &&
+              !a.id?.startsWith("mock_")
+          );
+          setAccounts(cleaned);
+          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cleaned));
         }
       }
       const savedSettlements = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
