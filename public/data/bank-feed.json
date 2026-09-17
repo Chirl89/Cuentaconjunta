@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 0,
-      "lastUpdated": "2026-09-17T07:28:04.649Z"
+      "balance": 12546.57,
+      "lastUpdated": "2026-09-17T09:28:00.000Z"
     }
   ],
   "transactions": []
