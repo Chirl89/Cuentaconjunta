@@ -31,13 +31,18 @@ channel
       return;
     }
 
+    const psuIp = payload.psuIp || '';
+    const psuUserAgent = payload.psuUserAgent || '';
+
     console.log(`\n🎉 [REALTIME EVENT] Received bank auth code for ${bank}: ${code}`);
+    if (psuIp) console.log(`🌐 PSU Context: IP=${psuIp}`);
     console.log('⚡ Immediately exchanging code for session and fetching transactions...');
 
     try {
-      execSync(`node scripts/complete-auth.js --code="${code}" --bank="${bank}"`, {
-        stdio: 'inherit',
-      });
+      let cmd = `node scripts/complete-auth.js --code="${code}" --bank="${bank}"`;
+      if (psuIp) cmd += ` --psu-ip="${psuIp}"`;
+      if (psuUserAgent) cmd += ` --psu-ua="${encodeURIComponent(psuUserAgent)}"`;
+      execSync(cmd, { stdio: 'inherit' });
       console.log('✅ Auto-sync completed successfully!');
     } catch (err) {
       console.error('❌ Error during auto-sync:', err.message);

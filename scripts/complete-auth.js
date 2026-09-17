@@ -16,9 +16,14 @@ async function main() {
   let code = null;
   let bankName = 'Bankinter';
 
+  let psuIp = null;
+  let psuUserAgent = null;
+
   for (const arg of args) {
     if (arg.startsWith('--code=')) code = arg.replace('--code=', '').trim();
     if (arg.startsWith('--bank=')) bankName = arg.replace('--bank=', '').trim();
+    if (arg.startsWith('--psu-ip=')) psuIp = arg.replace('--psu-ip=', '').trim();
+    if (arg.startsWith('--psu-ua=')) psuUserAgent = decodeURIComponent(arg.replace('--psu-ua=', '').trim());
   }
 
   if (!code && process.env.AUTH_CODE) {
@@ -144,7 +149,10 @@ async function main() {
   // 4. Run sync-banks.js immediately to fetch transactions and balances
   console.log('🔄 Ejecutando sincronización de movimientos bancarios...');
   try {
-    execSync('node scripts/sync-banks.js', { stdio: 'inherit' });
+    let syncCmd = 'node scripts/sync-banks.js';
+    if (psuIp) syncCmd += ` --psu-ip="${psuIp}"`;
+    if (psuUserAgent) syncCmd += ` --psu-ua="${encodeURIComponent(psuUserAgent)}"`;
+    execSync(syncCmd, { stdio: 'inherit' });
     console.log('🎉 Sincronización completada con éxito.');
   } catch (err) {
     console.warn('Advertencia al sincronizar:', err.message);

@@ -201,24 +201,39 @@ export default function HomePage() {
       setBankAuthCodeReceived(code);
       setToastMsg(`✅ Código bancario recibido de Bankinter`);
 
-      // Broadcast to Supabase Realtime so background sync worker can auto-catch it
-      try {
-        const supabase = getSupabaseBrowserClient();
-        if (supabase) {
-          const ch = supabase.channel("household_room_FITDUO");
-          ch.subscribe((status: any) => {
-            if (status === "SUBSCRIBED") {
-              ch.send({
-                type: "broadcast",
-                event: "BANK_AUTH_CODE",
-                payload: { code, bank: "Bankinter", timestamp: Date.now() },
-              });
-            }
-          });
+      // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys PSD2
+      (async () => {
+        try {
+          const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
+          let clientIp = "";
+          try {
+            const ipRes = await fetch("https://api64.ipify.org?format=json").then((r) => r.json());
+            clientIp = ipRes.ip;
+          } catch {}
+
+          const supabase = getSupabaseBrowserClient();
+          if (supabase) {
+            const ch = supabase.channel("household_room_FITDUO");
+            ch.subscribe((status: any) => {
+              if (status === "SUBSCRIBED") {
+                ch.send({
+                  type: "broadcast",
+                  event: "BANK_AUTH_CODE",
+                  payload: {
+                    code,
+                    bank: "Bankinter",
+                    psuIp: clientIp,
+                    psuUserAgent: userAgent,
+                    timestamp: Date.now(),
+                  },
+                });
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Could not broadcast bank auth code:", err);
         }
-      } catch (err) {
-        console.warn("Could not broadcast bank auth code:", err);
-      }
+      })();
     }
 
     if (errorParam) {
