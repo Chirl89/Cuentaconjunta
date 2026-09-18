@@ -528,26 +528,26 @@ export default function HomePage() {
                 ) : (
                   <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
                     {jointClassifiedTransactions.map((tx) => (
-                      <div key={tx.id} className="py-3 flex items-center justify-between">
-                        <div>
+                      <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
                           {tx.isManual ? (
                             <button
                               type="button"
                               onClick={() => setEditingTransaction(tx)}
-                              className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                              className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
                               title="Gasto manual: Pulsar para editar o eliminar"
                             >
-                              <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                              <span>{tx.merchant}</span>
                               <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
                                 Manual
                               </span>
                             </button>
                           ) : (
-                            <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
-                              {truncateConcept(tx.merchant, 24)}
+                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                              {tx.merchant}
                             </span>
                           )}
-                          <div className="flex items-center gap-1.5 mt-0.5">
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                             <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
                             <span
                               className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
@@ -562,7 +562,7 @@ export default function HomePage() {
                             </span>
                           </div>
                         </div>
-                        <span className="text-sm font-black text-slate-900">{tx.amount.toFixed(2)} €</span>
+                        <span className="text-sm font-black text-slate-900 shrink-0 mt-0.5">{tx.amount.toFixed(2)} €</span>
                       </div>
                     ))}
                   </div>
@@ -696,30 +696,30 @@ export default function HomePage() {
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
                   {memberAClassifiedTransactions.map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-center justify-between">
-                      <div>
+                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
                         {tx.isManual ? (
                           <button
                             type="button"
                             onClick={() => setEditingTransaction(tx)}
-                            className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                            className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
                             title="Gasto manual: Pulsar para editar o eliminar"
                           >
-                            <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                            <span>{tx.merchant}</span>
                             <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
                               Manual
                             </span>
                           </button>
                         ) : (
-                          <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
-                            {truncateConcept(tx.merchant, 24)}
+                          <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                            {tx.merchant}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
                         </span>
                       </div>
-                      <span className={`text-sm font-black whitespace-nowrap ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                      <span className={`text-sm font-black whitespace-nowrap shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
                         {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                       </span>
                     </div>
@@ -844,30 +844,30 @@ export default function HomePage() {
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
                   {memberBClassifiedTransactions.map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-center justify-between">
-                      <div>
+                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
                         {tx.isManual ? (
                           <button
                             type="button"
                             onClick={() => setEditingTransaction(tx)}
-                            className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 truncate max-w-[160px] sm:max-w-xs cursor-pointer"
+                            className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
                             title="Gasto manual: Pulsar para editar o eliminar"
                           >
-                            <span className="truncate">{truncateConcept(tx.merchant, 22)}</span>
+                            <span>{tx.merchant}</span>
                             <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
                               Manual
                             </span>
                           </button>
                         ) : (
-                          <span className="text-xs font-bold text-slate-900 block truncate max-w-[160px] sm:max-w-xs">
-                            {truncateConcept(tx.merchant, 24)}
+                          <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                            {tx.merchant}
                           </span>
                         )}
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
                         </span>
                       </div>
-                      <span className={`text-sm font-black whitespace-nowrap ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                      <span className={`text-sm font-black whitespace-nowrap shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
                         {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                       </span>
                     </div>
@@ -930,11 +930,11 @@ export default function HomePage() {
                 {allPendingTransactions.map((tx) => (
                   <div
                     key={tx.id}
-                    className="py-2.5 px-1 flex items-center justify-between gap-2 hover:bg-amber-100/40 rounded-2xl transition-colors"
+                    className="py-3.5 px-2 flex items-start justify-between gap-2.5 hover:bg-amber-100/40 rounded-2xl transition-colors"
                   >
-                    <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
                       <div
-                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 ${
+                        className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 mt-0.5 ${
                           tx.isCredit
                             ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
                             : ""
@@ -952,40 +952,40 @@ export default function HomePage() {
                           <ShoppingCart className="w-4 h-4" />
                         )}
                       </div>
-                      <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
-                        {/* Línea 1: Concepto con límite de caracteres */}
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        {/* Línea 1: Concepto completo y legible */}
                         {tx.isManual ? (
                           <button
                             type="button"
                             onClick={() => setEditingTransaction(tx)}
-                            className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer ${
+                            className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer ${
                               tx.isCredit
                                 ? "text-emerald-950 hover:text-emerald-700"
                                 : "text-slate-900 hover:text-amber-800"
                             }`}
                             title="Gasto manual: Pulsar para editar o eliminar"
                           >
-                            <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
+                            <span>{tx.merchant}</span>
                             <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-200/80 text-amber-900 shrink-0">
                               Manual
                             </span>
                           </button>
                         ) : (
                           <span
-                            className={`font-bold text-xs sm:text-sm block truncate w-full leading-tight ${
+                            className={`font-bold text-xs sm:text-sm block break-words leading-snug ${
                               tx.isCredit ? "text-emerald-950" : "text-slate-900"
                             }`}
                           >
-                            {truncateConcept(tx.merchant, 28)}
+                            {tx.merchant}
                           </span>
                         )}
 
                         {/* Línea 2: Categoría */}
-                        <div className="relative inline-block max-w-[125px] xs:max-w-[145px] sm:max-w-none">
+                        <div className="relative inline-block w-fit max-w-[170px] sm:max-w-none">
                           <select
                             value={tx.category}
                             onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                            className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-1.5 pr-3.5 rounded-md border border-amber-300 bg-white text-slate-700 hover:border-amber-500 focus:outline-none leading-none w-full truncate block"
+                            className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-2 pr-4 rounded-md border border-amber-300 bg-white text-slate-700 hover:border-amber-500 focus:outline-none leading-none w-full block truncate"
                           >
                             {(categories || CATEGORIES_LIST).map((c) => (
                               <option key={c.name} value={c.name}>
@@ -1000,7 +1000,7 @@ export default function HomePage() {
 
                         {/* Línea 3: Fecha, cuenta y badge */}
                         <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-                          <span className="text-[10px] sm:text-[11px] text-slate-500 truncate leading-tight">
+                          <span className="text-[10px] sm:text-[11px] text-slate-500 leading-tight">
                             {tx.date} • {getAccountDisplay(tx)}
                           </span>
                           {tx.isCredit && (
@@ -1027,7 +1027,7 @@ export default function HomePage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end justify-center gap-1 shrink-0 ml-2">
+                    <div className="flex flex-col items-end justify-between self-stretch gap-1.5 shrink-0 ml-1.5">
                       <span
                         className={`text-sm sm:text-base font-black whitespace-nowrap text-right leading-none ${
                           tx.isCredit ? "text-emerald-600 font-extrabold" : "text-slate-900"
@@ -1036,7 +1036,7 @@ export default function HomePage() {
                         {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                       </span>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1 shrink-0 mt-auto">
                         <button
                           type="button"
                           onClick={() =>
@@ -1127,11 +1127,11 @@ export default function HomePage() {
                 {classifiedTransactions.map((tx) => (
                 <div
                   key={tx.id}
-                  className="py-2.5 px-1 flex items-center justify-between gap-2 hover:bg-slate-50/60 rounded-2xl transition-colors"
+                  className="py-3.5 px-2 flex items-start justify-between gap-2.5 hover:bg-slate-50/80 rounded-2xl transition-colors"
                 >
-                  <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 overflow-hidden">
+                  <div className="flex items-start gap-2.5 min-w-0 flex-1">
                     <div
-                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
                         tx.isCredit
                           ? "bg-emerald-100 text-emerald-700 border border-emerald-300"
                           : ""
@@ -1149,40 +1149,40 @@ export default function HomePage() {
                         <ShoppingCart className="w-4 h-4" />
                       )}
                     </div>
-                    <div className="flex flex-col gap-0.5 min-w-0 flex-1 overflow-hidden">
-                      {/* Línea 1: Concepto alineado a la izquierda */}
+                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                      {/* Línea 1: Concepto completo y legible */}
                       {tx.isManual ? (
                         <button
                           type="button"
                           onClick={() => setEditingTransaction(tx)}
-                          className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 truncate w-full leading-tight cursor-pointer ${
+                          className={`text-left font-bold text-xs sm:text-sm hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer ${
                             tx.isCredit
                               ? "text-emerald-950 hover:text-emerald-700"
                               : "text-slate-900 hover:text-[#00A37A]"
                           }`}
                           title="Gasto manual: Pulsar para editar o eliminar"
                         >
-                          <span className="truncate">{truncateConcept(tx.merchant, 26)}</span>
+                          <span>{tx.merchant}</span>
                           <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 shrink-0">
                             Manual
                           </span>
                         </button>
                       ) : (
                         <span
-                          className={`font-bold text-xs sm:text-sm block truncate w-full leading-tight ${
+                          className={`font-bold text-xs sm:text-sm block break-words leading-snug ${
                             tx.isCredit ? "text-emerald-950" : "text-slate-900"
                           }`}
                         >
-                          {truncateConcept(tx.merchant, 28)}
+                          {tx.merchant}
                         </span>
                       )}
 
                       {/* Línea 2: Categoría */}
-                      <div className="relative inline-block max-w-[125px] xs:max-w-[145px] sm:max-w-none">
+                      <div className="relative inline-block w-fit max-w-[170px] sm:max-w-none">
                         <select
                           value={tx.category}
                           onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                          className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-1.5 pr-3.5 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none leading-none w-full truncate block"
+                          className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-2 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none leading-none w-full block truncate"
                         >
                           {(categories || CATEGORIES_LIST).map((c) => (
                             <option key={c.name} value={c.name}>

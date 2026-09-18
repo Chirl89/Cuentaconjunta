@@ -194,8 +194,10 @@ export function parseBankinterExcel(
     if (rows[0] && rows[0][0]) {
       const m = String(rows[0][0]).match(/([^(]+)\s*\(([^)]+)\)/);
       if (m) {
-        cardName = m[1].replace(/Número de tarjeta:\s*/i, "").trim();
-        cardNumber = m[2].trim();
+        let rawName = m[1].replace(/Número de tarjeta:\s*/i, "").trim();
+        if (/visa clasi/i.test(rawName)) rawName = "Visa Clásica";
+        cardName = rawName;
+        cardNumber = m[2].replace(/^\.+/, "*").trim();
       }
     }
 

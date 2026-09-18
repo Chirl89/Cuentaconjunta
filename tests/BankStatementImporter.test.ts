@@ -55,8 +55,8 @@ Fecha,Concepto,Importe
       const res = parseBankinterExcel(fileBuffer);
 
       expect(res.success).toBe(true);
-      expect(res.cardNumber).toBe("....2153");
-      expect(res.cardName).toContain("Visa");
+      expect(res.cardNumber).toBe("*2153");
+      expect(res.cardName).toBe("Visa Clásica");
       expect(res.totalMovements).toBe(35);
       expect(res.movements.length).toBe(35);
 
