@@ -977,7 +977,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [inviteCode]);
 
-  // Poll feed and cloud state on mount and on app focus/visibility
+  // Poll feed and cloud state on mount, on month change, on app focus/visibility and background heartbeat
   useEffect(() => {
     const refreshAll = async () => {
       await syncBankFeed();
@@ -994,11 +994,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     window.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", refreshAll);
 
+    // Heartbeat auto-sync every 30s while app is open and visible
+    const timer = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        refreshAll();
+      }
+    }, 30000);
+
     return () => {
       window.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", refreshAll);
+      clearInterval(timer);
     };
-  }, [syncBankFeed, inviteCode]);
+  }, [syncBankFeed, inviteCode, selectedMonth]);
 
   const clearAllTransactions = useCallback(() => {
     setTransactions([]);

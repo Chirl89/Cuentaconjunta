@@ -1,16 +1,22 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
 import SyncModal from "./SyncModal";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
-import { TransactionsProvider } from "@/context/TransactionsContext";
+import { TransactionsProvider, useTransactions } from "@/context/TransactionsContext";
 
 export const AppShellContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const { setActiveTab } = useNavigation();
+  const { activeTab, setActiveTab } = useNavigation();
+  const { syncBankFeed } = useTransactions();
+
+  // Automatic seamless background synchronization whenever switching tabs
+  useEffect(() => {
+    syncBankFeed().catch(() => {});
+  }, [activeTab, syncBankFeed]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col md:flex-row antialiased">
