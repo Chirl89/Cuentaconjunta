@@ -198,6 +198,60 @@ export default function HomePage() {
   const selectedMonthObj = AVAILABLE_MONTHS.find((m) => m.key === selectedMonth);
   const selectedMonthLabel = selectedMonthObj?.label || selectedMonth;
 
+  // Cuentas corrientes bancarias (excluyendo tarjetas)
+  const checkingAccounts = useMemo(() => {
+    return accounts.filter(
+      (a) =>
+        !a.accountName.toLowerCase().includes("tarjeta") &&
+        !a.id.startsWith("card_") &&
+        a.id !== "acc_card_bankinter"
+    );
+  }, [accounts]);
+
+  const checkingTotalBalance = useMemo(() => {
+    return checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
+  }, [checkingAccounts]);
+
+  // Saldo real en cuentas: saldo disponible en cuentas bancarias MENOS gasto en tarjetas
+  const netAvailableBalance = useMemo(() => {
+    return checkingTotalBalance - cardSpentThisMonth;
+  }, [checkingTotalBalance, cardSpentThisMonth]);
+
+  // Tarjeta vinculada (de cuentas o compras)
+  const cardAccount = useMemo(() => {
+    return accounts.find(
+      (a) =>
+        a.accountName.toLowerCase().includes("tarjeta") ||
+        a.id.startsWith("card_") ||
+        a.id === "acc_card_bankinter"
+    );
+  }, [accounts]);
+
+  const cardOwnership = cardAccount?.ownership || "USER_A";
+
+  const handleCardOwnershipChange = (newOwnership: "JOINT" | "USER_A" | "USER_B") => {
+    if (cardAccount) {
+      updateAccountOwnership(cardAccount.id, newOwnership);
+    } else {
+      addConnectedAccounts([
+        {
+          id: "acc_card_bankinter",
+          bankName: "Bankinter",
+          accountName: "Tarjeta Visa Clásica",
+          ibanMask: "•••• 4242",
+          ownership: newOwnership,
+          balance: 0,
+          status: "active",
+        },
+      ]);
+    }
+    showToast(
+      `Titularidad de la tarjeta asignada a ${
+        newOwnership === "JOINT" ? "Conjunta" : newOwnership === "USER_A" ? memberAName : memberBName
+      }`
+    );
+  };
+
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [isManualModalOpen, setIsManualModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -1657,7 +1711,7 @@ export default function HomePage() {
 
             {/* Monthly Card Spending & Account Balance Summary */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Tarjeta 1: Saldo en Cuentas */}
+              {/* Tarjeta 1: Saldo en Cuentas (Disponible Neto) */}
               <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200/80 flex flex-col justify-between space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1666,19 +1720,19 @@ export default function HomePage() {
                     </div>
                     <div>
                       <span className="text-xs font-black text-slate-900 block">Saldo en Cuentas</span>
-                      <span className="text-[10px] font-semibold text-slate-500">Disponible agrupado</span>
+                      <span className="text-[10px] font-semibold text-slate-500">Disponible tras tarjetas</span>
                     </div>
                   </div>
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                    {accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}
+                    {checkingAccounts.length} {checkingAccounts.length === 1 ? "cuenta" : "cuentas"}
                   </span>
                 </div>
                 <div>
                   <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {accounts.reduce((sum, a) => sum + a.balance, 0).toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                    {netAvailableBalance.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Saldo total sumando las cuentas corrientes registradas
+                    Saldo en cuentas ({checkingTotalBalance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €) − Gasto tarjeta ({cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)
                   </p>
                 </div>
               </div>
@@ -1728,19 +1782,31 @@ export default function HomePage() {
                   const isA = acc.ownership === "USER_A";
                   const isB = acc.ownership === "USER_B";
                   const isEditingThisBalance = editingBalanceAccountId === acc.id;
+                  const isCard =
+                    acc.accountName.toLowerCase().includes("tarjeta") ||
+                    acc.id.startsWith("card_") ||
+                    acc.id === "acc_card_bankinter";
 
                   return (
                     <div
                       key={acc.id}
-                      className="p-5 rounded-3xl border border-slate-200/90 bg-white hover:border-slate-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between"
+                      className={`p-5 rounded-3xl border shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between ${
+                        isCard
+                          ? "border-emerald-200/90 bg-white hover:border-emerald-300"
+                          : "border-slate-200/90 bg-white hover:border-slate-300"
+                      }`}
                     >
                       {/* Card Top: Bank & Name & Remove */}
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-center gap-2.5 min-w-0">
-                            <div className="w-9 h-9 rounded-2xl bg-slate-100 flex items-center justify-center shrink-0 border border-slate-200/60 text-slate-700">
-                              {acc.accountName.toLowerCase().includes("tarjeta") ? (
-                                <CreditCard className="w-4 h-4 text-slate-600" />
+                            <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 border ${
+                              isCard
+                                ? "bg-emerald-50 border-emerald-200 text-[#00A37A]"
+                                : "bg-slate-100 border-slate-200/60 text-slate-700"
+                            }`}>
+                              {isCard ? (
+                                <CreditCard className="w-4 h-4" />
                               ) : (
                                 <Landmark className="w-4 h-4 text-slate-600" />
                               )}
@@ -1755,105 +1821,131 @@ export default function HomePage() {
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`¿Desconectar la cuenta "${acc.bankName} ${acc.accountName}"?`)) {
-                                removeAccount(acc.id);
-                                showToast(`Cuenta ${acc.accountName} eliminada`);
-                              }
-                            }}
-                            className="text-slate-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
-                            title="Desconectar cuenta"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {/* Balance and IBAN with Inline Quick Edit */}
-                        <div className="pt-2 bg-slate-50/70 p-3 rounded-2xl border border-slate-100 space-y-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                              Saldo disponible
-                            </span>
-                            {!isEditingThisBalance && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingBalanceAccountId(acc.id);
-                                  setEditingBalanceValue(acc.balance.toString());
-                                }}
-                                className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
-                                title="Editar saldo actual directamente"
-                              >
-                                <Pencil className="w-3 h-3" />
-                                <span>Ajustar saldo</span>
-                              </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {isCard && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                Tarjeta
+                              </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`¿Desconectar la cuenta "${acc.bankName} ${acc.accountName}"?`)) {
+                                  removeAccount(acc.id);
+                                  showToast(`Cuenta ${acc.accountName} eliminada`);
+                                }
+                              }}
+                              className="text-slate-300 hover:text-red-500 p-1 rounded-lg transition-colors cursor-pointer"
+                              title="Desconectar cuenta"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-
-                          {isEditingThisBalance ? (
-                            <div className="flex items-center gap-1.5 pt-1">
-                              <div className="relative flex-1">
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  autoFocus
-                                  value={editingBalanceValue}
-                                  onChange={(e) => setEditingBalanceValue(e.target.value)}
-                                  className="w-full text-base font-black text-slate-900 bg-white border-2 border-emerald-500 rounded-xl px-2.5 py-1 pr-6 focus:outline-none"
-                                  placeholder="0.00"
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      const val = parseFloat(editingBalanceValue.replace(",", "."));
-                                      if (!isNaN(val)) {
-                                        updateAccountBalance(acc.id, val);
-                                        showToast(`Saldo actualizado a ${val.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`);
-                                      }
-                                      setEditingBalanceAccountId(null);
-                                    } else if (e.key === "Escape") {
-                                      setEditingBalanceAccountId(null);
-                                    }
-                                  }}
-                                />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
-                                  €
-                                </span>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const val = parseFloat(editingBalanceValue.replace(",", "."));
-                                  if (!isNaN(val)) {
-                                    updateAccountBalance(acc.id, val);
-                                    showToast(`Saldo actualizado a ${val.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`);
-                                  }
-                                  setEditingBalanceAccountId(null);
-                                }}
-                                className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shrink-0"
-                                title="Guardar saldo"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingBalanceAccountId(null)}
-                                className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors shrink-0"
-                                title="Cancelar"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="text-2xl font-black text-slate-900 tracking-tight">
-                              {acc.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
-                            </div>
-                          )}
-
-                          <span className="text-[11px] text-slate-400 font-mono block">
-                            {acc.ibanMask}
-                          </span>
                         </div>
+
+                        {/* Balance for Accounts VS Gasto del mes for Cards */}
+                        {isCard ? (
+                          <div className="pt-2 bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/80 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                                Gasto del mes ({selectedMonthLabel})
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-500">
+                                {cardPurchasesCount} {cardPurchasesCount === 1 ? "compra" : "compras"}
+                              </span>
+                            </div>
+                            <div className="text-xl font-black text-slate-900 tracking-tight">
+                              {cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                            </div>
+                            <p className="text-[10px] text-slate-500">
+                              {acc.ibanMask || "•••• 4242"} • Compras sincronizadas
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="pt-2 bg-slate-50/70 p-3 rounded-2xl border border-slate-100 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                Saldo disponible
+                              </span>
+                              {!isEditingThisBalance && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingBalanceAccountId(acc.id);
+                                    setEditingBalanceValue(acc.balance.toString());
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer"
+                                  title="Editar saldo actual directamente"
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                  <span>Ajustar saldo</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {isEditingThisBalance ? (
+                              <div className="flex items-center gap-1.5 pt-1">
+                                <div className="relative flex-1">
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    autoFocus
+                                    value={editingBalanceValue}
+                                    onChange={(e) => setEditingBalanceValue(e.target.value)}
+                                    className="w-full text-base font-black text-slate-900 bg-white border-2 border-emerald-500 rounded-xl px-2.5 py-1 pr-6 focus:outline-none"
+                                    placeholder="0.00"
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        const val = parseFloat(editingBalanceValue.replace(",", "."));
+                                        if (!isNaN(val)) {
+                                          updateAccountBalance(acc.id, val);
+                                          showToast(`Saldo actualizado a ${val.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`);
+                                        }
+                                        setEditingBalanceAccountId(null);
+                                      } else if (e.key === "Escape") {
+                                        setEditingBalanceAccountId(null);
+                                      }
+                                    }}
+                                  />
+                                  <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">
+                                    €
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const val = parseFloat(editingBalanceValue.replace(",", "."));
+                                    if (!isNaN(val)) {
+                                      updateAccountBalance(acc.id, val);
+                                      showToast(`Saldo actualizado a ${val.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €`);
+                                    }
+                                    setEditingBalanceAccountId(null);
+                                  }}
+                                  className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer transition-colors shrink-0"
+                                  title="Guardar saldo"
+                                >
+                                  <Check className="w-4 h-4" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingBalanceAccountId(null)}
+                                  className="p-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-bold cursor-pointer transition-colors shrink-0"
+                                  title="Cancelar"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="text-2xl font-black text-slate-900 tracking-tight">
+                                {acc.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €
+                              </div>
+                            )}
+
+                            <span className="text-[11px] text-slate-400 font-mono block">
+                              {acc.ibanMask}
+                            </span>
+                          </div>
+                        )}
 
                         {/* Direct Action: Cargar Extracto / Movimientos */}
                         <div>
@@ -1947,55 +2039,127 @@ export default function HomePage() {
                   );
                 })}
 
-                {/* Tarjeta Visa Clásica Bankinter */}
-                <div className="p-5 rounded-3xl border border-emerald-200/90 bg-white hover:border-emerald-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-[#00A37A]">
-                          <CreditCard className="w-4 h-4" />
+                {/* Tarjeta Visa Clásica Bankinter (cuando aún no se ha agregado como cuenta explícita) */}
+                {!accounts.some((a) => a.accountName.toLowerCase().includes("tarjeta") || a.id === "acc_card_bankinter") && (
+                  <div className="p-5 rounded-3xl border border-emerald-200/90 bg-white hover:border-emerald-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0 text-[#00A37A]">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-slate-900 block truncate">
+                              Bankinter
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                              Tarjeta Visa Clásica
+                            </span>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <span className="text-xs font-black text-slate-900 block truncate">
-                            Bankinter
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-600 block truncate">
-                            Tarjeta Visa Clásica
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                        Activa
-                      </span>
-                    </div>
-
-                    <div className="pt-2 bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/80 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
-                          Gasto ({selectedMonthLabel})
-                        </span>
-                        <span className="text-[10px] font-bold text-slate-500">
-                          {cardPurchasesCount} {cardPurchasesCount === 1 ? "compra" : "compras"}
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                          Tarjeta
                         </span>
                       </div>
-                      <div className="text-xl font-black text-slate-900 tracking-tight">
-                        {cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+
+                      <div className="pt-2 bg-emerald-50/40 p-3 rounded-2xl border border-emerald-100/80 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                            Gasto del mes ({selectedMonthLabel})
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {cardPurchasesCount} {cardPurchasesCount === 1 ? "compra" : "compras"}
+                          </span>
+                        </div>
+                        <div className="text-xl font-black text-slate-900 tracking-tight">
+                          {cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          •••• 4242 • Compras sincronizadas
+                        </p>
                       </div>
-                      <p className="text-[10px] text-slate-500">
-                        Compras liquidadas y sincronizadas
-                      </p>
+
+                      {/* Direct Action: Cargar Extracto / Movimientos */}
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setBankModalInitialMode("statement");
+                            setBankModalInitialBank("Bankinter");
+                            setIsBankModalOpen(true);
+                          }}
+                          className="w-full py-2 px-3 rounded-xl bg-slate-100/90 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                          title="Cargar extracto de compras para Tarjeta Visa Clásica"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>📥 Cargar Extracto / Movimientos</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Interactive Ownership Switcher for the Card */}
+                    <div className="pt-3 border-t border-slate-100 space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span>Titularidad asignada:</span>
+                        <span
+                          className={
+                            cardOwnership === "JOINT"
+                              ? "text-[#00A37A]"
+                              : cardOwnership === "USER_A"
+                              ? "text-red-600"
+                              : "text-blue-600"
+                          }
+                        >
+                          {cardOwnership === "JOINT" ? "Compartida" : cardOwnership === "USER_A" ? memberAName : memberBName}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleCardOwnershipChange("JOINT")}
+                          className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            cardOwnership === "JOINT"
+                              ? "bg-[#00D09C] text-white shadow-xs"
+                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                          }`}
+                          title="Asignar como tarjeta conjunta / compartida"
+                        >
+                          <Users className="w-3 h-3 shrink-0" />
+                          <span className="truncate">Conjunta</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCardOwnershipChange("USER_A")}
+                          className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            cardOwnership === "USER_A"
+                              ? "bg-red-500 text-white shadow-xs"
+                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                          }`}
+                          title={`Asignar tarjeta a ${memberAName}`}
+                        >
+                          <User className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{memberAName}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleCardOwnershipChange("USER_B")}
+                          className={`py-1.5 px-1 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
+                            cardOwnership === "USER_B"
+                              ? "bg-blue-600 text-white shadow-xs"
+                              : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/80"
+                          }`}
+                          title={`Asignar tarjeta a ${memberBName}`}
+                        >
+                          <User className="w-3 h-3 shrink-0" />
+                          <span className="truncate">{memberBName}</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
-
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-[11px] text-slate-500 font-medium">
-                      Titular compras: <strong className="text-slate-700 font-bold">{memberAName}</strong>
-                    </span>
-                    <span className="text-[10px] text-emerald-600 font-bold bg-emerald-50/80 px-2 py-0.5 rounded-md border border-emerald-200/80">
-                      Sincronizada
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
           </div>

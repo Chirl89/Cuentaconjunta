@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from "vitest";
+import { describe, it, expect } from "vitest";
 
 describe("Accounts Tab & Monthly Card Spending Logic", () => {
   it("calculates monthly card spending and discounts refunds/credits properly", () => {
@@ -68,5 +68,35 @@ describe("Accounts Tab & Monthly Card Spending Logic", () => {
 
     const cardPurchasesCount = cardTxsInMonth.filter((t) => !t.isCredit).length;
     expect(cardPurchasesCount).toBe(2);
+  });
+
+  it("calculates net available checking balance subtracting card spending", () => {
+    const mockAccounts = [
+      {
+        id: "acc-1",
+        accountName: "Cuenta Corriente Bankinter",
+        balance: 12546.57,
+      },
+      {
+        id: "acc_card_bankinter",
+        accountName: "Tarjeta Visa Clásica",
+        balance: 0,
+      },
+    ];
+
+    const cardSpentThisMonth = 4250.89;
+
+    const checkingAccounts = mockAccounts.filter(
+      (a) =>
+        !a.accountName.toLowerCase().includes("tarjeta") &&
+        !a.id.startsWith("card_") &&
+        a.id !== "acc_card_bankinter"
+    );
+
+    const checkingTotalBalance = checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
+    expect(checkingTotalBalance).toBe(12546.57);
+
+    const netAvailableBalance = checkingTotalBalance - cardSpentThisMonth;
+    expect(Math.round(netAvailableBalance * 100) / 100).toBe(8295.68);
   });
 });
