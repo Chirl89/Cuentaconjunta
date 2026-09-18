@@ -1709,71 +1709,40 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Monthly Card Spending & Account Balance Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Tarjeta 1: Saldo en Cuentas (Disponible Neto) */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200/80 flex flex-col justify-between space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
-                      <Landmark className="w-4 h-4 text-[#00A37A]" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-black text-slate-900 block">Saldo en Cuentas</span>
-                      <span className="text-[10px] font-semibold text-slate-500">Disponible tras tarjetas</span>
-                    </div>
+            {/* Saldo en Cuentas (Disponible Neto tras Tarjetas) */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/70 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-700 shadow-2xs">
+                    <Landmark className="w-4 h-4 text-[#00A37A]" />
                   </div>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                    {checkingAccounts.length} {checkingAccounts.length === 1 ? "cuenta" : "cuentas"}
-                  </span>
-                </div>
-                <div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                    {netAvailableBalance.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                  <div>
+                    <span className="text-xs font-black text-slate-900 block">Saldo en Cuentas</span>
+                    <span className="text-[10px] font-semibold text-slate-500">Disponible neto tras tarjetas</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Saldo en cuentas ({checkingTotalBalance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €) − Gasto tarjeta ({cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)
-                  </p>
                 </div>
+                <p className="text-[11px] text-slate-500 pt-0.5">
+                  Saldo en cuentas ({checkingTotalBalance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €) − Gasto tarjeta ({cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €)
+                </p>
               </div>
 
-              {/* Tarjeta 2: Dinero Gastado en Tarjeta en el Mes */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-emerald-50/80 via-teal-50/40 to-white border border-emerald-200/80 flex flex-col justify-between space-y-3 shadow-2xs">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs">
-                      <CreditCard className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <span className="text-xs font-black text-slate-900 block">Gasto en Tarjeta</span>
-                      <span className="text-[10px] font-semibold text-emerald-700">Mes de {selectedMonthLabel}</span>
-                    </div>
-                  </div>
-                  <MonthSelector />
+              <div className="flex items-baseline sm:items-end flex-col shrink-0">
+                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                  {netAvailableBalance.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
                 </div>
-                <div>
-                  <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight flex items-baseline gap-2">
-                    <span>
-                      {cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
-                    </span>
-                    <span className="text-xs font-bold text-slate-500">gastados</span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 mt-0.5 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                    <span>
-                      <strong>{cardPurchasesCount}</strong> {cardPurchasesCount === 1 ? "compra registrada" : "compras registradas"} con tarjeta en {selectedMonthLabel}
-                    </span>
-                  </p>
-                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 mt-1">
+                  {checkingAccounts.length} {checkingAccounts.length === 1 ? "cuenta" : "cuentas"}
+                </span>
               </div>
             </div>
 
             {/* Accounts Grid */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
                   Cuentas & Tarjetas Registradas
                 </span>
+                <MonthSelector />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
