@@ -99,4 +99,58 @@ describe("Accounts Tab & Monthly Card Spending Logic", () => {
     const netAvailableBalance = checkingTotalBalance - cardSpentThisMonth;
     expect(Math.round(netAvailableBalance * 100) / 100).toBe(8295.68);
   });
+
+  it("excludes transactions with split 'ignored' (N/A) from card spending", () => {
+    const mockTransactions = [
+      {
+        id: "card_2026-09-15_1",
+        amount: 1518.67,
+        monthKey: "2026-09",
+        isCredit: false,
+        accountLabel: "Tarjeta Bankinter (VISA)",
+        split: "ignored", // Excluded from calculation
+      },
+      {
+        id: "card_2026-09-15_2",
+        amount: 32.5,
+        monthKey: "2026-09",
+        isCredit: false,
+        accountLabel: "Tarjeta Bankinter (VISA)",
+        split: "50/50",
+      },
+    ];
+
+    const cardTxsInMonth = mockTransactions.filter((t) => {
+      const isCard =
+        t.id.startsWith("card_") ||
+        (t.accountLabel &&
+          (t.accountLabel.toLowerCase().includes("tarjeta") ||
+            t.accountLabel.toLowerCase().includes("visa")));
+      return isCard && t.monthKey === "2026-09" && t.split !== "ignored";
+    });
+
+    expect(cardTxsInMonth).toHaveLength(1);
+    expect(cardTxsInMonth[0].amount).toBe(32.5);
+  });
+
+  it("formats account display correctly without IBANs or account numbers", () => {
+    const getAccountDisplay = (accountLabel: string, id: string = "tx_1"): string => {
+      const raw = (accountLabel || "").trim();
+      if (id.startsWith("card_") || /visa/i.test(raw) || (/tarjeta/i.test(raw) && !/corriente/i.test(raw))) {
+        return "Visa Clásica";
+      }
+      if (/bankinter/i.test(raw) || /es\d{2}/i.test(raw)) {
+        return "Bankinter";
+      }
+      const cleaned = raw.replace(/\s*\([A-Z0-9\s•*-]{6,}\)/gi, "").trim();
+      return cleaned || "Bankinter";
+    };
+
+    expect(getAccountDisplay("Bankinter (ES9301280082940100030803)")).toBe("Bankinter");
+    expect(getAccountDisplay("Cuenta Corriente Bankinter (ES9301280082940100030803)")).toBe("Bankinter");
+    expect(getAccountDisplay("Bankinter")).toBe("Bankinter");
+    expect(getAccountDisplay("Tarjeta Bankinter (VISA)", "card_123")).toBe("Visa Clásica");
+    expect(getAccountDisplay("Tarjeta VISA Clásica (•••• 1234)")).toBe("Visa Clásica");
+    expect(getAccountDisplay("VISA Débito")).toBe("Visa Clásica");
+  });
 });

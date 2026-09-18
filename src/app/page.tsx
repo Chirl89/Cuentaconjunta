@@ -57,6 +57,7 @@ import {
   ExternalLink,
   Pencil,
   FileSpreadsheet,
+  Ban,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -183,7 +184,7 @@ export default function HomePage() {
         (t.accountLabel &&
           (t.accountLabel.toLowerCase().includes("tarjeta") ||
             t.accountLabel.toLowerCase().includes("visa")));
-      return isCard && t.monthKey === selectedMonth;
+      return isCard && t.monthKey === selectedMonth && t.split !== "ignored";
     });
   }, [transactions, selectedMonth]);
 
@@ -425,7 +426,9 @@ export default function HomePage() {
   const handleTriage = (id: string, split: SplitType, label: string) => {
     const tx = transactions.find((t) => t.id === id);
     classifyTransaction(id, split);
-    if (tx?.payer === "memberA" && split === "memberB") {
+    if (split === "ignored") {
+      showToast("Movimiento no contabilizado (excluido de gastos y deudas).");
+    } else if (tx?.payer === "memberA" && split === "memberB") {
       showToast(`Asignado: Compra para ${memberBName} (100% deuda a favor de ${memberAName}).`);
     } else if (tx?.payer === "memberB" && split === "memberA") {
       showToast(`Asignado: Compra para ${memberAName} (100% deuda a favor de ${memberBName}).`);
@@ -437,7 +440,9 @@ export default function HomePage() {
   const handleReclassify = (id: string, split: SplitType, label: string) => {
     const tx = transactions.find((t) => t.id === id);
     reclassifyTransaction(id, split);
-    if (tx?.payer === "memberA" && split === "memberB") {
+    if (split === "ignored") {
+      showToast("Movimiento no contabilizado (excluido de gastos y deudas).");
+    } else if (tx?.payer === "memberA" && split === "memberB") {
       showToast(`Reclasificado: Compra para ${memberBName} (100% deuda a favor de ${memberAName}).`);
     } else if (tx?.payer === "memberB" && split === "memberA") {
       showToast(`Reclasificado: Compra para ${memberAName} (100% deuda a favor de ${memberBName}).`);
@@ -1113,6 +1118,23 @@ export default function HomePage() {
                         {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                       </span>
 
+                      {/* Botón No contabilizar / N/A */}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleTriage(
+                            tx.id,
+                            "ignored",
+                            "No contabilizar (N/A)"
+                          )
+                        }
+                        className="inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors whitespace-nowrap"
+                        title="No contabilizar (excluir de gastos y deudas, ej. cargo de tarjeta)"
+                      >
+                        <Ban className="w-3 h-3 text-slate-400" />
+                        <span>No contabilizar</span>
+                      </button>
+
                       <div className="flex items-center gap-1 shrink-0 mt-auto">
                         <button
                           type="button"
@@ -1282,6 +1304,11 @@ export default function HomePage() {
                             💰 Ingreso / Abono
                           </span>
                         )}
+                        {tx.split === "ignored" && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                            🚫 No contabilizado
+                          </span>
+                        )}
                         {tx.payer === "memberA" && tx.split === "memberB" && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200">
                             Para {memberBName} (100% deuda)
@@ -1305,6 +1332,31 @@ export default function HomePage() {
                     >
                       {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                     </span>
+
+                    {/* Botón No contabilizar / N/A */}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleReclassify(
+                          tx.id,
+                          tx.split === "ignored" ? "50/50" : "ignored",
+                          tx.split === "ignored" ? "1/2 (Compartido)" : "No contabilizar (N/A)"
+                        )
+                      }
+                      className={`inline-flex items-center justify-center gap-1 px-1.5 sm:px-2 py-0.5 rounded-md text-[10px] sm:text-[11px] font-bold border transition-colors whitespace-nowrap ${
+                        tx.split === "ignored"
+                          ? "bg-amber-100 text-amber-800 border-amber-300 hover:bg-amber-200"
+                          : "text-slate-500 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 border-slate-200"
+                      }`}
+                      title={
+                        tx.split === "ignored"
+                          ? "Movimiento no contabilizado. Haz clic para volver a contabilizar (1/2)"
+                          : "No contabilizar (excluir de gastos y deudas)"
+                      }
+                    >
+                      <Ban className={`w-3 h-3 ${tx.split === "ignored" ? "text-amber-700" : "text-slate-400"}`} />
+                      <span>{tx.split === "ignored" ? "No contabilizado" : "No contabilizar"}</span>
+                    </button>
 
                     {/* Reclassification Split Pill */}
                     <div className="flex items-center bg-slate-100 p-0.5 rounded-xl gap-0.5 text-[10px] sm:text-[11px] shrink-0">

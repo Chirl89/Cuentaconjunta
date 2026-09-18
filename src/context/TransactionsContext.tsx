@@ -17,7 +17,7 @@ const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v2";
 const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
 const STORAGE_KEY_SETTLEMENTS = "cuentaconjunta_settlements_v1";
 
-export type SplitType = "50/50" | "memberA" | "memberB";
+export type SplitType = "50/50" | "memberA" | "memberB" | "ignored";
 export type PayerType = "memberA" | "memberB" | "joint";
 
 export interface CategoryInfo {
@@ -1563,13 +1563,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   };
 
   const getAccountDisplay = (tx: Transaction): string => {
-    if (tx.payer === "memberA") {
-      return `${tx.accountLabel || "Santander Débito"} (${memberAName})`;
+    const raw = (tx.accountLabel || "").trim();
+    // Si es un movimiento de tarjeta (compras importadas por XLS o marcadas como Visa)
+    if (tx.id.startsWith("card_") || /visa/i.test(raw) || (/tarjeta/i.test(raw) && !/corriente/i.test(raw))) {
+      return "Visa Clásica";
     }
-    if (tx.payer === "memberB") {
-      return `${tx.accountLabel || "CaixaBank Débito"} (${memberBName})`;
+    // Si contiene bankinter o IBAN/cuenta bancaria, mostrar únicamente "Bankinter"
+    if (/bankinter/i.test(raw) || /es\d{2}/i.test(raw)) {
+      return "Bankinter";
     }
-    return `${tx.accountLabel || "BBVA Conjunta"} (Conjunta)`;
+    // Eliminar números largos entre paréntesis para cualquier otra entidad
+    const cleaned = raw.replace(/\s*\([A-Z0-9\s•*-]{6,}\)/gi, "").trim();
+    return cleaned || "Bankinter";
   };
 
   // Filtered by selected month and strictly sorted newest to oldest
@@ -1780,6 +1785,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       );
 
       for (const t of postSettlementTxs) {
+        if (t.split === "ignored") continue;
         if (t.payer === "joint") continue;
         if (t.payer === "memberA" && t.split === "memberA") continue;
         if (t.payer === "memberB" && t.split === "memberB") continue;
@@ -1867,6 +1873,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
 
     for (const t of classifiedTransactions) {
+      if (t.split === "ignored") continue;
       if (t.payer === "joint") continue;
       if (t.payer === "memberA" && t.split === "memberA") continue;
       if (t.payer === "memberB" && t.split === "memberB") continue;

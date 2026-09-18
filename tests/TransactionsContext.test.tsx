@@ -590,5 +590,69 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(localStorage.getItem("cuentaconjunta_transactions_v2")).toBe("[]");
     expect(localStorage.getItem("cuentaconjunta_transactions_v1")).toBeNull();
   });
+
+  it("handles classifying a transaction as 'ignored' (N/A) without altering joint spending or debt", () => {
+    const IgnoredTestComponent = () => {
+      const {
+        transactions,
+        classifyTransaction,
+        reclassifyTransaction,
+        totalJointSpent,
+        jointClassifiedTransactions,
+        debtContributingMovements,
+      } = useTransactions();
+
+      return (
+        <div>
+          <span data-testid="total-joint-spent">{totalJointSpent}</span>
+          <span data-testid="joint-count">{jointClassifiedTransactions.length}</span>
+          <span data-testid="debt-movements-count">{debtContributingMovements.length}</span>
+          <button
+            data-testid="btn-ignore-first"
+            onClick={() => {
+              if (transactions.length > 0) {
+                classifyTransaction(transactions[0].id, "ignored");
+              }
+            }}
+          >
+            Ignore First
+          </button>
+          <button
+            data-testid="btn-reclassify-first-to-joint"
+            onClick={() => {
+              if (transactions.length > 0) {
+                reclassifyTransaction(transactions[0].id, "50/50");
+              }
+            }}
+          >
+            Reclassify First
+          </button>
+        </div>
+      );
+    };
+
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <IgnoredTestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    const initialJointSpent = Number(screen.getByTestId("total-joint-spent").textContent);
+    const initialJointCount = Number(screen.getByTestId("joint-count").textContent);
+    const initialDebtCount = Number(screen.getByTestId("debt-movements-count").textContent);
+
+    // Classify as ignored
+    act(() => {
+      fireEvent.click(screen.getByTestId("btn-ignore-first"));
+    });
+
+    // Ignored transaction should NOT increase joint count or joint spent or debt
+    expect(Number(screen.getByTestId("joint-count").textContent)).toBe(initialJointCount);
+    expect(Number(screen.getByTestId("total-joint-spent").textContent)).toBe(initialJointSpent);
+    expect(Number(screen.getByTestId("debt-movements-count").textContent)).toBe(initialDebtCount);
+  });
 });
+
 
