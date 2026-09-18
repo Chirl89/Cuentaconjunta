@@ -197,10 +197,14 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     setIsSyncingBank(true);
     setBankSyncMessage(null);
     try {
-      await syncBankFeed();
-      setBankSyncMessage("¡Cuenta sincronizada con éxito! Todos los movimientos están al día.");
+      const res = await syncBankFeed();
+      if (res && res.cardCount > 0) {
+        setBankSyncMessage(`¡Sincronización completada! Cuenta nómina al día y ${res.cardCount} compras de tarjeta sincronizadas desde la base de datos.`);
+      } else {
+        setBankSyncMessage("¡Sincronización completada! Cuenta nómina y compras de tarjeta al día.");
+      }
     } catch {
-      setBankSyncMessage("Error al sincronizar con el banco. Inténtalo de nuevo.");
+      setBankSyncMessage("Error al sincronizar con la base de datos o el banco. Inténtalo de nuevo.");
     } finally {
       setIsSyncingBank(false);
     }
@@ -308,8 +312,45 @@ export const SyncModal: React.FC<SyncModalProps> = ({
           </button>
         </div>
 
+        {/* 1-Tap Universal Sync Card: Synchronizes both checking account and card purchases */}
+        <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-200/90 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs">
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
+              </div>
+              <div>
+                <h3 className="text-xs font-black text-slate-900">Sincronización Unificada 1-Clic</h3>
+                <p className="text-[11px] text-slate-600">Actualiza Cuenta Nómina y descarga las compras de Tarjeta</p>
+              </div>
+            </div>
+            {dbStatus === "connected" && (
+              <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
+                Nube Activa
+              </span>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSyncBank}
+            disabled={isSyncingBank}
+            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
+            <span>{isSyncingBank ? "Sincronizando Todo..." : "Sincronizar Todo Ahora (Cuenta + Tarjeta BBDD)"}</span>
+          </button>
+
+          {bankSyncMessage && (
+            <div className="p-2.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span>{bankSyncMessage}</span>
+            </div>
+          )}
+        </div>
+
         {/* Tab Switcher: Cuenta vs Tarjeta */}
-        <div className="flex border-b border-slate-200/80 bg-slate-50/80 p-1.5 gap-1.5 mx-6 mt-4 rounded-2xl">
+        <div className="flex border-b border-slate-200/80 bg-slate-50/80 p-1.5 gap-1.5 mx-6 mt-3 rounded-2xl">
           <button
             type="button"
             onClick={() => setActiveSubTab("account")}
@@ -433,7 +474,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               >
                 <RefreshCw className={`w-4 h-4 ${isSyncingBank ? "animate-spin" : ""}`} />
                 <span>
-                  {isSyncingBank ? "Sincronizando con Bankinter..." : "Sincronizar Cuenta Nómina Ahora"}
+                  {isSyncingBank ? "Sincronizando con Bankinter..." : "Sincronizar Todo Ahora (Cuenta + Tarjeta BBDD)"}
                 </span>
               </button>
 
@@ -518,6 +559,23 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                   <p className="text-[11px] text-indigo-800/80 leading-tight">
                     En Bankinter pulsa <strong>Descargar Excel</strong> en tu tarjeta. Luego pulsa <strong>Cargar Excel</strong> y selecciona el archivo (<em>movimientos.xls</em>). Se extraerán todas las compras al instante sin manualidad.
                   </p>
+                </div>
+
+                {/* Cloud Sync for Card movements */}
+                <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 flex items-center justify-between gap-2">
+                  <div>
+                    <div className="text-xs font-black text-emerald-950">Compras en Base de Datos Nube:</div>
+                    <div className="text-[11px] text-emerald-800">Descarga las compras subidas desde otros dispositivos</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSyncBank}
+                    disabled={isSyncingBank}
+                    className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-60 shrink-0"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
+                    <span>{isSyncingBank ? "Descargando..." : "Descargar de BBDD"}</span>
+                  </button>
                 </div>
 
                 {/* 2. Desktop Auto Runner */}

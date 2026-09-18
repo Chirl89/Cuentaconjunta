@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import VersionBadge from "./VersionBadge";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useOptionalAuth } from "@/context/AuthContext";
-import { Menu, HeartHandshake, User, RefreshCw } from "lucide-react";
+import { useTransactions } from "@/context/TransactionsContext";
+import { Menu, HeartHandshake, User, RefreshCw, SlidersHorizontal } from "lucide-react";
 
 interface HeaderProps {
   onOpenMobileMenu: () => void;
@@ -14,6 +15,9 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModal }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
+  const { syncBankFeed } = useTransactions();
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncToast, setSyncToast] = useState<string | null>(null);
 
   const activeName = auth?.activeRole === "memberB" ? memberBName : memberAName;
   const isB = auth?.activeRole === "memberB";
@@ -21,6 +25,25 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
   const handleToggleRole = () => {
     if (auth) {
       auth.switchActiveRole(isB ? "memberA" : "memberB");
+    }
+  };
+
+  const handleQuickSync = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsSyncing(true);
+    try {
+      const res = await syncBankFeed();
+      if (res?.cardCount) {
+        setSyncToast(`¡Al día! (${res.cardCount})`);
+      } else {
+        setSyncToast("¡Al día!");
+      }
+      setTimeout(() => setSyncToast(null), 3000);
+    } catch {
+      setSyncToast("Error");
+      setTimeout(() => setSyncToast(null), 3000);
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -46,17 +69,28 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
 
       {/* Right side: Sync Button, Active Role Switcher Badge & VersionBadge */}
       <div className="flex items-center gap-1.5">
-        {onOpenSyncModal && (
+        <div className="flex items-center rounded-full bg-emerald-50 border border-emerald-300/80 shadow-xs overflow-hidden">
           <button
             type="button"
-            onClick={onOpenSyncModal}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300/80 transition-all cursor-pointer shadow-xs active:scale-95"
-            title="Sincronizar cuenta y tarjeta"
+            onClick={handleQuickSync}
+            disabled={isSyncing}
+            className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-black text-emerald-800 hover:bg-emerald-100 transition-all cursor-pointer active:scale-95 disabled:opacity-60"
+            title="Sincronizar todo en 1 clic (cuenta + tarjetas BBDD)"
           >
-            <RefreshCw className="w-3 h-3 text-[#00A37A]" />
-            <span>Sync</span>
+            <RefreshCw className={`w-3 h-3 text-[#00A37A] ${isSyncing ? "animate-spin" : ""}`} />
+            <span>{isSyncing ? "Sync..." : syncToast || "Sync"}</span>
           </button>
-        )}
+          {onOpenSyncModal && (
+            <button
+              type="button"
+              onClick={onOpenSyncModal}
+              className="px-1.5 py-1 text-emerald-700 hover:bg-emerald-100 border-l border-emerald-200 transition-colors"
+              title="Opciones avanzadas y subida de archivos"
+            >
+              <SlidersHorizontal className="w-2.5 h-2.5" />
+            </button>
+          )}
+        </div>
 
         {auth && (
           <button

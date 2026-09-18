@@ -347,22 +347,29 @@ export function getTransactionSortTimestamp(t: {
   let minute = 0;
 
   if (t.date) {
-    const dayMonthMatch = t.date.match(/(\d{1,2})\s+([A-Za-z]{3})/i);
-    if (dayMonthMatch) {
-      day = parseInt(dayMonthMatch[1], 10);
-      const MONTHS_MAP: Record<string, number> = {
-        ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6,
-        jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
-      };
-      const key = dayMonthMatch[2].toLowerCase().substring(0, 3);
-      if (MONTHS_MAP[key]) {
-        month = MONTHS_MAP[key];
+    const slashMatch = t.date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slashMatch) {
+      day = parseInt(slashMatch[1], 10);
+      month = parseInt(slashMatch[2], 10);
+      year = parseInt(slashMatch[3], 10);
+    } else {
+      const dayMonthMatch = t.date.match(/(\d{1,2})\s+([A-Za-z]{3})/i);
+      if (dayMonthMatch) {
+        day = parseInt(dayMonthMatch[1], 10);
+        const MONTHS_MAP: Record<string, number> = {
+          ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6,
+          jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
+        };
+        const key = dayMonthMatch[2].toLowerCase().substring(0, 3);
+        if (MONTHS_MAP[key]) {
+          month = MONTHS_MAP[key];
+        }
       }
-    }
-    const timeMatch = t.date.match(/(\d{1,2}):(\d{2})/);
-    if (timeMatch) {
-      hour = parseInt(timeMatch[1], 10);
-      minute = parseInt(timeMatch[2], 10);
+      const timeMatch = t.date.match(/(\d{1,2}):(\d{2})/);
+      if (timeMatch) {
+        hour = parseInt(timeMatch[1], 10);
+        minute = parseInt(timeMatch[2], 10);
+      }
     }
   }
 
@@ -656,7 +663,7 @@ interface TransactionsContextType {
     accountLabel?: string;
     ownership?: "JOINT" | "USER_A" | "USER_B";
   }>) => void;
-  syncBankFeed: () => Promise<void>;
+  syncBankFeed: () => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
 }
 
@@ -830,154 +837,150 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, [inviteCode]);
 
-  // Automated background bank feed synchronization (from GitHub Actions / Backend cron)
-  const syncBankFeed = useCallback(async () => {
-    if (typeof window === "undefined") return;
+  // Automated background bank feed & cloud database synchronization (Unified PSD2 + Supabase household_state)
+  const syncBankFeed = useCallback(async (): Promise<{ success: boolean; total: number; cardCount: number; error?: string }> => {
+    if (typeof window === "undefined") return { success: false, total: 0, cardCount: 0 };
     try {
       if (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))) {
-        return;
-      }
-      const origin = window.location.origin && window.location.origin !== "null" ? window.location.origin : "";
-      const basePath = window.location.pathname.startsWith("/Cuentaconjunta")
-        ? "/Cuentaconjunta"
-        : "";
-      const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const feed = await res.json();
-
-      if (Array.isArray(feed.transactions) && feed.transactions.length > 0) {
-        setTransactions((prev) => {
-          const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
-          const feedMap = new Map(feed.transactions.map((ft: any) => [ft.id, ft]));
-
-          // Refresh existing items with feed flags (e.g. isCredit, auto-classify credits to owner)
-          let hasModifications = false;
-          const updatedPrev = cleanPrev.map((t) => {
-            const ft = feedMap.get(t.id) || (t.bankMovementId ? feed.transactions.find((f: any) => f.bankMovementId === t.bankMovementId) : null);
-            if (ft) {
-              const shouldBeCredit = Boolean(ft.isCredit);
-              const targetOwner = (ft.payer || t.payer) === "memberB" ? "memberB" : "memberA";
-              const needsCreditUpdate = t.isCredit !== shouldBeCredit;
-              const needsClassification = shouldBeCredit && (t.status !== "classified" || t.split !== targetOwner);
-              const needsCategoryUpdate = shouldBeCredit && t.category === "Otros Gastos Comunes";
-              if (needsCreditUpdate || needsClassification || needsCategoryUpdate) {
-                hasModifications = true;
-                return {
-                  ...t,
-                  isCredit: shouldBeCredit,
-                  status: shouldBeCredit ? ("classified" as const) : t.status,
-                  payer: shouldBeCredit ? targetOwner : t.payer,
-                  split: shouldBeCredit ? targetOwner : t.split,
-                  category: needsCategoryUpdate ? (ft.category || "Ingreso / Nómina") : t.category,
-                  categoryColor: needsCategoryUpdate ? (ft.categoryColor || "#10B981") : t.categoryColor,
-                };
-              }
-            }
-            return t;
-          });
-
-          const existingIds = new Set(updatedPrev.map((t) => t.id));
-          const existingBankIds = new Set(
-            updatedPrev.filter((t) => t.bankMovementId).map((t) => t.bankMovementId)
-          );
-          const toAdd = feed.transactions
-            .filter((ft: any) => isTestEnv || !isFictionalTransaction(ft))
-            .filter(
-              (ft: Transaction) =>
-                !existingIds.has(ft.id) &&
-                (!ft.bankMovementId || !existingBankIds.has(ft.bankMovementId))
-            )
-            .map((ft: any) => {
-              if (ft.isCredit) {
-                const targetOwner = ft.payer === "memberB" ? "memberB" : "memberA";
-                return {
-                  ...ft,
-                  status: "classified",
-                  payer: targetOwner,
-                  split: targetOwner,
-                };
-              }
-              return ft;
-            });
-          if (toAdd.length === 0 && !hasModifications) return cleanPrev;
-          const merged = [...toAdd, ...updatedPrev];
-          try {
-            localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
+        return { success: true, total: 0, cardCount: 0 };
       }
 
-      if (Array.isArray(feed.accounts) && feed.accounts.length > 0) {
-        setAccounts((prev) => {
-          let hasChanges = false;
-          const updated = prev.map((a) => {
-            const feedAcc = feed.accounts.find(
-              (fa: any) =>
-                fa.bankName.toLowerCase() === a.bankName.toLowerCase() ||
-                (fa.ibanMask && a.ibanMask && fa.ibanMask === a.ibanMask)
-            );
-            if (feedAcc && typeof feedAcc.balance === "number") {
-              const targetBal = feedAcc.balance > 0 ? feedAcc.balance : (a.balance > 0 ? a.balance : 12546.57);
-              if (targetBal !== a.balance) {
-                hasChanges = true;
-                return { ...a, balance: targetBal };
-              }
-            }
-            return a;
-          });
-          if (hasChanges) {
-            try {
-              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
-            } catch {}
+      // 1. Fetch live Supabase Cloud database state (includes card XLS transactions)
+      let cloudTxs: Transaction[] = [];
+      let cloudAccs: BankAccount[] = [];
+      let cloudSettlements: Record<string, any> = {};
+
+      try {
+        const cloud = await fetchStateFromCloud(inviteCode);
+        if (cloud) {
+          if (Array.isArray(cloud.transactions)) cloudTxs = cloud.transactions;
+          if (Array.isArray(cloud.accounts)) cloudAccs = cloud.accounts;
+          if (cloud.settlements) cloudSettlements = cloud.settlements;
+        }
+      } catch (cloudErr) {
+        console.warn("Could not fetch cloud state in syncBankFeed:", cloudErr);
+      }
+
+      // 2. Fetch local/remote bank feed JSON (Cuenta Nómina PSD2)
+      let feedTxs: any[] = [];
+      let feedAccs: any[] = [];
+      try {
+        const origin = window.location.origin && window.location.origin !== "null" ? window.location.origin : "";
+        const basePath = window.location.pathname.startsWith("/Cuentaconjunta")
+          ? "/Cuentaconjunta"
+          : "";
+        const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const feed = await res.json();
+          if (Array.isArray(feed?.transactions)) feedTxs = feed.transactions;
+          if (Array.isArray(feed?.accounts)) feedAccs = feed.accounts;
+        }
+      } catch (feedErr) {
+        console.warn("Could not fetch local bank feed:", feedErr);
+      }
+
+      let totalMergedCount = 0;
+      let cardCount = 0;
+
+      // 3. Unified transaction merge: Cloud State + Local State + Bank Feed
+      setTransactions((prev) => {
+        const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
+        const txMap = new Map<string, Transaction>();
+
+        // (a) Start with existing clean local transactions
+        for (const t of cleanPrev) {
+          txMap.set(t.id, t);
+        }
+
+        // (b) Overwrite / add Cloud transactions (cross-device source of truth)
+        for (const ct of cloudTxs) {
+          txMap.set(ct.id, ct);
+        }
+
+        // (c) Incorporate Bank Feed transactions
+        const existingBankIds = new Set(
+          Array.from(txMap.values())
+            .filter((t) => t.bankMovementId)
+            .map((t) => t.bankMovementId)
+        );
+
+        for (const ft of feedTxs) {
+          if (!isTestEnv && isFictionalTransaction(ft)) continue;
+          if (txMap.has(ft.id) || (ft.bankMovementId && existingBankIds.has(ft.bankMovementId))) {
+            continue;
           }
-          return updated;
+          const isCredit = Boolean(ft.isCredit);
+          const targetOwner = ft.payer === "memberB" ? "memberB" : "memberA";
+          txMap.set(ft.id, {
+            ...ft,
+            status: isCredit ? ("classified" as const) : ft.status || "pending",
+            payer: isCredit ? targetOwner : ft.payer || "memberA",
+            split: isCredit ? targetOwner : ft.split || "50/50",
+          });
+        }
+
+        const merged = Array.from(txMap.values()).sort(
+          (a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)
+        );
+
+        totalMergedCount = merged.length;
+        cardCount = merged.filter((t) => t.id.startsWith("card_")).length;
+
+        try {
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
+        } catch {}
+
+        // Persist merged state back to cloud DB so both devices stay synchronized
+        pushStateToCloud(inviteCode, { transactions: merged });
+
+        return merged;
+      });
+
+      // 4. Unified account merge
+      if (cloudAccs.length > 0 || feedAccs.length > 0) {
+        setAccounts((prev) => {
+          const accMap = new Map<string, BankAccount>();
+          for (const a of prev) accMap.set(a.id, a);
+          for (const ca of cloudAccs) accMap.set(ca.id, ca);
+          for (const fa of feedAccs) {
+            const existing = Array.from(accMap.values()).find(
+              (a) => a.id === fa.id || a.bankName.toLowerCase() === fa.bankName?.toLowerCase()
+            );
+            if (existing) {
+              accMap.set(existing.id, { ...existing, balance: fa.balance || existing.balance });
+            } else {
+              accMap.set(fa.id, fa);
+            }
+          }
+          const mergedAccs = Array.from(accMap.values());
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(mergedAccs));
+          } catch {}
+          pushStateToCloud(inviteCode, { accounts: mergedAccs });
+          return mergedAccs;
         });
       }
-    } catch (err) {
+
+      // 5. Unified settlements merge
+      if (cloudSettlements && Object.keys(cloudSettlements).length > 0) {
+        setSettlementCutoffs(cloudSettlements);
+        try {
+          localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloudSettlements));
+        } catch {}
+      }
+
+      return { success: true, total: totalMergedCount, cardCount };
+    } catch (err: any) {
       console.warn("Could not sync bank feed:", err);
+      return { success: false, total: 0, cardCount: 0, error: err?.message };
     }
-  }, []);
+  }, [inviteCode]);
 
   // Poll feed and cloud state on mount and on app focus/visibility
   useEffect(() => {
     const refreshAll = async () => {
-      syncBankFeed();
-      try {
-        const cloud = await fetchStateFromCloud(inviteCode);
-        if (!cloud) return;
-        if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
-          setTransactions((prev) => {
-            const cloudMap = new Map(cloud.transactions.map((t) => [t.id, t]));
-            const localOnly = prev.filter((t) => !cloudMap.has(t.id));
-            const merged = [...cloud.transactions, ...localOnly];
-            try {
-              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-        if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
-          setAccounts((prev) => {
-            const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
-            const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
-            const merged = [...cloud.accounts, ...localOnlyAccs];
-            try {
-              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-        if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
-          setSettlementCutoffs(cloud.settlements);
-          try {
-            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
-          } catch {}
-        }
-      } catch (err) {
-        console.warn("Cloud state refresh error:", err);
-      }
+      await syncBankFeed();
     };
 
     refreshAll();
