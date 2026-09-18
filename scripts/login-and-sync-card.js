@@ -1,4 +1,4 @@
-﻿/**
+/**
  * FitDuo / CuentaConjunta - Interactive Bankinter VISA Card Sync
  * 
  * Opens the official Bankinter login page directly in a secure Chrome window.
@@ -48,29 +48,29 @@ async function main() {
 
   const page = context.pages()[0] || await context.newPage();
   page.setDefaultTimeout(240000); // 4 minutes for user to login & enter SMS
+  const CARD_URL = 'https://bancaonline.bankinter.com/tarjetas/secure/tarjetas_ficha.xhtml?INDEX_CTA=5';
 
   try {
-    console.log('🌐 Cargando https://bancaonline.bankinter.com/gestion/login.xhtml...');
-    await page.goto('https://bancaonline.bankinter.com/gestion/login.xhtml', { waitUntil: 'domcontentloaded' });
+    console.log('🌐 Accediendo a la ficha de la tarjeta en Bankinter...');
+    await page.goto(CARD_URL, { waitUntil: 'domcontentloaded' });
 
-    setStatus('WAITING_USER_LOGIN', { message: 'Por favor, introduce tu usuario y contraseña en la ventana de Bankinter.' });
-    console.log('⏳ Esperando a que inicies sesión en la ventana de Bankinter...');
+    setStatus('WAITING_USER_LOGIN', { message: 'Por favor, introduce tus claves en la ventana de Bankinter.' });
+    console.log('⏳ Esperando a que inicies sesión en Bankinter...');
 
     // Wait until user logs in
     await page.waitForFunction(() => {
       const url = window.location.href;
-      return !url.includes('login.xhtml') && (url.includes('gestion') || url.includes('posicion') || document.body.innerText.includes('Tarjetas') || document.body.innerText.includes('Posición Global'));
+      return !url.includes('login.xhtml') && (url.includes('tarjetas') || url.includes('gestion') || url.includes('posicion') || document.body.innerText.includes('Tarjetas') || document.body.innerText.includes('Visa'));
     }, { timeout: 240000 });
 
     console.log('🎉 ¡Identificación completada con éxito en Bankinter!');
-    setStatus('EXTRACTING', { message: 'Identificación correcta. Accediendo a la sección de Tarjetas...' });
-    await page.waitForTimeout(3000);
+    setStatus('EXTRACTING', { message: 'Sesión iniciada. Cargando movimientos de la tarjeta...' });
+    await page.waitForTimeout(2000);
 
-    // Look for Tarjetas link or menu
-    console.log('💳 Accediendo a la sección de Tarjetas VISA...');
-    const tarjetasLink = page.locator('a:has-text("Tarjetas"), button:has-text("Tarjetas"), [href*="tarjeta" i]').first();
-    if (await tarjetasLink.count() > 0) {
-      await tarjetasLink.click();
+    // If Bankinter redirected to homepage after login, jump straight to the card URL
+    if (!page.url().includes('tarjetas_ficha.xhtml')) {
+      console.log('💳 Accediendo directamente a la ficha de la tarjeta VISA...');
+      await page.goto(CARD_URL, { waitUntil: 'domcontentloaded' });
       await page.waitForTimeout(4000);
     }
 

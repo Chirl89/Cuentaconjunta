@@ -373,13 +373,13 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
                   <div className="grid grid-cols-2 gap-2">
                     <a
-                      href="https://bancaonline.bankinter.com/gestion/login.xhtml"
+                      href="https://bancaonline.bankinter.com/tarjetas/secure/tarjetas_ficha.xhtml?INDEX_CTA=5"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="py-2.5 px-3 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs text-center"
                     >
                       <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                      <span>1. Abrir Bankinter</span>
+                      <span>1. Abrir Tarjeta Bankinter</span>
                     </a>
                     <button
                       type="button"
