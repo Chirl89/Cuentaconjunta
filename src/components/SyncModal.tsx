@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useTransactions } from "@/context/TransactionsContext";
 import { parseSpanishBankStatement, parseBankinterExcel, ParsedBankMovement } from "@/lib/bank/importer";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   RefreshCw,
   X,
@@ -18,6 +19,44 @@ import {
   Laptop,
   FileSpreadsheet,
 } from "lucide-react";
+
+const HOUSEHOLD_SYNC_SQL = `-- 1. Tabla de Estado Global del Hogar para sincronización multi-dispositivo
+CREATE TABLE IF NOT EXISTS public.household_state (
+    household_code TEXT PRIMARY KEY,
+    transactions JSONB NOT NULL DEFAULT '[]'::jsonb,
+    accounts JSONB NOT NULL DEFAULT '[]'::jsonb,
+    settlements JSONB NOT NULL DEFAULT '{}'::jsonb,
+    categories JSONB NOT NULL DEFAULT '[]'::jsonb,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 2. Habilitar Seguridad (RLS) y permitir lectura/escritura para el hogar
+ALTER TABLE public.household_state ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Allow household read" ON public.household_state;
+CREATE POLICY "Allow household read" ON public.household_state
+    FOR SELECT TO anon, authenticated USING (true);
+
+DROP POLICY IF EXISTS "Allow household insert" ON public.household_state;
+CREATE POLICY "Allow household insert" ON public.household_state
+    FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow household update" ON public.household_state;
+CREATE POLICY "Allow household update" ON public.household_state
+    FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
+
+-- 3. Habilitar Realtime para reflejo instantáneo en todos los dispositivos
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND schemaname = 'public' 
+        AND tablename = 'household_state'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.household_state;
+    END IF;
+END $$;`;
 
 interface SyncModalProps {
   isOpen: boolean;
@@ -41,7 +80,32 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
   const [browserSyncStatus, setBrowserSyncStatus] = useState<string | null>(null);
   const [detectedCardInfo, setDetectedCardInfo] = useState<string | null>(null);
+  const [dbStatus, setDbStatus] = useState<"checking" | "connected" | "pending">("checking");
+  const [copiedSql, setCopiedSql] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    try {
+      const supabase = getSupabaseBrowserClient();
+      (supabase as any)
+        .from("household_state")
+        .select("household_code")
+        .limit(1)
+        .then(({ error }: any) => {
+          if (error && error.code === "PGRST205") {
+            setDbStatus("pending");
+          } else if (!error) {
+            setDbStatus("connected");
+          } else {
+            setDbStatus("pending");
+          }
+        })
+        .catch(() => setDbStatus("pending"));
+    } catch {
+      setDbStatus("pending");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -274,6 +338,58 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
         {/* Content Area */}
         <div className="p-6 overflow-y-auto space-y-5">
+          {/* Cloud BBDD Status Warning / Connected Banner */}
+          {dbStatus === "pending" && (
+            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-950 text-xs space-y-2">
+              <div className="flex items-center justify-between font-bold">
+                <span className="flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  Base de Datos Supabase: Tabla pendiente
+                </span>
+                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
+                  15 seg
+                </span>
+              </div>
+              <p className="text-[11px] text-amber-850 leading-snug">
+                Para que los gastos cargados vía Excel se almacenen en la nube y se sincronicen de forma duradera con tus otros dispositivos, activa la tabla en Supabase:
+              </p>
+              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                <a
+                  href="https://supabase.com/dashboard/project/egougygfqnnzfqpceggn/sql/new"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="py-1.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-xs"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Abrir Supabase SQL Editor
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(HOUSEHOLD_SYNC_SQL);
+                    setCopiedSql(true);
+                    setTimeout(() => setCopiedSql(false), 2500);
+                  }}
+                  className="py-1.5 px-3 rounded-xl bg-white border border-amber-300 text-amber-900 font-bold text-[11px] flex items-center gap-1.5 hover:bg-amber-50 cursor-pointer shadow-xs"
+                >
+                  <Clipboard className="w-3.5 h-3.5 text-amber-700" />
+                  {copiedSql ? "¡SQL Copiado!" : "Copiar SQL en 1 Clic"}
+                </button>
+              </div>
+            </div>
+          )}
+          {dbStatus === "connected" && (
+            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-[11px] font-bold flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                Base de datos en la nube: Conectada y sincronizada
+              </span>
+              <span className="text-[9px] bg-emerald-200/80 text-emerald-800 px-1.5 py-0.5 rounded-md">
+                Multi-dispositivo Activo
+              </span>
+            </div>
+          )}
+
           {/* TAB 1: CUENTA CORRIENTE */}
           {activeSubTab === "account" && (
             <div className="space-y-4">

@@ -97,11 +97,13 @@ export function subscribeHouseholdRoom(
 /**
  * Broadcasts changes to the partner device in real-time behind the scenes.
  */
-export function broadcastHouseholdSync(message: Omit<SyncMessage, "senderId" | "timestamp">) {
+export async function broadcastHouseholdSync(message: Omit<SyncMessage, "senderId" | "timestamp">) {
   if (typeof window === "undefined") return;
 
+  const cleanCode = (message.inviteCode || "FITDUO").trim().toUpperCase();
   const fullMsg: SyncMessage = {
     ...message,
+    inviteCode: cleanCode,
     senderId: CLIENT_ID,
     timestamp: Date.now(),
   };
@@ -116,15 +118,33 @@ export function broadcastHouseholdSync(message: Omit<SyncMessage, "senderId" | "
   } catch {}
 
   // 2. Multi-device cloud broadcast (Supabase Realtime)
-  if (activeChannel) {
-    try {
-      activeChannel.send({
+  try {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+
+    const channelName = `household_room_${cleanCode}`;
+    const ch = activeChannel || supabase.channel(channelName);
+
+    if (ch.state === "joined") {
+      await ch.send({
         type: "broadcast",
         event: "SYNC_EVENT",
         payload: fullMsg,
       });
-    } catch (err) {
-      console.warn("Realtime broadcast failed:", err);
+    } else {
+      ch.subscribe(async (status: string) => {
+        if (status === "SUBSCRIBED") {
+          try {
+            await ch.send({
+              type: "broadcast",
+              event: "SYNC_EVENT",
+              payload: fullMsg,
+            });
+          } catch {}
+        }
+      });
     }
+  } catch (err) {
+    console.warn("Realtime broadcast send failed:", err);
   }
 }
