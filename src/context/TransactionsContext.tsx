@@ -7,6 +7,11 @@ import {
   subscribeHouseholdRoom,
   broadcastHouseholdSync,
 } from "@/lib/sync/householdSync";
+import {
+  pushStateToCloud,
+  fetchStateFromCloud,
+  subscribeHouseholdDbChanges,
+} from "@/lib/sync/cloudDbSync";
 
 const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v2";
 const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
@@ -787,10 +792,43 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (savedSettlements) {
         setSettlementCutoffs(JSON.parse(savedSettlements));
       }
+
+      // Cloud Database Sync: fetch persistent state from Supabase household_state
+      fetchStateFromCloud(inviteCode).then((cloud) => {
+        if (!cloud) return;
+        if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
+          setTransactions((prev) => {
+            const cloudMap = new Map(cloud.transactions.map((t) => [t.id, t]));
+            const localOnly = prev.filter((t) => !cloudMap.has(t.id));
+            const merged = [...cloud.transactions, ...localOnly];
+            try {
+              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+        if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
+          setAccounts((prev) => {
+            const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
+            const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
+            const merged = [...cloud.accounts, ...localOnlyAccs];
+            try {
+              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+        if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
+          setSettlementCutoffs(cloud.settlements);
+          try {
+            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
+          } catch {}
+        }
+      });
     } catch (e) {
       console.warn("Hydration failed:", e);
     }
-  }, []);
+  }, [inviteCode]);
 
   // Automated background bank feed synchronization (from GitHub Actions / Backend cron)
   const syncBankFeed = useCallback(async () => {
@@ -902,24 +940,62 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
   }, []);
 
-  // Poll feed on mount and on app focus/visibility
+  // Poll feed and cloud state on mount and on app focus/visibility
   useEffect(() => {
-    syncBankFeed();
+    const refreshAll = async () => {
+      syncBankFeed();
+      try {
+        const cloud = await fetchStateFromCloud(inviteCode);
+        if (!cloud) return;
+        if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
+          setTransactions((prev) => {
+            const cloudMap = new Map(cloud.transactions.map((t) => [t.id, t]));
+            const localOnly = prev.filter((t) => !cloudMap.has(t.id));
+            const merged = [...cloud.transactions, ...localOnly];
+            try {
+              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+        if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
+          setAccounts((prev) => {
+            const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
+            const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
+            const merged = [...cloud.accounts, ...localOnlyAccs];
+            try {
+              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
+        }
+        if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
+          setSettlementCutoffs(cloud.settlements);
+          try {
+            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
+          } catch {}
+        }
+      } catch (err) {
+        console.warn("Cloud state refresh error:", err);
+      }
+    };
+
+    refreshAll();
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
-        syncBankFeed();
+        refreshAll();
       }
     };
 
     window.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", syncBankFeed);
+    window.addEventListener("focus", refreshAll);
 
     return () => {
       window.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", syncBankFeed);
+      window.removeEventListener("focus", refreshAll);
     };
-  }, [syncBankFeed]);
+  }, [syncBankFeed, inviteCode]);
 
   const clearAllTransactions = useCallback(() => {
     setTransactions([]);
@@ -953,6 +1029,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             inviteCode,
             transactions: updated,
           });
+          pushStateToCloud(inviteCode, { transactions: updated });
         }
         return updated;
       });
@@ -975,6 +1052,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             inviteCode,
             accounts: updated,
           });
+          pushStateToCloud(inviteCode, { accounts: updated });
         }
         return updated;
       });
@@ -1003,6 +1081,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             inviteCode,
             settlements: updated,
           });
+          pushStateToCloud(inviteCode, { settlements: updated });
         }
         return updated;
       });
@@ -1187,8 +1266,41 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
     window.addEventListener("storage", handleStorage);
 
+    // 4. Supabase PostgreSQL database change listener (household_state)
+    const unsubscribeDb = subscribeHouseholdDbChanges(inviteCode, (cloud) => {
+      if (cloud.transactions && Array.isArray(cloud.transactions)) {
+        setTransactions((prev) => {
+          const cloudMap = new Map(cloud.transactions.map((t) => [t.id, t]));
+          const localOnly = prev.filter((t) => !cloudMap.has(t.id));
+          const merged = [...cloud.transactions, ...localOnly];
+          try {
+            localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+      if (cloud.accounts && Array.isArray(cloud.accounts)) {
+        setAccounts((prev) => {
+          const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
+          const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
+          const merged = [...cloud.accounts, ...localOnlyAccs];
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
+      if (cloud.settlements) {
+        setSettlementCutoffs(cloud.settlements);
+        try {
+          localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
+        } catch {}
+      }
+    });
+
     return () => {
       unsubscribeRoom();
+      unsubscribeDb();
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorage);
     };

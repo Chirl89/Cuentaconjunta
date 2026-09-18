@@ -165,7 +165,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
     importBankMovements(
       parsedCardMovements.map((m) => ({
-        id: `card_${Date.now()}_${m.id}`,
+        id: m.id || `card_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         concept: m.concept,
         amount: m.amount,
         date: m.date,
@@ -176,7 +176,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
       }))
     );
 
-    setCardSuccessMsg(`¡${parsedCardMovements.length} compras de la tarjeta incorporadas con éxito!`);
+    setCardSuccessMsg(`¡${parsedCardMovements.length} compras de la tarjeta incorporadas y sincronizadas con la nube!`);
     setCardExtractText("");
     setParsedCardMovements([]);
   };
