@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useTransactions } from "@/context/TransactionsContext";
-import { parseSpanishBankStatement, ParsedBankMovement } from "@/lib/bank/importer";
+import { parseSpanishBankStatement, parseBankinterExcel, ParsedBankMovement } from "@/lib/bank/importer";
 import {
   RefreshCw,
   X,
@@ -16,6 +16,7 @@ import {
   Clipboard,
   Smartphone,
   Laptop,
+  FileSpreadsheet,
 } from "lucide-react";
 
 interface SyncModalProps {
@@ -39,6 +40,8 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<"account" | "card">("card");
   const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
   const [browserSyncStatus, setBrowserSyncStatus] = useState<string | null>(null);
+  const [detectedCardInfo, setDetectedCardInfo] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -168,12 +171,12 @@ export const SyncModal: React.FC<SyncModalProps> = ({
         date: m.date,
         monthKey: m.monthKey,
         bankName: "Bankinter",
-        accountLabel: "Tarjeta Bankinter (VISA)",
+        accountLabel: detectedCardInfo || "Tarjeta Bankinter (VISA)",
         ownership: "USER_A" as const,
       }))
     );
 
-    setCardSuccessMsg(`¡${parsedCardMovements.length} compras de la tarjeta importadas con éxito!`);
+    setCardSuccessMsg(`¡${parsedCardMovements.length} compras de la tarjeta incorporadas con éxito!`);
     setCardExtractText("");
     setParsedCardMovements([]);
   };
@@ -182,14 +185,37 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result;
-      if (typeof text === "string") {
-        handleCardTextChange(text);
-      }
-    };
-    reader.readAsText(file);
+    const fileNameLower = file.name.toLowerCase();
+    const isExcel = fileNameLower.endsWith(".xls") || fileNameLower.endsWith(".xlsx");
+
+    if (isExcel) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const buffer = ev.target?.result;
+        if (buffer instanceof ArrayBuffer) {
+          const result = parseBankinterExcel(buffer);
+          if (result.success && result.movements.length > 0) {
+            setParsedCardMovements(result.movements);
+            setDetectedCardInfo(`${result.cardName} (${result.cardNumber || "VISA"})`);
+            setCardError(null);
+            setCardSuccessMsg(`¡${result.totalMovements} compras extraídas de ${file.name}!`);
+          } else {
+            setParsedCardMovements([]);
+            setCardError(result.error || "No se pudieron extraer movimientos del archivo Excel.");
+          }
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result;
+        if (typeof text === "string") {
+          handleCardTextChange(text);
+        }
+      };
+      reader.readAsText(file);
+    }
   };
 
   return (
@@ -331,14 +357,20 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                 </p>
               </div>
 
-              {/* Action Buttons: Mobile 1-Tap & Desktop Browser */}
+              {/* Action Buttons: Mobile Excel Upload, Direct Link & Desktop Runner */}
               <div className="space-y-3">
-                {/* 1. Mobile Quick Flow */}
-                <div className="p-3.5 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-2.5">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                    <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Desde Móvil (iPhone / Safari):</span>
+                {/* 1. Bankinter Direct Flow (Descargar Excel en 1 clic y cargar) */}
+                <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
+                      <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Sincronización con Excel Oficial Bankinter:</span>
+                    </div>
+                    <span className="text-[10px] font-bold bg-indigo-200/80 text-indigo-900 px-2 py-0.5 rounded-full">
+                      Recomendado
+                    </span>
                   </div>
+
                   <div className="grid grid-cols-2 gap-2">
                     <a
                       href="https://bancaonline.bankinter.com/gestion/login.xhtml"
@@ -351,15 +383,24 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                     </a>
                     <button
                       type="button"
-                      onClick={handlePasteFromClipboard}
+                      onClick={() => fileInputRef.current?.click()}
                       className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
                     >
-                      <Clipboard className="w-3.5 h-3.5 shrink-0" />
-                      <span>2. Pegar Datos</span>
+                      <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
+                      <span>2. Cargar Excel</span>
                     </button>
                   </div>
+
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileUpload}
+                    accept=".xls,.xlsx,.csv"
+                    className="hidden"
+                  />
+
                   <p className="text-[11px] text-indigo-800/80 leading-tight">
-                    Entra a Bankinter, copia el texto de tus últimos movimientos de la tarjeta y pulsa <strong>Pegar Datos</strong>. Se incorporarán automáticamente.
+                    En Bankinter pulsa <strong>Descargar Excel</strong> en tu tarjeta. Luego pulsa <strong>Cargar Excel</strong> y selecciona el archivo (<em>movimientos.xls</em>). Se extraerán todas las compras al instante sin manualidad.
                   </p>
                 </div>
 
@@ -435,7 +476,12 @@ export const SyncModal: React.FC<SyncModalProps> = ({
               {parsedCardMovements.length > 0 && (
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                    <span>{parsedCardMovements.length} compras detectadas:</span>
+                    <div>
+                      <span>{parsedCardMovements.length} compras detectadas:</span>
+                      {detectedCardInfo && (
+                        <span className="block text-[10px] text-indigo-600 font-semibold">{detectedCardInfo}</span>
+                      )}
+                    </div>
                     <span className="text-indigo-600 font-extrabold">Listo para añadir</span>
                   </div>
 

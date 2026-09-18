@@ -1,7 +1,4 @@
-/**
- * Spanish Bank Statement Importer (Bankinter, Santander, BBVA, CaixaBank, ING, etc.)
- * Parses CSV/Excel/Text exports to extract 100% REAL transactions and accounts.
- */
+import * as XLSX from "xlsx";
 
 export interface ParsedBankMovement {
   id: string;
@@ -11,6 +8,17 @@ export interface ParsedBankMovement {
   concept: string;
   amount: number; // positive or negative
   balance?: number;
+  isCredit?: boolean;
+}
+
+export interface CardStatementParseResult {
+  success: boolean;
+  cardName: string;
+  cardNumber: string;
+  totalMovements: number;
+  totalExpenses: number;
+  movements: ParsedBankMovement[];
+  error?: string;
 }
 
 export interface BankStatementParseResult {
@@ -159,4 +167,119 @@ export function parseSpanishBankStatement(
     totalExpenses,
     movements,
   };
+}
+
+export function parseBankinterExcel(
+  fileBuffer: ArrayBuffer | Uint8Array
+): CardStatementParseResult {
+  try {
+    const wb = XLSX.read(fileBuffer, { type: "array" });
+    const sheetName = wb.SheetNames[0] || "Movimientos";
+    const sheet = wb.Sheets[sheetName];
+    if (!sheet) {
+      return {
+        success: false,
+        cardName: "Tarjeta Bankinter",
+        cardNumber: "",
+        totalMovements: 0,
+        totalExpenses: 0,
+        movements: [],
+        error: "No se encontró ninguna hoja de cálculo en el archivo.",
+      };
+    }
+
+    const rows = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+    let cardName = "Visa Clásica";
+    let cardNumber = "";
+    if (rows[0] && rows[0][0]) {
+      const m = String(rows[0][0]).match(/([^(]+)\s*\(([^)]+)\)/);
+      if (m) {
+        cardName = m[1].replace(/Número de tarjeta:\s*/i, "").trim();
+        cardNumber = m[2].trim();
+      }
+    }
+
+    const movements: ParsedBankMovement[] = [];
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      if (!r || r.length < 4) continue;
+      const dateCell = r[0];
+      const conceptCell = r[1];
+      const amountCell = r[3];
+
+      if (dateCell === undefined || conceptCell === undefined || amountCell === undefined) continue;
+      if (String(dateCell).toLowerCase().includes("fecha")) continue;
+
+      const numAmount = typeof amountCell === "number" ? amountCell : parseFloat(String(amountCell).replace(",", "."));
+      if (isNaN(numAmount)) continue;
+
+      let day = "", month = "", year = "";
+      if (typeof dateCell === "number") {
+        const formatted = XLSX.SSF.format("dd/mm/yyyy", dateCell);
+        const parts = formatted.split("/");
+        day = parts[0];
+        month = parts[1];
+        year = parts[2];
+      } else {
+        const parts = String(dateCell).trim().split(/[/-]/);
+        if (parts.length === 3) {
+          day = parts[0].padStart(2, "0");
+          month = parts[1].padStart(2, "0");
+          year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+        }
+      }
+
+      if (day && month && year) {
+        const isoDate = `${year}-${month}-${day}`;
+        const monthKey = `${year}-${month}`;
+        const conceptStr = String(conceptCell).trim();
+        const isCredit = numAmount > 0 || conceptStr.toUpperCase().includes("ANUL");
+
+        movements.push({
+          id: `card_${isoDate}_${Math.abs(numAmount)}_${i}`,
+          date: `${day}/${month}/${year}`,
+          monthKey,
+          rawDate: isoDate,
+          concept: conceptStr,
+          amount: Math.abs(numAmount),
+          isCredit,
+        });
+      }
+    }
+
+    if (movements.length === 0) {
+      return {
+        success: false,
+        cardName,
+        cardNumber,
+        totalMovements: 0,
+        totalExpenses: 0,
+        movements: [],
+        error: "No se encontraron movimientos válidos en el archivo Excel.",
+      };
+    }
+
+    const totalExpenses = movements
+      .filter((m) => !m.isCredit)
+      .reduce((sum, m) => sum + m.amount, 0);
+
+    return {
+      success: true,
+      cardName,
+      cardNumber,
+      totalMovements: movements.length,
+      totalExpenses,
+      movements,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      cardName: "Tarjeta Bankinter",
+      cardNumber: "",
+      totalMovements: 0,
+      totalExpenses: 0,
+      movements: [],
+      error: `Error al procesar el archivo Excel: ${err.message}`,
+    };
+  }
 }

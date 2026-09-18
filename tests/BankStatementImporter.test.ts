@@ -1,5 +1,5 @@
-﻿import { describe, it, expect } from "vitest";
-import { parseSpanishBankStatement } from "../src/lib/bank/importer";
+import { describe, it, expect } from "vitest";
+import { parseSpanishBankStatement, parseBankinterExcel } from "../src/lib/bank/importer";
 
 describe("Spanish Bank Statement Importer (Bankinter, Santander, BBVA, etc.)", () => {
   it("returns error for empty statement content", () => {
@@ -44,5 +44,32 @@ Fecha,Concepto,Importe
     expect(res.movements[0].concept).toBe("Gasolinera Repsol");
     expect(res.movements[0].amount).toBe(-55.0);
     expect(res.movements[1].amount).toBe(-12.4);
+  });
+
+  it("parses real Bankinter Visa Excel (movimientos.xls) extracting 35 card purchases and card details", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const filePath = path.resolve(__dirname, "../movimientos.xls");
+    if (fs.existsSync(filePath)) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const res = parseBankinterExcel(fileBuffer);
+
+      expect(res.success).toBe(true);
+      expect(res.cardNumber).toBe("....2153");
+      expect(res.cardName).toContain("Visa");
+      expect(res.totalMovements).toBe(35);
+      expect(res.movements.length).toBe(35);
+
+      // Check specific purchase details
+      const repsol = res.movements.find((m) => m.concept.includes("REPSOL WAYLET"));
+      expect(repsol).toBeDefined();
+      expect(repsol?.amount).toBe(55.37);
+      expect(repsol?.date).toBe("29/08/2026");
+
+      const justEat = res.movements.find((m) => m.concept.toLowerCase().includes("justeat"));
+      expect(justEat).toBeDefined();
+      expect(justEat?.amount).toBe(22.71);
+      expect(justEat?.date).toBe("11/09/2026");
+    }
   });
 });
