@@ -53,6 +53,15 @@ export async function pushStateToCloud(
       return { success: false, error: error.message };
     }
 
+    // Mirror to FITDUO standard row if current code is custom, so both stay permanently synced
+    if (cleanCode !== "FITDUO") {
+      try {
+        await (supabase as any)
+          .from("household_state")
+          .upsert({ ...payload, household_code: "FITDUO" }, { onConflict: "household_code" });
+      } catch {}
+    }
+
     return { success: true };
   } catch (err: any) {
     console.warn("Exception during cloud sync upsert:", err?.message);
@@ -62,7 +71,8 @@ export async function pushStateToCloud(
 
 /**
  * Fetches the latest household state from Supabase database.
- * Used on mount, on focus/visibility change, and after bank sync.
+ * Merges across household records so card movements uploaded under any code (e.g. FITDUO vs custom)
+ * are always available on all devices.
  */
 export async function fetchStateFromCloud(inviteCode: string): Promise<CloudHouseholdState | null> {
   if (typeof window === "undefined" || !inviteCode) return null;
@@ -73,17 +83,66 @@ export async function fetchStateFromCloud(inviteCode: string): Promise<CloudHous
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return null;
 
-    const { data, error } = await (supabase as any)
+    const { data: allRows, error } = await (supabase as any)
       .from("household_state")
-      .select("*")
-      .eq("household_code", cleanCode)
-      .maybeSingle();
+      .select("*");
 
-    if (error || !data) {
+    if (error || !allRows || allRows.length === 0) {
       return null;
     }
 
-    return data as CloudHouseholdState;
+    // 1. Find the row matching current household code (or fallback to latest)
+    const exactRow = allRows.find((r: any) => r.household_code === cleanCode);
+
+    // 2. Aggregate all transactions (ensuring card movements from any row are never missed)
+    const txMap = new Map<string, Transaction>();
+
+    if (exactRow && Array.isArray(exactRow.transactions)) {
+      for (const t of exactRow.transactions) {
+        txMap.set(t.id, t);
+      }
+    }
+
+    for (const r of allRows) {
+      if (Array.isArray(r.transactions)) {
+        for (const t of r.transactions) {
+          if (!txMap.has(t.id) || t.id.startsWith("card_")) {
+            txMap.set(t.id, t);
+          }
+        }
+      }
+    }
+
+    const mergedTransactions = Array.from(txMap.values());
+
+    const resultState: CloudHouseholdState = {
+      household_code: cleanCode,
+      transactions: mergedTransactions,
+      accounts: exactRow?.accounts || allRows[0]?.accounts || [],
+      settlements: exactRow?.settlements || allRows[0]?.settlements || {},
+      categories: exactRow?.categories || allRows[0]?.categories,
+      updated_at: exactRow?.updated_at || allRows[0]?.updated_at,
+    };
+
+    // If current row had missing card items, update it back to Supabase
+    if (!exactRow || (exactRow.transactions?.length || 0) < mergedTransactions.length) {
+      (supabase as any)
+        .from("household_state")
+        .upsert(
+          {
+            household_code: cleanCode,
+            transactions: mergedTransactions,
+            accounts: resultState.accounts,
+            settlements: resultState.settlements,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "household_code" }
+        )
+        .then(() => {})
+        .catch(() => {});
+    }
+
+    return resultState;
   } catch (err: any) {
     console.warn("Error fetching cloud state:", err?.message);
     return null;
@@ -111,10 +170,9 @@ export function subscribeHouseholdDbChanges(
         event: "*",
         schema: "public",
         table: "household_state",
-        filter: `household_code=eq.${cleanCode}`,
       },
       (payload) => {
-        if (payload.new && (payload.new as any).household_code === cleanCode) {
+        if (payload.new) {
           onRemoteUpdate(payload.new as CloudHouseholdState);
         }
       }
