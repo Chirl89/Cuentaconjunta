@@ -258,7 +258,7 @@ export default function HomePage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [bankCallbackReqId, setBankCallbackReqId] = useState<string | null>(null);
-  const [bankModalInitialMode, setBankModalInitialMode] = useState<"catalog" | "statement" | "config">("catalog");
+  const [bankModalInitialMode, setBankModalInitialMode] = useState<"account" | "card" | "catalog" | "statement" | "config">("account");
   const [bankModalInitialBank, setBankModalInitialBank] = useState<string>("Bankinter");
   const [editingBalanceAccountId, setEditingBalanceAccountId] = useState<string | null>(null);
   const [editingBalanceValue, setEditingBalanceValue] = useState<string>("");
@@ -1746,17 +1746,31 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => {
-                    setBankModalInitialMode("catalog");
+                    setBankModalInitialMode("account");
                     setIsBankModalOpen(true);
                   }}
-                  className="px-4 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-3.5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Añadir una nueva cuenta bancaria"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Conectar Banco (PSD2)</span>
+                  <span>+ Añadir Cuenta</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBankModalInitialMode("card");
+                    setIsBankModalOpen(true);
+                  }}
+                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md shadow-slate-900/10 transition-all flex items-center gap-2 cursor-pointer"
+                  title="Añadir una nueva tarjeta de crédito o débito"
+                >
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <span>+ Añadir Tarjeta</span>
                 </button>
               </div>
             </div>

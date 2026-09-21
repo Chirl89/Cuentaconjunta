@@ -1155,15 +1155,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const idx = updated.findIndex(
             (a) =>
               a.id === na.id ||
-              (na.ibanMask && a.ibanMask && na.ibanMask === a.ibanMask) ||
-              (na.bankName && a.bankName.toLowerCase() === na.bankName.toLowerCase())
+              (Boolean(na.ibanMask) &&
+                Boolean(a.ibanMask) &&
+                na.ibanMask === a.ibanMask &&
+                !na.ibanMask.includes("0000") &&
+                na.ibanMask !== "ES00 •••• 0000") ||
+              (Boolean(na.bankName) &&
+                Boolean(a.bankName) &&
+                na.bankName.toLowerCase() === a.bankName.toLowerCase() &&
+                Boolean(na.accountName) &&
+                Boolean(a.accountName) &&
+                na.accountName.toLowerCase().trim() ===
+                  a.accountName.toLowerCase().trim())
           );
           if (idx >= 0) {
             updated[idx] = {
               ...updated[idx],
               ...na,
               id: updated[idx].id,
-              ownership: updated[idx].ownership || na.ownership,
+              ownership: na.ownership || updated[idx].ownership,
             };
           } else {
             updated.push(na);
