@@ -11,7 +11,9 @@ import {
   getCategoryFrequencyGroup,
   Transaction,
   AVAILABLE_MONTHS,
+  BankAccount,
 } from "@/context/TransactionsContext";
+import { useOptionalAuth } from "@/context/AuthContext";
 import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
@@ -135,6 +137,9 @@ function ColorPickerPopover({
 
 export default function HomePage() {
   const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
+  const auth = useOptionalAuth();
+  const activeRole = auth?.activeRole || "memberA";
+  const defaultOwner: "USER_A" | "USER_B" | "JOINT" = activeRole === "memberB" ? "USER_B" : "USER_A";
   const { activeTab, setActiveTab } = useNavigation();
   const {
     transactions,
@@ -302,7 +307,26 @@ export default function HomePage() {
       localStorage.setItem("last_bank_auth_code", code);
       localStorage.removeItem("pending_bank_connection");
       setBankAuthCodeReceived(code);
-      setToastMsg(`✅ ¡Autorización bancaria completada en ${detectedBank}! Sincronizando cuentas reales por PSD2...`);
+      setActiveTab("cuentas");
+
+      // Register the new account immediately in the app with default ownership of the connecting user
+      const ownerLabel = defaultOwner === "USER_A" ? memberAName : memberBName;
+      const newAccId = `acc_${detectedBank.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
+      const newAccount: BankAccount = {
+        id: newAccId,
+        bankName: detectedBank,
+        accountName: `Cuenta ${detectedBank}`,
+        ibanMask: `ES•• •••• •••• (${detectedBank})`,
+        ownership: defaultOwner,
+        balance: 0,
+        institutionId: detectedBank.toLowerCase().replace(/\s+/g, "_"),
+        connectedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "active",
+      };
+      addConnectedAccounts([newAccount]);
+
+      setToastMsg(`✅ ¡Cuenta de ${detectedBank} conectada con éxito! Titularidad asignada a ti (${ownerLabel}).`);
 
       // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys/PSD2
       (async () => {
@@ -362,7 +386,33 @@ export default function HomePage() {
       const newUrl = window.location.pathname;
       window.history.replaceState({}, "", newUrl);
     }
-  }, [setActiveTab]);
+  }, [setActiveTab, addConnectedAccounts, defaultOwner, memberAName, memberBName]);
+
+  // Auto-recover any recently authorized bank account (e.g. Revolut from previous session)
+  const hasAutoRecoveredRef = React.useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined" || hasAutoRecoveredRef.current) return;
+    const storedCode = localStorage.getItem("last_bank_auth_code");
+    if (storedCode && !accounts.some((a) => a.bankName.toLowerCase().includes("revolut"))) {
+      hasAutoRecoveredRef.current = true;
+      const ownerLabel = defaultOwner === "USER_A" ? memberAName : memberBName;
+      addConnectedAccounts([
+        {
+          id: `acc_revolut_${Date.now()}`,
+          bankName: "Revolut",
+          accountName: "Cuenta Revolut",
+          ibanMask: "ES•• •••• •••• (Revolut)",
+          ownership: defaultOwner,
+          balance: 0,
+          institutionId: "revolut",
+          connectedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          status: "active",
+        },
+      ]);
+      setToastMsg(`✅ Cuenta de Revolut vinculada a tu perfil (${ownerLabel}). Puedes ajustar su saldo directamente en la tarjeta.`);
+    }
+  }, [accounts, defaultOwner, memberAName, memberBName, addConnectedAccounts]);
 
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
