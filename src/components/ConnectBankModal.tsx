@@ -154,6 +154,7 @@ export default function ConnectBankModal({
   const [privateKeyInput, setPrivateKeyInput] = useState("");
   const [appIdSavedSuccess, setAppIdSavedSuccess] = useState(false);
   const [showConnectPrompt, setShowConnectPrompt] = useState(false);
+  const [availablePoolBanks, setAvailablePoolBanks] = useState<string[]>([]);
   const keyFileInputRef = useRef<HTMLInputElement>(null);
 
   // Authorization & Discovery state
@@ -204,15 +205,34 @@ export default function ConnectBankModal({
       const currentKey = getEnableBankingPrivateKey() || "";
       setAppIdInput(currentId);
       setPrivateKeyInput(currentKey);
-      setHasLiveCredentials(currentId.length > 5 && currentKey.length > 10);
+      const userHasCustomKey = currentId.length > 5 && currentKey.length > 10;
+      setHasLiveCredentials(userHasCustomKey);
+
+      // Check pre-generated live official link pool in public/data/bank-auth-links.json
+      const basePath =
+        typeof window !== "undefined" && window.location.pathname.startsWith("/Cuentaconjunta")
+          ? "/Cuentaconjunta"
+          : "";
+      fetch(`${basePath}/data/bank-auth-links.json?t=${Date.now()}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((pool) => {
+          if (pool && typeof pool === "object") {
+            const keys = Object.keys(pool);
+            if (keys.length > 0) {
+              setAvailablePoolBanks(keys);
+              setHasLiveCredentials(true);
+            }
+          }
+        })
+        .catch(() => {});
 
       getBankInstitutions("ES")
         .then((data) => {
           if (data.success && Array.isArray(data.institutions)) {
             setInstitutions(data.institutions);
-            setHasLiveCredentials(
-              !!data.hasLiveCredentials || (currentId.length > 5 && currentKey.length > 10)
-            );
+            if (data.hasLiveCredentials) {
+              setHasLiveCredentials(true);
+            }
           }
         })
         .catch((err) => {
@@ -503,7 +523,15 @@ export default function ConnectBankModal({
     setSelectedBank(bank);
     setErrorMessage(null);
 
-    if (!hasLiveCredentials && !bank.isMock) {
+    const inPool = availablePoolBanks.some(
+      (b) =>
+        b.toLowerCase() === bank.name.toLowerCase() ||
+        b.toLowerCase() === bank.id.toLowerCase() ||
+        bank.name.toLowerCase().includes(b.toLowerCase()) ||
+        b.toLowerCase().includes(bank.name.toLowerCase())
+    );
+
+    if (!hasLiveCredentials && !inPool && !bank.isMock) {
       setShowConnectPrompt(true);
       return;
     }

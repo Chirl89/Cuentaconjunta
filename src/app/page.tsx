@@ -327,6 +327,7 @@ export default function HomePage() {
       addConnectedAccounts([newAccount]);
 
       setToastMsg(`✅ ¡Cuenta de ${detectedBank} conectada con éxito! Titularidad asignada a ti (${ownerLabel}).`);
+      setTimeout(() => setToastMsg(null), 5000);
 
       // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys/PSD2
       (async () => {
@@ -366,10 +367,11 @@ export default function HomePage() {
     if (errorParam) {
       console.warn("Bank OAuth redirect error:", errorParam);
       if (errorParam === "invalid_request") {
-        setToastMsg(`⚠️ La sesión previa de autorización caducó o requería permisos. Abre de nuevo "+ Conectar Cuenta" para usar el nuevo enlace actualizado.`);
+        setToastMsg(`⚠️ La sesión previa de autorización caducó o requería permisos. Abre de nuevo "+ Conectar Cuenta" para usar el nuevo enlace.`);
       } else {
         setToastMsg(`⚠️ Aviso del banco: ${errorParam}`);
       }
+      setTimeout(() => setToastMsg(null), 5000);
     }
 
     // Only open the connect modal for GoCardless requisitions or explicit session IDs, NEVER for raw OAuth codes
@@ -382,9 +384,9 @@ export default function HomePage() {
     }
 
     // Clean up URL parameters if code or callback was received
-    if (code || callbackId || errorParam) {
+    if (code || callbackId || errorParam || (typeof window !== "undefined" && window.location.search.length > 0)) {
       const newUrl = window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
+      window.history.replaceState({}, document.title, newUrl);
     }
   }, [setActiveTab, addConnectedAccounts, defaultOwner, memberAName, memberBName]);
 
@@ -518,9 +520,27 @@ export default function HomePage() {
     <div className="space-y-6">
       {/* Dynamic Toast Feedback */}
       {toastMsg && (
-        <div className="fixed top-5 right-5 z-50 bg-[#00A37A] text-white px-4 py-2.5 rounded-2xl shadow-lg flex items-center gap-2 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>{toastMsg}</span>
+        <div
+          className={`fixed top-5 right-5 z-50 px-4 py-2.5 rounded-2xl shadow-xl flex items-center gap-3 text-xs font-bold animate-in fade-in slide-in-from-top-2 duration-200 border ${
+            toastMsg.includes("⚠️") || toastMsg.toLowerCase().includes("error") || toastMsg.toLowerCase().includes("aviso")
+              ? "bg-slate-900 text-amber-300 border-amber-500/30"
+              : "bg-[#00A37A] text-white border-white/20"
+          }`}
+        >
+          {toastMsg.includes("⚠️") || toastMsg.toLowerCase().includes("error") || toastMsg.toLowerCase().includes("aviso") ? (
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+          ) : (
+            <CheckCircle2 className="w-4 h-4 shrink-0" />
+          )}
+          <span className="flex-1">{toastMsg}</span>
+          <button
+            type="button"
+            onClick={() => setToastMsg(null)}
+            className="p-1 -mr-1 rounded-lg hover:bg-white/20 text-white/80 hover:text-white transition-colors cursor-pointer"
+            title="Cerrar notificación"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
         </div>
       )}
 
@@ -1801,6 +1821,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setToastMsg(null);
                     setBankModalInitialMode("catalog");
                     setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
@@ -1815,6 +1836,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
+                    setToastMsg(null);
                     setBankModalInitialMode("card");
                     setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
