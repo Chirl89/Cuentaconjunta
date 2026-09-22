@@ -827,15 +827,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
         }
         if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
-          setAccounts((prev) => {
-            const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
-            const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
-            const merged = [...cloud.accounts, ...localOnlyAccs];
-            try {
-              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
+          setAccounts(cloud.accounts);
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cloud.accounts));
+          } catch {}
         }
         if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
           setSettlementCutoffs(cloud.settlements);
@@ -963,28 +958,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return merged;
       });
 
-      // 4. Unified account merge
-      if (cloudAccs.length > 0 || feedAccs.length > 0) {
+      // 4. Unified account sync: Cloud DB is the source of truth for accounts
+      if (cloudAccs.length > 0) {
         setAccounts((prev) => {
-          const accMap = new Map<string, BankAccount>();
-          for (const a of prev) accMap.set(a.id, a);
-          for (const ca of cloudAccs) accMap.set(ca.id, ca);
-          for (const fa of feedAccs) {
-            const existing = Array.from(accMap.values()).find(
-              (a) => a.id === fa.id || a.bankName.toLowerCase() === fa.bankName?.toLowerCase()
+          const updated = cloudAccs.map((ca) => {
+            const fa = feedAccs.find(
+              (f: any) => f.id === ca.id || f.bankName?.toLowerCase() === ca.bankName.toLowerCase()
             );
-            if (existing) {
-              accMap.set(existing.id, { ...existing, balance: fa.balance || existing.balance });
-            } else {
-              accMap.set(fa.id, fa);
-            }
-          }
-          const mergedAccs = Array.from(accMap.values());
+            return fa?.balance !== undefined ? { ...ca, balance: fa.balance } : ca;
+          });
           try {
-            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(mergedAccs));
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
           } catch {}
-          pushStateToCloud(inviteCode, { accounts: mergedAccs });
-          return mergedAccs;
+          return updated;
         });
       }
 
@@ -1205,7 +1191,17 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const removeAccount = useCallback(
     (accountId: string) => {
-      persistAccounts((prev) => prev.filter((a) => a.id !== accountId));
+      persistAccounts((prev) => {
+        const target = prev.find((a) => a.id === accountId);
+        if (target && target.bankName && target.balance === 0 && target.bankName.toLowerCase() !== "bankinter") {
+          return prev.filter(
+            (a) =>
+              a.id !== accountId &&
+              !(a.bankName.toLowerCase() === target.bankName.toLowerCase() && a.balance === 0)
+          );
+        }
+        return prev.filter((a) => a.id !== accountId);
+      });
     },
     [persistAccounts]
   );
@@ -1371,15 +1367,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
       }
       if (cloud.accounts && Array.isArray(cloud.accounts)) {
-        setAccounts((prev) => {
-          const cloudAccIds = new Set(cloud.accounts.map((a) => a.id));
-          const localOnlyAccs = prev.filter((a) => !cloudAccIds.has(a.id));
-          const merged = [...cloud.accounts, ...localOnlyAccs];
-          try {
-            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
-          } catch {}
-          return merged;
-        });
+        setAccounts(cloud.accounts);
+        try {
+          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cloud.accounts));
+        } catch {}
       }
       if (cloud.settlements) {
         setSettlementCutoffs(cloud.settlements);
