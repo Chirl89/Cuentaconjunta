@@ -388,32 +388,6 @@ export default function HomePage() {
     }
   }, [setActiveTab, addConnectedAccounts, defaultOwner, memberAName, memberBName]);
 
-  // Auto-recover any recently authorized bank account (e.g. Revolut from previous session)
-  const hasAutoRecoveredRef = React.useRef(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || hasAutoRecoveredRef.current) return;
-    const storedCode = localStorage.getItem("last_bank_auth_code");
-    if (storedCode && !accounts.some((a) => a.bankName.toLowerCase().includes("revolut"))) {
-      hasAutoRecoveredRef.current = true;
-      const ownerLabel = defaultOwner === "USER_A" ? memberAName : memberBName;
-      addConnectedAccounts([
-        {
-          id: `acc_revolut_${Date.now()}`,
-          bankName: "Revolut",
-          accountName: "Cuenta Revolut",
-          ibanMask: "ES•• •••• •••• (Revolut)",
-          ownership: defaultOwner,
-          balance: 0,
-          institutionId: "revolut",
-          connectedAt: new Date().toISOString(),
-          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-          status: "active",
-        },
-      ]);
-      setToastMsg(`✅ Cuenta de Revolut vinculada a tu perfil (${ownerLabel}). Puedes ajustar su saldo directamente en la tarjeta.`);
-    }
-  }, [accounts, defaultOwner, memberAName, memberBName, addConnectedAccounts]);
-
   // Category tab state
   const [newConceptName, setNewConceptName] = useState("");
   const [newConceptColor, setNewConceptColor] = useState(() => {
@@ -1946,6 +1920,10 @@ export default function HomePage() {
                               onClick={() => {
                                 if (confirm(`¿Desconectar la cuenta "${acc.bankName} ${acc.accountName}"?`)) {
                                   removeAccount(acc.id);
+                                  if (typeof window !== "undefined") {
+                                    localStorage.removeItem("last_bank_auth_code");
+                                    localStorage.removeItem("pending_bank_connection");
+                                  }
                                   showToast(`Cuenta ${acc.accountName} eliminada`);
                                 }
                               }}
