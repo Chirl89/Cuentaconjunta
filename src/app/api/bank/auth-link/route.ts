@@ -49,6 +49,8 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         access: {
+          balances: true,
+          transactions: true,
           valid_until: validUntil,
         },
         aspsp: {

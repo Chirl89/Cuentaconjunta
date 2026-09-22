@@ -413,7 +413,11 @@ export class EnableBankingClient {
               Authorization: `Bearer ${jwt}`,
             },
             body: JSON.stringify({
-              access: { valid_until: validUntil },
+              access: {
+                balances: true,
+                transactions: true,
+                valid_until: validUntil,
+              },
               aspsp: { name: targetAspspName, country: aspsp?.country || "ES" },
               psu_type: "personal",
               state,

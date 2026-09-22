@@ -341,7 +341,11 @@ export default function HomePage() {
 
     if (errorParam) {
       console.warn("Bank OAuth redirect error:", errorParam);
-      setToastMsg(`⚠️ Aviso del banco: ${errorParam}`);
+      if (errorParam === "invalid_request") {
+        setToastMsg(`⚠️ La sesión previa de autorización caducó o requería permisos. Abre de nuevo "+ Conectar Cuenta" para usar el nuevo enlace actualizado.`);
+      } else {
+        setToastMsg(`⚠️ Aviso del banco: ${errorParam}`);
+      }
     }
 
     // Only open the connect modal for GoCardless requisitions or explicit session IDs, NEVER for raw OAuth codes

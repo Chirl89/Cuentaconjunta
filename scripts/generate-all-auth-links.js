@@ -66,7 +66,11 @@ async function main() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
         body: JSON.stringify({
-          access: { valid_until: validUntil },
+          access: {
+            balances: true,
+            transactions: true,
+            valid_until: validUntil,
+          },
           aspsp: { name: b, country: 'ES' },
           psu_type: 'personal',
           state,
