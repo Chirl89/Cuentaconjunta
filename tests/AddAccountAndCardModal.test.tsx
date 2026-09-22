@@ -4,7 +4,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import ConnectBankModal from "../src/components/ConnectBankModal";
 import { UserNamesProvider } from "../src/context/UserNamesContext";
 import { AuthProvider } from "../src/context/AuthContext";
-import { TransactionsProvider, useTransactions } from "../src/context/TransactionsContext";
+import { TransactionsProvider } from "../src/context/TransactionsContext";
+import { detectCardDetails } from "../src/lib/bank/importer";
 
 // Helper component to render modal with providers
 function renderWithProviders(
@@ -12,7 +13,6 @@ function renderWithProviders(
   activeRole: "memberA" | "memberB" = "memberA",
   names = { memberA: "Carlos", memberB: "Andrea" }
 ) {
-  // Mock localStorage for role
   window.localStorage.setItem("fitduo_active_role", activeRole);
 
   return render(
@@ -26,85 +26,41 @@ function renderWithProviders(
   );
 }
 
-describe("Paso 6: Añadir Cuentas y Tarjetas con Titularidad por Defecto (FitDuo)", () => {
-  it("defaults account ownership to memberA (Carlos) when memberA is active", () => {
+describe("Paso 6: PSD2 para Cuentas Bancarias y Tarjetas con Reconocimiento Inteligente", () => {
+  it("detectCardDetails helper detects bank, card name, and last 4 digits accurately", () => {
+    const rawBankinter = "Número de tarjeta: VISA CLÁSICA (....3080)\n15/09/2026;Mercadona;-45,00";
+    const resBkt = detectCardDetails(rawBankinter);
+    expect(resBkt.detectedBank).toBe("Bankinter");
+    expect(resBkt.detectedDigits).toBe("3080");
+    expect(resBkt.detectedCardName).toBe("Tarjeta VISA Clásica");
+    expect(resBkt.detectedMask).toBe("VISA **** 3080");
+
+    const rawBBVA = "Tarjeta Débito BBVA **** 9912\n10/09/2026,Gasolinera,50.0";
+    const resBBVA = detectCardDetails(rawBBVA);
+    expect(resBBVA.detectedBank).toBe("BBVA");
+    expect(resBBVA.detectedDigits).toBe("9912");
+  });
+
+  it("renders PSD2 catalog mode for bank accounts by default", () => {
     const onAccountsConnected = vi.fn();
     const onClose = vi.fn();
 
     renderWithProviders(
       <ConnectBankModal
         isOpen={true}
-        initialMode="account"
+        initialMode="catalog"
         onClose={onClose}
         onAccountsConnected={onAccountsConnected}
       />,
       "memberA"
     );
 
-    // Verify modal rendered in account mode
-    expect(screen.getByText("Añadir Nueva Cuenta Bancaria")).toBeDefined();
-    // Default explanation shows assigned to Carlos
-    expect(screen.getAllByText(/Carlos/i).length).toBeGreaterThanOrEqual(1);
-
-    // Submit form with default ownership
-    const submitBtn = screen.getByRole("button", { name: /Guardar Cuenta Bancaria/i });
-    fireEvent.click(submitBtn);
-
-    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
-    const savedAccount = onAccountsConnected.mock.calls[0][0][0];
-    expect(savedAccount.bankName).toBe("Bankinter");
-    expect(savedAccount.ownership).toBe("USER_A");
+    expect(screen.getByText("Conectar Cuenta Bancaria (PSD2)")).toBeDefined();
+    expect(screen.getByText("Cuentas Bancarias (PSD2)")).toBeDefined();
+    expect(screen.getByPlaceholderText(/Buscar banco/i)).toBeDefined();
   });
 
-  it("defaults account ownership to memberB (Andrea) when memberB is active", () => {
-    const onAccountsConnected = vi.fn();
-    const onClose = vi.fn();
-
-    renderWithProviders(
-      <ConnectBankModal
-        isOpen={true}
-        initialMode="account"
-        onClose={onClose}
-        onAccountsConnected={onAccountsConnected}
-      />,
-      "memberB"
-    );
-
-    const submitBtn = screen.getByRole("button", { name: /Guardar Cuenta Bancaria/i });
-    fireEvent.click(submitBtn);
-
-    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
-    const savedAccount = onAccountsConnected.mock.calls[0][0][0];
-    expect(savedAccount.ownership).toBe("USER_B");
-  });
-
-  it("assigns account ownership to JOINT when marked as cuenta conjunta", () => {
-    const onAccountsConnected = vi.fn();
-    const onClose = vi.fn();
-
-    renderWithProviders(
-      <ConnectBankModal
-        isOpen={true}
-        initialMode="account"
-        onClose={onClose}
-        onAccountsConnected={onAccountsConnected}
-      />,
-      "memberA"
-    );
-
-    // Toggle the 'Es la cuenta conjunta' checkbox
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-
-    const submitBtn = screen.getByRole("button", { name: /Guardar Cuenta Bancaria/i });
-    fireEvent.click(submitBtn);
-
-    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
-    const savedAccount = onAccountsConnected.mock.calls[0][0][0];
-    expect(savedAccount.ownership).toBe("JOINT");
-  });
-
-  it("defaults card ownership to active user unless marked as tarjeta conjunta", () => {
+  it("recognizes existing card from statement and assigns movements directly to that card", () => {
     const onAccountsConnected = vi.fn();
     const onClose = vi.fn();
 
@@ -118,100 +74,96 @@ describe("Paso 6: Añadir Cuentas y Tarjetas con Titularidad por Defecto (FitDuo
       "memberA"
     );
 
-    expect(screen.getByText("Añadir Nueva Tarjeta")).toBeDefined();
+    expect(screen.getByText("Tarjetas & Carga de Extracto CSV")).toBeDefined();
 
-    // 1. Submit as default owner (USER_A)
-    const submitBtn = screen.getByRole("button", { name: /Guardar Tarjeta/i });
-    fireEvent.click(submitBtn);
+    // Paste statement matching existing test card (Santander **** 2104)
+    const textarea = screen.getByPlaceholderText(/Tarjeta: VISA CLÁSICA/i);
+    fireEvent.change(textarea, {
+      target: {
+        value: "Tarjeta: Santander (**** 2104)\n15/09/2026;MERCADONA;-45,50\n12/09/2026;REPSOL;-30,00",
+      },
+    });
 
-    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
-    const savedCard = onAccountsConnected.mock.calls[0][0][0];
-    expect(savedCard.accountName).toContain("Tarjeta VISA");
-    expect(savedCard.ownership).toBe("USER_A");
+    // Verify recognition feedback appears
+    expect(screen.getByText(/Reconocida tarjeta existente/i)).toBeDefined();
+    expect(screen.getByText(/Vista previa/i)).toBeDefined();
 
-    // 2. Mark as tarjeta conjunta
-    const checkbox = screen.getByRole("checkbox");
-    fireEvent.click(checkbox);
-    fireEvent.click(submitBtn);
+    // Click button to incorporate movements to this card
+    const importBtn = screen.getByRole("button", { name: /Incorporar 2 Movimientos a esta Tarjeta/i });
+    fireEvent.click(importBtn);
 
-    expect(onAccountsConnected).toHaveBeenCalledTimes(2);
-    const savedJointCard = onAccountsConnected.mock.calls[1][0][0];
-    expect(savedJointCard.ownership).toBe("JOINT");
+    // Should not create a new card since it was recognized, directly incorporated into existing card
+    expect(onAccountsConnected).not.toHaveBeenCalled();
   });
 
-  it("addConnectedAccounts prevents collisions and does not overwrite accounts of the same bank with different names", () => {
-    function ConsumerComponent() {
-      const { accounts, addConnectedAccounts } = useTransactions();
-      return (
-        <div>
-          <span data-testid="accounts-count">{accounts.length}</span>
-          <button
-            data-testid="btn-add-acc"
-            onClick={() =>
-              addConnectedAccounts([
-                {
-                  id: "bankinter_checking",
-                  bankName: "Bankinter",
-                  accountName: "Cuenta Corriente Nómina",
-                  ibanMask: "ES91 •••• 1111",
-                  ownership: "USER_A",
-                  balance: 2000,
-                  status: "active",
-                },
-              ])
-            }
-          >
-            Add Checking
-          </button>
-          <button
-            data-testid="btn-add-card"
-            onClick={() =>
-              addConnectedAccounts([
-                {
-                  id: "bankinter_card",
-                  bankName: "Bankinter",
-                  accountName: "Tarjeta VISA Clásica",
-                  ibanMask: "VISA **** 3080",
-                  ownership: "USER_A",
-                  balance: 0,
-                  status: "active",
-                },
-              ])
-            }
-          >
-            Add Card
-          </button>
-          <ul>
-            {accounts.map((a) => (
-              <li key={a.id} data-testid={`acc-${a.id}`}>
-                {a.accountName} - {a.ownership}
-              </li>
-            ))}
-          </ul>
-        </div>
-      );
-    }
+  it("detects new card (first time) and defaults ownership to active user (Carlos)", () => {
+    const onAccountsConnected = vi.fn();
+    const onClose = vi.fn();
 
-    render(
-      <AuthProvider>
-        <UserNamesProvider>
-          <TransactionsProvider>
-            <ConsumerComponent />
-          </TransactionsProvider>
-        </UserNamesProvider>
-      </AuthProvider>
+    renderWithProviders(
+      <ConnectBankModal
+        isOpen={true}
+        initialMode="card"
+        onClose={onClose}
+        onAccountsConnected={onAccountsConnected}
+      />,
+      "memberA"
     );
 
-    // Initially accounts exist (default bankinter checking)
-    const initialCount = parseInt(screen.getByTestId("accounts-count").textContent || "0", 10);
+    // Paste statement for a brand new BBVA card (digits 9876 not in test accounts)
+    const textarea = screen.getByPlaceholderText(/Tarjeta: VISA CLÁSICA/i);
+    fireEvent.change(textarea, {
+      target: {
+        value: "Tarjeta BBVA Oro (**** 9876)\n14/09/2026;ZARA MADRID;-89,90\n11/09/2026;RESTAURANTE;-42,00",
+      },
+    });
 
-    // Add checking
-    fireEvent.click(screen.getByTestId("btn-add-acc"));
-    // Add card
-    fireEvent.click(screen.getByTestId("btn-add-card"));
+    // Recognition message indicates first time detected and assigned to Carlos
+    expect(screen.getByText(/Primera vez que se detecta esta tarjeta/i)).toBeDefined();
+    expect(screen.getAllByText(/Carlos/i).length).toBeGreaterThanOrEqual(1);
 
-    // Both should exist without one replacing the other
-    expect(screen.getByTestId("acc-bankinter_checking")).toBeDefined();
-    expect(screen.getByTestId("acc-bankinter_card")).toBeDefined();
+    // Click button to incorporate movements to the new card
+    const importBtn = screen.getByRole("button", { name: /Incorporar 2 Movimientos a la Nueva Tarjeta/i });
+    fireEvent.click(importBtn);
+
+    // Verify new card account created with USER_A ownership!
+    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
+    const newCard = onAccountsConnected.mock.calls[0][0][0];
+    expect(newCard.ownership).toBe("USER_A");
+    expect(newCard.bankName).toBe("BBVA");
+    expect(newCard.ibanMask).toContain("9876");
+  });
+
+  it("detects new card and assigns ownership to JOINT when marked as conjunta", () => {
+    const onAccountsConnected = vi.fn();
+    const onClose = vi.fn();
+
+    renderWithProviders(
+      <ConnectBankModal
+        isOpen={true}
+        initialMode="card"
+        onClose={onClose}
+        onAccountsConnected={onAccountsConnected}
+      />,
+      "memberB" // Andrea is active
+    );
+
+    const textarea = screen.getByPlaceholderText(/Tarjeta: VISA CLÁSICA/i);
+    fireEvent.change(textarea, {
+      target: {
+        value: "Tarjeta Sabadell (**** 5544)\n10/09/2026;ALCAMPO;-60,00",
+      },
+    });
+
+    // Click Conjunta button
+    const jointBtn = screen.getByRole("button", { name: /Conjunta/i });
+    fireEvent.click(jointBtn);
+
+    const importBtn = screen.getByRole("button", { name: /Incorporar 1 Movimientos a la Nueva Tarjeta/i });
+    fireEvent.click(importBtn);
+
+    expect(onAccountsConnected).toHaveBeenCalledTimes(1);
+    const newCard = onAccountsConnected.mock.calls[0][0][0];
+    expect(newCard.ownership).toBe("JOINT");
   });
 });

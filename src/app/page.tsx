@@ -258,8 +258,9 @@ export default function HomePage() {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
   const [bankCallbackReqId, setBankCallbackReqId] = useState<string | null>(null);
-  const [bankModalInitialMode, setBankModalInitialMode] = useState<"account" | "card" | "catalog" | "statement" | "config">("account");
+  const [bankModalInitialMode, setBankModalInitialMode] = useState<"catalog" | "card" | "statement" | "config" | "account">("catalog");
   const [bankModalInitialBank, setBankModalInitialBank] = useState<string>("Bankinter");
+  const [bankModalInitialCardId, setBankModalInitialCardId] = useState<string | undefined>(undefined);
   const [editingBalanceAccountId, setEditingBalanceAccountId] = useState<string | null>(null);
   const [editingBalanceValue, setEditingBalanceValue] = useState<string>("");
 
@@ -1750,27 +1751,29 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setBankModalInitialMode("account");
+                    setBankModalInitialMode("catalog");
+                    setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
                   }}
                   className="px-3.5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-2 cursor-pointer"
-                  title="Añadir una nueva cuenta bancaria"
+                  title="Conectar cuenta bancaria mediante pasarela oficial Open Banking (PSD2)"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>+ Añadir Cuenta</span>
+                  <Landmark className="w-4 h-4" />
+                  <span>+ Conectar Cuenta (PSD2)</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => {
                     setBankModalInitialMode("card");
+                    setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
                   }}
                   className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md shadow-slate-900/10 transition-all flex items-center gap-2 cursor-pointer"
-                  title="Añadir una nueva tarjeta de crédito o débito"
+                  title="Añadir tarjeta o cargar extracto CSV/Excel"
                 >
-                  <CreditCard className="w-4 h-4 text-emerald-400" />
-                  <span>+ Añadir Tarjeta</span>
+                  <CreditCard className="w-4 h-4 text-purple-400" />
+                  <span>+ Tarjeta / Cargar Extracto</span>
                 </button>
               </div>
             </div>
@@ -1987,8 +1990,9 @@ export default function HomePage() {
                           <button
                             type="button"
                             onClick={() => {
-                              setBankModalInitialMode("statement");
+                              setBankModalInitialMode("card");
                               setBankModalInitialBank(acc.bankName);
+                              setBankModalInitialCardId(acc.id);
                               setIsBankModalOpen(true);
                             }}
                             className="w-full py-2 px-3 rounded-xl bg-slate-100/90 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
@@ -2119,8 +2123,9 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setBankModalInitialMode("statement");
+                            setBankModalInitialMode("card");
                             setBankModalInitialBank("Bankinter");
+                            setBankModalInitialCardId(cardAccount?.id);
                             setIsBankModalOpen(true);
                           }}
                           className="w-full py-2 px-3 rounded-xl bg-slate-100/90 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
@@ -2720,19 +2725,21 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Modal de Conexión Bancaria PSD2 Oficial (Enable Banking) */}
+      {/* Modal de Conexión Bancaria PSD2 Oficial & Tarjetas */}
       <ConnectBankModal
         isOpen={isBankModalOpen}
         onClose={() => {
           setIsBankModalOpen(false);
           setBankCallbackReqId(null);
+          setBankModalInitialCardId(undefined);
         }}
         initialRequisitionId={bankCallbackReqId}
         initialMode={bankModalInitialMode}
         initialBankName={bankModalInitialBank}
+        initialCardId={bankModalInitialCardId}
         onAccountsConnected={(newAccs) => {
           addConnectedAccounts(newAccs);
-          showToast(`¡${newAccs.length} cuenta(s) vinculada(s) con éxito!`);
+          showToast(`¡${newAccs.length} cuenta(s)/tarjeta(s) actualizada(s) con éxito!`);
         }}
       />
     </div>

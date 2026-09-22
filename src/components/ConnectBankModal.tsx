@@ -14,13 +14,17 @@ import {
   getEnableBankingPrivateKey,
   setEnableBankingPrivateKey,
 } from "@/lib/bank/service";
-import { parseSpanishBankStatement, ParsedBankMovement } from "@/lib/bank/importer";
+import {
+  parseSpanishBankStatement,
+  parseBankinterExcel,
+  detectCardDetails,
+  ParsedBankMovement,
+} from "@/lib/bank/importer";
 import {
   Landmark,
   X,
   Search,
   CheckCircle2,
-  ShieldCheck,
   Building2,
   ArrowRight,
   Sparkles,
@@ -38,7 +42,7 @@ import {
   Plus,
 } from "lucide-react";
 
-export type ConnectModalMode = "account" | "card" | "catalog" | "statement" | "config";
+export type ConnectModalMode = "catalog" | "card" | "statement" | "config" | "account";
 
 interface ConnectBankModalProps {
   isOpen: boolean;
@@ -47,6 +51,7 @@ interface ConnectBankModalProps {
   initialRequisitionId?: string | null;
   initialMode?: ConnectModalMode;
   initialBankName?: string;
+  initialCardId?: string;
 }
 
 interface BankInstitution {
@@ -87,10 +92,11 @@ export default function ConnectBankModal({
   initialRequisitionId,
   initialMode,
   initialBankName,
+  initialCardId,
 }: ConnectBankModalProps) {
   const auth = useOptionalAuth();
   const { memberAName, memberBName } = useUserNames();
-  const { importBankMovements } = useTransactions();
+  const { importBankMovements, accounts } = useTransactions();
 
   const activeRole = auth?.activeRole || "memberA";
   const myName = activeRole === "memberB" ? (memberBName || "Persona B") : (memberAName || "Persona A");
@@ -98,7 +104,15 @@ export default function ConnectBankModal({
   const defaultOwner: "USER_A" | "USER_B" | "JOINT" = activeRole === "memberB" ? "USER_B" : "USER_A";
   const partnerOwner: "USER_A" | "USER_B" | "JOINT" = activeRole === "memberB" ? "USER_A" : "USER_B";
 
-  const [activeMode, setActiveMode] = useState<ConnectModalMode>(initialMode || "account");
+  // Map initialMode: statement or card -> card, catalog or account -> catalog
+  const resolvedInitialMode: "catalog" | "card" | "config" =
+    initialMode === "statement" || initialMode === "card"
+      ? "card"
+      : initialMode === "config"
+      ? "config"
+      : "catalog";
+
+  const [activeMode, setActiveMode] = useState<"catalog" | "card" | "config">(resolvedInitialMode);
   const [step, setStep] = useState<"SELECT_BANK" | "AUTHORIZING" | "ASSIGN_OWNERSHIP" | "SUCCESS">(
     "SELECT_BANK"
   );
@@ -108,22 +122,31 @@ export default function ConnectBankModal({
   const [selectedBank, setSelectedBank] = useState<BankInstitution | null>(null);
   const [hasLiveCredentials, setHasLiveCredentials] = useState(false);
 
-  // Form state: Añadir Nueva Cuenta
-  const [newAccBank, setNewAccBank] = useState("Bankinter");
-  const [newAccName, setNewAccName] = useState("");
-  const [newAccIban, setNewAccIban] = useState("");
-  const [newAccBalance, setNewAccBalance] = useState("");
-  const [accountOwnership, setAccountOwnership] = useState<"USER_A" | "USER_B" | "JOINT">(defaultOwner);
-  const [isAccountJoint, setIsAccountJoint] = useState(false);
+  // Cards registered in the app
+  const existingCards = useMemo(() => {
+    return accounts.filter(
+      (a) =>
+        a.accountName.toLowerCase().includes("tarjeta") ||
+        a.id.startsWith("card_") ||
+        a.id === "acc_card_bankinter"
+    );
+  }, [accounts]);
 
-  // Form state: Añadir Nueva Tarjeta
+  // Target Card selection for statements & creation
+  const [selectedCardId, setSelectedCardId] = useState<string>("new");
   const [newCardBank, setNewCardBank] = useState("Bankinter");
   const [newCardName, setNewCardName] = useState("Tarjeta VISA");
   const [newCardDigits, setNewCardDigits] = useState("");
   const [cardOwnership, setCardOwnership] = useState<"USER_A" | "USER_B" | "JOINT">(defaultOwner);
   const [isCardJoint, setIsCardJoint] = useState(false);
-  const [isLaunchingCardSync, setIsLaunchingCardSync] = useState(false);
-  const [cardSyncFeedback, setCardSyncFeedback] = useState<string | null>(null);
+  const [cardRecognitionMessage, setCardRecognitionMessage] = useState<string | null>(null);
+
+  // Card Statement File/Text state
+  const [statementText, setStatementText] = useState("");
+  const [parsedMovements, setParsedMovements] = useState<ParsedBankMovement[]>([]);
+  const [statementError, setStatementError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showManualCardForm, setShowManualCardForm] = useState(false);
 
   // App ID & RSA Private Key config state
   const [appIdInput, setAppIdInput] = useState("");
@@ -131,16 +154,6 @@ export default function ConnectBankModal({
   const [appIdSavedSuccess, setAppIdSavedSuccess] = useState(false);
   const [showConnectPrompt, setShowConnectPrompt] = useState(false);
   const keyFileInputRef = useRef<HTMLInputElement>(null);
-
-  // Statement import state
-  const [statementText, setStatementText] = useState("");
-  const [statementBankName, setStatementBankName] = useState("Bankinter");
-  const [statementOwnership, setStatementOwnership] = useState<"USER_A" | "USER_B" | "JOINT">(defaultOwner);
-  const [parsedMovements, setParsedMovements] = useState<ParsedBankMovement[]>([]);
-  const [statementError, setStatementError] = useState<string | null>(null);
-  const [statementAccountIban, setStatementAccountIban] = useState("");
-  const [statementBalance, setStatementBalance] = useState(0);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Authorization & Discovery state
   const [requisitionId, setRequisitionId] = useState<string | null>(initialRequisitionId || null);
@@ -151,31 +164,40 @@ export default function ConnectBankModal({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
-  // Synchronize default ownership when activeRole changes or modal opens
+  // Initialize or reset modal state
   useEffect(() => {
     if (isOpen) {
-      if (initialMode) {
-        setActiveMode(initialMode);
+      if (initialMode === "statement" || initialMode === "card") {
+        setActiveMode("card");
+      } else if (initialMode === "config") {
+        setActiveMode("config");
       } else {
-        setActiveMode("account");
+        setActiveMode("catalog");
       }
+
+      if (initialCardId) {
+        setSelectedCardId(initialCardId);
+      } else if (existingCards.length > 0) {
+        setSelectedCardId(existingCards[0].id);
+      } else {
+        setSelectedCardId("new");
+      }
+
       if (initialBankName) {
-        setStatementBankName(initialBankName);
-        setNewAccBank(initialBankName);
         setNewCardBank(initialBankName);
       }
+
       setErrorMessage(null);
       setSuccessBanner(null);
       setShowConnectPrompt(false);
       setIsLoadingInstitutions(true);
-
-      // Initialize titularities to the active user who is adding it
-      setAccountOwnership(defaultOwner);
-      setIsAccountJoint(false);
       setCardOwnership(defaultOwner);
       setIsCardJoint(false);
-      setStatementOwnership(defaultOwner);
-      setCardSyncFeedback(null);
+      setStatementText("");
+      setParsedMovements([]);
+      setStatementError(null);
+      setCardRecognitionMessage(null);
+      setShowManualCardForm(false);
 
       const currentId = getEnableBankingAppId() || "";
       const currentKey = getEnableBankingPrivateKey() || "";
@@ -214,7 +236,7 @@ export default function ConnectBankModal({
       setParsedMovements([]);
       setStatementText("");
     }
-  }, [isOpen, initialRequisitionId, initialMode, initialBankName, defaultOwner]);
+  }, [isOpen, initialRequisitionId, initialMode, initialBankName, initialCardId, defaultOwner]);
 
   const filteredInstitutions = useMemo(() => {
     if (!searchTerm.trim()) return institutions;
@@ -255,60 +277,200 @@ export default function ConnectBankModal({
   };
 
   // -------------------------------------------------------------
-  // HANDLERS FOR DIRECT ACCOUNT & CARD CREATION
+  // CARD STATEMENT PARSING & INTELLIGENT RECOGNITION
   // -------------------------------------------------------------
-  const handleCreateDirectAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMessage(null);
+  const processCardFileContent = (content: string, bankFallback = "Bankinter") => {
+    const detected = detectCardDetails(content, bankFallback);
+    const parseResult = parseSpanishBankStatement(content, detected.detectedBank);
 
-    const bank = newAccBank.trim() || "Bankinter";
-    const name = newAccName.trim() || `Cuenta ${bank}`;
-    const rawBalance = parseFloat(newAccBalance.replace(",", "."));
-    const balance = isNaN(rawBalance) ? 0 : rawBalance;
-
-    let ibanMask = "ES00 •••• 0000";
-    const cleanDigits = newAccIban.replace(/\s/g, "");
-    if (cleanDigits.length >= 4) {
-      ibanMask = `ES •••• ${cleanDigits.slice(-4)}`;
-    } else if (cleanDigits.length > 0) {
-      ibanMask = `ES •••• ${cleanDigits.padStart(4, "0")}`;
+    if (!parseResult.success || parseResult.movements.length === 0) {
+      setStatementError(parseResult.error || "No se detectaron movimientos válidos en el extracto.");
+      setParsedMovements([]);
+      setCardRecognitionMessage(null);
+      return;
     }
 
-    const newAccount: BankAccount = {
-      id: `acc_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      bankName: bank,
-      accountName: name,
-      ibanMask,
-      ownership: accountOwnership,
-      balance,
-      institutionId: bank.toLowerCase().replace(/\s+/g, "_"),
-      connectedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "active",
-    };
+    setParsedMovements(parseResult.movements);
+    setStatementError(null);
 
-    onAccountsConnected([newAccount]);
-    setSuccessBanner(`¡Cuenta "${name}" añadida con éxito con titularidad ${accountOwnership === "JOINT" ? "Conjunta" : accountOwnership === "USER_A" ? memberAName : memberBName}!`);
+    // INTELLIGENT CARD RECOGNITION:
+    // Check if detected digits or name match any existing registered card
+    let matchedCard = existingCards.find((c) => {
+      if (detected.detectedDigits && c.ibanMask.includes(detected.detectedDigits)) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!matchedCard && detected.detectedCardName) {
+      matchedCard = existingCards.find(
+        (c) => c.accountName.toLowerCase() === detected.detectedCardName.toLowerCase()
+      );
+    }
+
+    if (matchedCard) {
+      // Existing card recognized!
+      setSelectedCardId(matchedCard.id);
+      const ownerLabel =
+        matchedCard.ownership === "JOINT"
+          ? "Compartida 50/50"
+          : matchedCard.ownership === "USER_A"
+          ? memberAName
+          : memberBName;
+      setCardRecognitionMessage(
+        `✅ Reconocida tarjeta existente: ${matchedCard.accountName} (${matchedCard.ibanMask}) • Titular: ${ownerLabel}`
+      );
+    } else {
+      // First time this card is uploaded! Create new card and default ownership to active user
+      setSelectedCardId("new");
+      setNewCardBank(detected.detectedBank);
+      setNewCardName(detected.detectedCardName);
+      if (detected.detectedDigits) {
+        setNewCardDigits(detected.detectedDigits);
+      }
+      setCardOwnership(defaultOwner);
+      setIsCardJoint(false);
+      setCardRecognitionMessage(
+        `✨ Primera vez que se detecta esta tarjeta (${detected.detectedCardName}). Se creará en la app y la titularidad se asigna por defecto a ti (${myName}).`
+      );
+    }
+  };
+
+  const handleCardFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setStatementError(null);
+
+    // If Excel file (.xls / .xlsx)
+    if (file.name.endsWith(".xls") || file.name.endsWith(".xlsx")) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const buffer = event.target?.result as ArrayBuffer;
+          const res = parseBankinterExcel(buffer);
+          if (res.success && res.movements.length > 0) {
+            setParsedMovements(res.movements);
+            const digits = res.cardNumber.replace(/\D/g, "").slice(-4);
+            const matched = existingCards.find((c) => digits && c.ibanMask.includes(digits));
+            if (matched) {
+              setSelectedCardId(matched.id);
+              setCardRecognitionMessage(
+                `✅ Reconocida tarjeta existente: ${matched.accountName} (${matched.ibanMask})`
+              );
+            } else {
+              setSelectedCardId("new");
+              setNewCardBank("Bankinter");
+              setNewCardName(res.cardName ? `Tarjeta ${res.cardName}` : "Tarjeta VISA Bankinter");
+              if (digits) setNewCardDigits(digits);
+              setCardOwnership(defaultOwner);
+              setIsCardJoint(false);
+              setCardRecognitionMessage(
+                `✨ Primera vez: Nueva tarjeta detectada (${res.cardName || "VISA"}). Titularidad asignada a ${myName}.`
+              );
+            }
+          } else {
+            setStatementError(res.error || "No se encontraron movimientos en el archivo Excel.");
+          }
+        } catch (err: any) {
+          setStatementError("Error al leer Excel: " + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    // CSV / Text file
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      setStatementText(text);
+      processCardFileContent(text, file.name.toLowerCase().includes("bankinter") ? "Bankinter" : "Banco");
+    };
+    reader.readAsText(file);
+  };
+
+  // Import Statement Movements into Target Card
+  const handleImportMovementsToCard = () => {
+    if (parsedMovements.length === 0) return;
+
+    let targetCard: BankAccount;
+
+    if (selectedCardId === "new") {
+      // Register New Card for the first time
+      const bank = newCardBank.trim() || "Bankinter";
+      let name = newCardName.trim() || "Tarjeta VISA";
+      if (!name.toLowerCase().includes("tarjeta")) {
+        name = `Tarjeta ${name}`;
+      }
+      const rawDigits = newCardDigits.replace(/\D/g, "").slice(-4);
+      const mask = rawDigits ? `VISA **** ${rawDigits}` : "VISA **** 0000";
+
+      targetCard = {
+        id: `card_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+        bankName: bank,
+        accountName: name,
+        ibanMask: mask,
+        ownership: cardOwnership, // Assigned to uploader (or JOINT if selected)
+        balance: 0,
+        institutionId: bank.toLowerCase().replace(/\s+/g, "_"),
+        connectedAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+        status: "active",
+      };
+
+      onAccountsConnected([targetCard]);
+    } else {
+      const found = existingCards.find((c) => c.id === selectedCardId);
+      if (!found) {
+        setErrorMessage("Selecciona una tarjeta válida para asociar los movimientos.");
+        return;
+      }
+      targetCard = found;
+    }
+
+    // Map movements directly into this card with its ownership and account label
+    importBankMovements(
+      parsedMovements.map((m) => ({
+        id: m.id || `card_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        concept: m.concept,
+        amount: m.amount,
+        date: m.date,
+        monthKey: m.monthKey || new Date().toISOString().substring(0, 7),
+        bankName: targetCard.bankName,
+        accountLabel: targetCard.accountName,
+        ownership: targetCard.ownership,
+      }))
+    );
+
+    const targetOwnerName =
+      targetCard.ownership === "JOINT"
+        ? "Compartida (50/50)"
+        : targetCard.ownership === "USER_A"
+        ? memberAName
+        : memberBName;
+
+    setSuccessBanner(
+      `¡${parsedMovements.length} compras incorporadas en ${targetCard.accountName} (Titular: ${targetOwnerName})!`
+    );
 
     setTimeout(() => {
       onClose();
-    }, 1000);
+    }, 1200);
   };
 
-  const handleCreateDirectCard = (e: React.FormEvent) => {
+  // Direct manual card creation (without extract)
+  const handleCreateCardDirect = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
-
     const bank = newCardBank.trim() || "Bankinter";
     let name = newCardName.trim() || "Tarjeta VISA";
     if (!name.toLowerCase().includes("tarjeta")) {
       name = `Tarjeta ${name}`;
     }
-
     const cleanDigits = newCardDigits.replace(/\D/g, "");
     const ibanMask = cleanDigits ? `VISA **** ${cleanDigits.slice(-4)}` : "VISA **** 0000";
 
-    const newCard: BankAccount = {
+    const createdCard: BankAccount = {
       id: `card_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       bankName: bank,
       accountName: name,
@@ -321,40 +483,20 @@ export default function ConnectBankModal({
       status: "active",
     };
 
-    onAccountsConnected([newCard]);
-    setSuccessBanner(`¡Tarjeta "${name}" añadida con éxito con titularidad ${cardOwnership === "JOINT" ? "Conjunta" : cardOwnership === "USER_A" ? memberAName : memberBName}!`);
+    onAccountsConnected([createdCard]);
+    setSuccessBanner(
+      `¡Tarjeta "${name}" añadida con éxito (Titular: ${
+        cardOwnership === "JOINT" ? "Conjunta" : cardOwnership === "USER_A" ? memberAName : memberBName
+      })!`
+    );
 
     setTimeout(() => {
       onClose();
     }, 1000);
   };
 
-  // Launch Bankinter background card sync assistant
-  const handleLaunchCardSync = async () => {
-    setIsLaunchingCardSync(true);
-    setCardSyncFeedback("Abriendo pasarela interactiva de Bankinter en pantalla...");
-    try {
-      const res = await fetch("/api/sync/launch-card-sync", { method: "POST" });
-      if (!res.ok) {
-        setCardSyncFeedback(`Aviso: Pasarela interactiva no disponible en este entorno (${res.status}).`);
-        setIsLaunchingCardSync(false);
-        return;
-      }
-      const data = await res.json();
-      if (data.success) {
-        setCardSyncFeedback("Ventana de Bankinter abierta en pantalla. Identifícate con tus claves...");
-      } else {
-        setCardSyncFeedback(data.error || "No se pudo abrir la pasarela.");
-      }
-    } catch (err: any) {
-      setCardSyncFeedback("Error de conexión al lanzar la pasarela: " + (err.message || ""));
-    } finally {
-      setIsLaunchingCardSync(false);
-    }
-  };
-
   // -------------------------------------------------------------
-  // OPEN BANKING PSD2 & REQUISITIONS
+  // OPEN BANKING PSD2 OFFICIAL FLOW
   // -------------------------------------------------------------
   const handleSelectBank = (bank: BankInstitution) => {
     setSelectedBank(bank);
@@ -418,7 +560,7 @@ export default function ConnectBankModal({
           balance: acc.balance || 0,
           bankName: selectedBank?.name || acc.bankName || "Banco",
           institutionId: selectedBank?.id || acc.institutionId || "",
-          // By default, ownership belongs to whoever added it (defaultOwner) unless marked joint
+          // By default, ownership belongs to whoever connects it (defaultOwner) unless marked joint
           ownership: defaultOwner,
         })
       );
@@ -476,86 +618,6 @@ export default function ConnectBankModal({
     }
   };
 
-  // -------------------------------------------------------------
-  // STATEMENT IMPORT
-  // -------------------------------------------------------------
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setStatementError(null);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      setStatementText(text);
-      processStatementContent(text, file.name.toLowerCase().includes("bankinter") ? "Bankinter" : statementBankName);
-    };
-    reader.onerror = () => {
-      setStatementError("Error al leer el archivo. Prueba a copiar y pegar su contenido.");
-    };
-    reader.readAsText(file);
-  };
-
-  const processStatementContent = (content: string, bank: string) => {
-    const result = parseSpanishBankStatement(content, bank);
-    if (!result.success) {
-      setStatementError(result.error || "No se detectaron movimientos válidos");
-      setParsedMovements([]);
-      return;
-    }
-
-    setParsedMovements(result.movements);
-    if (result.accountIban) {
-      const iban = result.accountIban;
-      setStatementAccountIban(`${iban.substring(0, 4)} ${iban.substring(4, 8)} •••• ${iban.substring(iban.length - 4)}`);
-    } else {
-      setStatementAccountIban("ES •••• " + Math.floor(1000 + Math.random() * 9000));
-    }
-
-    const lastBal = result.movements.find((m) => m.balance !== undefined)?.balance;
-    if (lastBal !== undefined) {
-      setStatementBalance(lastBal);
-    }
-    setStatementError(null);
-  };
-
-  const handleImportRealStatement = () => {
-    if (parsedMovements.length === 0) return;
-
-    const newAccount: BankAccount = {
-      id: `real_acc_${Date.now()}`,
-      bankName: statementBankName,
-      accountName: `Cuenta ${statementBankName}`,
-      ibanMask: statementAccountIban || "ES00 •••• 0000",
-      ownership: statementOwnership,
-      balance: statementBalance,
-      institutionId: statementBankName.toLowerCase(),
-      connectedAt: new Date().toISOString(),
-      expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      status: "active",
-    };
-
-    onAccountsConnected([newAccount]);
-
-    importBankMovements(
-      parsedMovements.map((m) => ({
-        id: m.id || `stmt_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-        concept: m.concept,
-        amount: m.amount,
-        date: m.date,
-        monthKey: m.monthKey || new Date().toISOString().substring(0, 7),
-        bankName: statementBankName,
-        accountLabel: `Cuenta ${statementBankName}`,
-        ownership: statementOwnership,
-      }))
-    );
-
-    setSuccessBanner(`¡Importados ${parsedMovements.length} movimientos en cuenta de ${statementBankName}!`);
-    setTimeout(() => {
-      onClose();
-    }, 1200);
-  };
-
   if (!isOpen) return null;
 
   return (
@@ -575,22 +637,20 @@ export default function ConnectBankModal({
               <h2 className="text-base font-extrabold text-slate-900 leading-tight">
                 {step === "SELECT_BANK"
                   ? activeMode === "card"
-                    ? "Añadir Nueva Tarjeta"
-                    : activeMode === "account"
-                    ? "Añadir Nueva Cuenta Bancaria"
+                    ? "Tarjetas & Carga de Extracto CSV"
                     : activeMode === "catalog"
-                    ? "Conectar Banco (PSD2 Oficial)"
-                    : activeMode === "statement"
-                    ? "Cargar Extracto Bancario"
-                    : "Configuración Enable Banking"
+                    ? "Conectar Cuenta Bancaria (PSD2)"
+                    : "Configuración de Claves Enable Banking"
                   : step === "AUTHORIZING"
-                  ? "Paso 2: Autorización Open Banking"
+                  ? "Paso 2: Autorización Oficial PSD2"
                   : step === "ASSIGN_OWNERSHIP"
-                  ? "Paso 3: Asignar Titularidad"
+                  ? "Paso 3: Asignar Titularidad de Cuentas"
                   : "¡Vinculación Completada!"}
               </h2>
               <p className="text-[11px] text-slate-400 font-medium">
-                Por defecto asignado a ti ({myName}) salvo que indiques que es conjunta.
+                {activeMode === "catalog"
+                  ? "Integración oficial PSD2 para cuentas bancarias."
+                  : `Titularidad por defecto asignada a ti (${myName}) salvo que indiques que es conjunta.`}
               </p>
             </div>
           </div>
@@ -606,21 +666,21 @@ export default function ConnectBankModal({
 
         {/* Tab Navigation (Only in SELECT_BANK step) */}
         {step === "SELECT_BANK" && (
-          <div className="px-5 pt-2.5 pb-0 flex items-center gap-1.5 border-b border-slate-100 bg-white overflow-x-auto no-scrollbar">
+          <div className="px-5 pt-2.5 pb-0 flex items-center gap-2 border-b border-slate-100 bg-white">
             <button
               type="button"
               onClick={() => {
-                setActiveMode("account");
+                setActiveMode("catalog");
                 setShowConnectPrompt(false);
               }}
-              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeMode === "account"
+              className={`pb-2.5 px-3 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeMode === "catalog"
                   ? "border-[#00D09C] text-[#00A37A]"
                   : "border-transparent text-slate-400 hover:text-slate-700"
               }`}
             >
               <Landmark className="w-3.5 h-3.5" />
-              <span>Añadir Cuenta</span>
+              <span>Cuentas Bancarias (PSD2)</span>
             </button>
 
             <button
@@ -629,46 +689,14 @@ export default function ConnectBankModal({
                 setActiveMode("card");
                 setShowConnectPrompt(false);
               }}
-              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+              className={`pb-2.5 px-3 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
                 activeMode === "card"
                   ? "border-[#00D09C] text-[#00A37A]"
                   : "border-transparent text-slate-400 hover:text-slate-700"
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Añadir Tarjeta</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMode("catalog");
-                setShowConnectPrompt(false);
-              }}
-              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeMode === "catalog"
-                  ? "border-[#00D09C] text-[#00A37A]"
-                  : "border-transparent text-slate-400 hover:text-slate-700"
-              }`}
-            >
-              <Building2 className="w-3.5 h-3.5" />
-              <span>Bancos PSD2</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setActiveMode("statement");
-                setShowConnectPrompt(false);
-              }}
-              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
-                activeMode === "statement"
-                  ? "border-[#00D09C] text-[#00A37A]"
-                  : "border-transparent text-slate-400 hover:text-slate-700"
-              }`}
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Subir Extracto</span>
+              <span>Tarjetas & Extracto CSV</span>
             </button>
 
             <button
@@ -677,7 +705,7 @@ export default function ConnectBankModal({
                 setActiveMode("config");
                 setShowConnectPrompt(false);
               }}
-              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ml-auto cursor-pointer ${
+              className={`pb-2.5 px-2.5 text-xs font-extrabold border-b-2 transition-all flex items-center gap-1.5 ml-auto cursor-pointer ${
                 activeMode === "config"
                   ? "border-[#00D09C] text-[#00A37A]"
                   : "border-transparent text-slate-400 hover:text-slate-700"
@@ -711,438 +739,7 @@ export default function ConnectBankModal({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 1: AÑADIR CUENTA BANCARIA DIRECTAMENTE               */}
-          {/* ========================================================= */}
-          {step === "SELECT_BANK" && activeMode === "account" && (
-            <form onSubmit={handleCreateDirectAccount} className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-xs text-emerald-950 flex items-start gap-2.5">
-                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-extrabold block">Añade tu cuenta en 1 paso</span>
-                  <span className="text-[11px] text-emerald-800">
-                    Por defecto la cuenta pertenecerá a ti (<strong>{myName}</strong>), salvo que marques abajo que es la cuenta conjunta.
-                  </span>
-                </div>
-              </div>
-
-              {/* Selector Rápido de Banco */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-slate-700 block">
-                  Banco o Entidad:
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {POPULAR_BANKS.map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => {
-                        setNewAccBank(b);
-                        if (!newAccName || newAccName.startsWith("Cuenta ")) {
-                          setNewAccName(`Cuenta ${b}`);
-                        }
-                      }}
-                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                        newAccBank.toLowerCase() === b.toLowerCase()
-                          ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={newAccBank}
-                  onChange={(e) => setNewAccBank(e.target.value)}
-                  placeholder="O escribe el nombre de tu banco..."
-                  className="w-full mt-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                  required
-                />
-              </div>
-
-              {/* Nombre / Alias de la Cuenta */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-slate-700 block">
-                  Nombre o Alias de la Cuenta:
-                </label>
-                <input
-                  type="text"
-                  value={newAccName}
-                  onChange={(e) => setNewAccName(e.target.value)}
-                  placeholder={`Ej. Cuenta Nómina ${newAccBank || "Banco"}`}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                />
-              </div>
-
-              {/* IBAN y Saldo */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-700 block">
-                    IBAN o Últimos 4 dígitos:
-                  </label>
-                  <input
-                    type="text"
-                    value={newAccIban}
-                    onChange={(e) => setNewAccIban(e.target.value)}
-                    placeholder="Ej. 1234 o ES91 •••• 1234"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-700 block">
-                    Saldo Inicial (€):
-                  </label>
-                  <input
-                    type="text"
-                    value={newAccBalance}
-                    onChange={(e) => setNewAccBalance(e.target.value)}
-                    placeholder="0,00"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
-              </div>
-
-              {/* TITULARIDAD DE LA CUENTA */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-[#00A37A]" />
-                    <span>Titularidad asignada a la cuenta:</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    Definir pagador
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {/* Opción 1: Quien la añade (Default) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOwnership(defaultOwner);
-                      setIsAccountJoint(false);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      accountOwnership === defaultOwner && !isAccountJoint
-                        ? "border-[#00D09C] bg-white ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-[#00A37A]" />
-                      <span className="truncate">{myName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Mi cuenta)
-                    </span>
-                  </button>
-
-                  {/* Opción 2: Cuenta Conjunta */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOwnership("JOINT");
-                      setIsAccountJoint(true);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      accountOwnership === "JOINT"
-                        ? "border-[#00D09C] bg-[#00D09C]/15 ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs text-[#00A37A]">
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Conjunta</span>
-                    </div>
-                    <span className="text-[9px] text-slate-500 block font-normal mt-0.5">
-                      (Ambos 50/50)
-                    </span>
-                  </button>
-
-                  {/* Opción 3: Pareja */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAccountOwnership(partnerOwner);
-                      setIsAccountJoint(false);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      accountOwnership === partnerOwner && !isAccountJoint
-                        ? "border-blue-400 bg-white ring-2 ring-blue-400/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="truncate">{partnerName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Pareja)
-                    </span>
-                  </button>
-                </div>
-
-                <label className="flex items-center gap-2 pt-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isAccountJoint}
-                    onChange={(e) => {
-                      setIsAccountJoint(e.target.checked);
-                      setAccountOwnership(e.target.checked ? "JOINT" : defaultOwner);
-                    }}
-                    className="w-4 h-4 rounded text-[#00D09C] focus:ring-[#00D09C] accent-[#00D09C]"
-                  />
-                  <span className="text-xs font-semibold text-slate-700">
-                    Es la cuenta conjunta (gastos divididos al 50/50)
-                  </span>
-                </label>
-              </div>
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>Guardar Cuenta Bancaria</span>
-                </button>
-              </div>
-
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => setActiveMode("catalog")}
-                  className="text-[11px] font-bold text-[#00A37A] hover:underline inline-flex items-center gap-1 cursor-pointer"
-                >
-                  <span>¿Prefieres conectar automáticamente por pasarela bancaria oficial? Ir a Bancos PSD2</span>
-                  <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* ========================================================= */}
-          {/* TAB 2: AÑADIR TARJETA DIRECTAMENTE                       */}
-          {/* ========================================================= */}
-          {step === "SELECT_BANK" && activeMode === "card" && (
-            <form onSubmit={handleCreateDirectCard} className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs text-purple-950 flex items-start gap-2.5">
-                <CreditCard className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-extrabold block">Añade tu tarjeta de crédito o débito</span>
-                  <span className="text-[11px] text-purple-800">
-                    Por defecto la tarjeta pertenecerá a ti (<strong>{myName}</strong>), salvo que marques abajo que es tarjeta conjunta.
-                  </span>
-                </div>
-              </div>
-
-              {/* Banco Emisor */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-slate-700 block">
-                  Banco o Entidad Emisora:
-                </label>
-                <div className="flex flex-wrap gap-1.5">
-                  {POPULAR_BANKS.map((b) => (
-                    <button
-                      key={b}
-                      type="button"
-                      onClick={() => {
-                        setNewCardBank(b);
-                        if (!newCardName || newCardName === "Tarjeta VISA") {
-                          setNewCardName(`Tarjeta VISA ${b}`);
-                        }
-                      }}
-                      className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold border transition-all cursor-pointer ${
-                        newCardBank.toLowerCase() === b.toLowerCase()
-                          ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                          : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
-                      }`}
-                    >
-                      {b}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={newCardBank}
-                  onChange={(e) => setNewCardBank(e.target.value)}
-                  placeholder="O escribe la entidad de la tarjeta..."
-                  className="w-full mt-1.5 px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                  required
-                />
-              </div>
-
-              {/* Nombre de la Tarjeta y Últimos 4 dígitos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-700 block">
-                    Nombre o Alias de la Tarjeta:
-                  </label>
-                  <input
-                    type="text"
-                    value={newCardName}
-                    onChange={(e) => setNewCardName(e.target.value)}
-                    placeholder="Ej. Tarjeta VISA Clásica"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-700 block">
-                    Últimos 4 dígitos:
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={4}
-                    value={newCardDigits}
-                    onChange={(e) => setNewCardDigits(e.target.value)}
-                    placeholder="Ej. 3080"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
-              </div>
-
-              {/* TITULARIDAD DE LA TARJETA */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-[#00A37A]" />
-                    <span>Titularidad asignada a la tarjeta:</span>
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    Definir pagador
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  {/* Opción 1: Quien la añade (Default) */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCardOwnership(defaultOwner);
-                      setIsCardJoint(false);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      cardOwnership === defaultOwner && !isCardJoint
-                        ? "border-[#00D09C] bg-white ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-[#00A37A]" />
-                      <span className="truncate">{myName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Mi tarjeta)
-                    </span>
-                  </button>
-
-                  {/* Opción 2: Tarjeta Conjunta */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCardOwnership("JOINT");
-                      setIsCardJoint(true);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      cardOwnership === "JOINT"
-                        ? "border-[#00D09C] bg-[#00D09C]/15 ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs text-[#00A37A]">
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Conjunta</span>
-                    </div>
-                    <span className="text-[9px] text-slate-500 block font-normal mt-0.5">
-                      (Ambos 50/50)
-                    </span>
-                  </button>
-
-                  {/* Opción 3: Pareja */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCardOwnership(partnerOwner);
-                      setIsCardJoint(false);
-                    }}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      cardOwnership === partnerOwner && !isCardJoint
-                        ? "border-blue-400 bg-white ring-2 ring-blue-400/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="truncate">{partnerName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Pareja)
-                    </span>
-                  </button>
-                </div>
-
-                <label className="flex items-center gap-2 pt-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isCardJoint}
-                    onChange={(e) => {
-                      setIsCardJoint(e.target.checked);
-                      setCardOwnership(e.target.checked ? "JOINT" : defaultOwner);
-                    }}
-                    className="w-4 h-4 rounded text-[#00D09C] focus:ring-[#00D09C] accent-[#00D09C]"
-                  />
-                  <span className="text-xs font-semibold text-slate-700">
-                    Es una tarjeta conjunta (gastos divididos al 50/50)
-                  </span>
-                </label>
-              </div>
-
-              {/* Pasarela interactiva si es Bankinter */}
-              {newCardBank.toLowerCase().includes("bankinter") && (
-                <div className="p-3.5 rounded-2xl bg-amber-50/80 border border-amber-200 text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-extrabold text-amber-950 flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-600" />
-                      <span>Pasarela Interactiva Bankinter</span>
-                    </span>
-                    <button
-                      type="button"
-                      disabled={isLaunchingCardSync}
-                      onClick={handleLaunchCardSync}
-                      className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] transition-colors cursor-pointer disabled:opacity-50"
-                    >
-                      {isLaunchingCardSync ? "Abriendo..." : "Lanzar Pasarela"}
-                    </button>
-                  </div>
-                  <p className="text-[11px] text-amber-800">
-                    Puedes lanzar la pasarela oficial de Bankinter para abrir la sesión y extraer las compras de la tarjeta automáticamente.
-                  </p>
-                  {cardSyncFeedback && (
-                    <div className="text-[11px] font-bold text-amber-900 bg-white/60 p-2 rounded-xl border border-amber-200/80">
-                      {cardSyncFeedback}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="pt-2">
-                <button
-                  type="submit"
-                  className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-slate-900/10 transition-all cursor-pointer"
-                >
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span>Guardar Tarjeta</span>
-                </button>
-              </div>
-            </form>
-          )}
-
-          {/* ========================================================= */}
-          {/* TAB 3: BANCOS PSD2 (OPEN BANKING OFICIAL)                 */}
+          {/* TAB 1: INTEGRACIÓN DE CUENTAS POR PSD2                    */}
           {/* ========================================================= */}
           {step === "SELECT_BANK" && activeMode === "catalog" && (
             <div className="space-y-4">
@@ -1155,10 +752,10 @@ export default function ConnectBankModal({
                       </div>
                       <div>
                         <h4 className="text-xs font-black text-amber-950">
-                          Conectar {selectedBank.name} en Modo Real
+                          Conectar {selectedBank.name} por Open Banking Oficial (PSD2)
                         </h4>
                         <span className="text-[10px] text-amber-800 font-semibold">
-                          Normativa Europea PSD2 Oficial
+                          Normativa Europea PSD2 AIS
                         </span>
                       </div>
                     </div>
@@ -1172,32 +769,23 @@ export default function ConnectBankModal({
                   </div>
 
                   <p className="text-xs text-amber-900 leading-relaxed">
-                    Para que <strong>{selectedBank.name}</strong> te abra su pasarela bancaria oficial y puedas autenticarte con tu app o SMS, la ley exige vincular tu clave gratuita de <strong>Enable Banking</strong> o bien añadir la cuenta de forma directa:
+                    Para conectar <strong>{selectedBank.name}</strong> en directo y autorizar el acceso con tu app del banco o SMS, la ley exige vincular tu clave gratuita de <strong>Enable Banking</strong>:
                   </p>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setActiveMode("account")}
-                      className="p-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Añadir Cuenta Directa</span>
-                    </button>
-
+                  <div className="pt-1">
                     <button
                       type="button"
                       onClick={() => setActiveMode("config")}
-                      className="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="w-full p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <KeyRound className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Configurar Clave API</span>
+                      <span>Configurar Clave Enable Banking</span>
                     </button>
                   </div>
 
                   <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between">
                     <span className="text-[11px] text-amber-800">
-                      ¿Solo quieres ver una prueba antes de configurar?
+                      ¿Deseas probar la conexión simulada PSD2?
                     </span>
                     <button
                       type="button"
@@ -1228,7 +816,7 @@ export default function ConnectBankModal({
                       ) : (
                         <>
                           <Info className="w-4 h-4 text-blue-600" />
-                          <span>Proveedor: Enable Banking PSD2 Oficial</span>
+                          <span>Conexión Bancaria PSD2 Oficial</span>
                         </>
                       )}
                     </div>
@@ -1244,9 +832,7 @@ export default function ConnectBankModal({
                     )}
                   </div>
                   <p className="text-[11px] text-slate-600">
-                    {hasLiveCredentials
-                      ? "Conectado a la API oficial de Enable Banking. Al pulsar sobre cualquier banco se abrirá su pantalla oficial de autenticación bancaria."
-                      : "Puedes conectar bancos seleccionando la entidad a continuación o utilizar el botón '+ Añadir Cuenta' para darla de alta en 1 segundo."}
+                    Selecciona tu banco para conectarlo por Open Banking oficial. La app abrirá la pasarela segura del banco y traerá tus cuentas y saldos automáticamente.
                   </p>
                 </div>
               )}
@@ -1258,7 +844,7 @@ export default function ConnectBankModal({
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Buscar banco (ej. Bankinter, Santander, BBVA, CaixaBank, Revolut...)"
+                  placeholder="Buscar banco (ej. Bankinter, Santander, BBVA, CaixaBank, Revolut, ING...)"
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
                 />
               </div>
@@ -1306,99 +892,234 @@ export default function ConnectBankModal({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 4: CARGAR EXTRACTO REAL (EXCEL / CSV)                 */}
+          {/* TAB 2: TARJETAS & CARGA DE EXTRACTO CSV                   */}
           {/* ========================================================= */}
-          {step === "SELECT_BANK" && activeMode === "statement" && (
+          {step === "SELECT_BANK" && activeMode === "card" && (
             <div className="space-y-4">
-              <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs leading-relaxed space-y-1.5">
-                <div className="flex items-center gap-2 font-bold">
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  <span>Importación de Extracto Bancario Real</span>
-                </div>
-                <p className="text-[11px] text-slate-600">
-                  Descarga tu extracto en <strong>Excel o CSV</strong> de la web de tu banco (Bankinter, Santander, etc.) y súbelo aquí.
-                </p>
-              </div>
-
-              {/* Titularidad del extracto */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
-                <span className="text-xs font-extrabold text-slate-900 block">
-                  Titularidad asignada a este extracto:
-                </span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setStatementOwnership(defaultOwner)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      statementOwnership === defaultOwner
-                        ? "border-[#00D09C] bg-white ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-[#00A37A]" />
-                      <span className="truncate">{myName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Personal)
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStatementOwnership("JOINT")}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      statementOwnership === "JOINT"
-                        ? "border-[#00D09C] bg-[#00D09C]/15 ring-2 ring-[#00D09C]/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs text-[#00A37A]">
-                      <Users className="w-3.5 h-3.5" />
-                      <span>Conjunta</span>
-                    </div>
-                    <span className="text-[9px] text-slate-500 block font-normal mt-0.5">
-                      (Ambos 50/50)
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setStatementOwnership(partnerOwner)}
-                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
-                      statementOwnership === partnerOwner
-                        ? "border-blue-400 bg-white ring-2 ring-blue-400/30 text-slate-900 font-black shadow-xs"
-                        : "border-slate-200 bg-white/70 text-slate-600 hover:bg-white"
-                    }`}
-                  >
-                    <div className="flex items-center gap-1 text-xs">
-                      <User className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="truncate">{partnerName}</span>
-                    </div>
-                    <span className="text-[9px] text-slate-400 block font-normal mt-0.5">
-                      (Pareja)
-                    </span>
-                  </button>
+              <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/80 text-xs text-purple-950 flex items-start gap-2.5">
+                <CreditCard className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-extrabold block">Gestión de Tarjetas & Carga de Extractos</span>
+                  <span className="text-[11px] text-purple-800">
+                    Sube el extracto CSV/Excel de tu tarjeta. Si es la primera vez, se reconocerá la tarjeta y se asignará la titularidad a ti (<strong>{myName}</strong>). Los siguientes extractos que subas se meterán directamente en esa tarjeta.
+                  </span>
                 </div>
               </div>
 
-              {/* Subir archivo */}
+              {/* TARGET CARD SELECTOR */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                    <CreditCard className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Tarjeta asociada al extracto:</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualCardForm(!showManualCardForm)}
+                    className="text-[11px] font-bold text-purple-700 hover:text-purple-900 underline cursor-pointer"
+                  >
+                    {showManualCardForm ? "Ocultar formulario a mano" : "Crear tarjeta a mano sin extracto"}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {existingCards.map((c) => {
+                    const ownerName =
+                      c.ownership === "JOINT"
+                        ? "Compartida"
+                        : c.ownership === "USER_A"
+                        ? memberAName
+                        : memberBName;
+                    const isSelected = selectedCardId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedCardId(c.id);
+                          setCardRecognitionMessage(null);
+                        }}
+                        className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20 text-slate-900 shadow-xs"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black truncate">{c.accountName}</span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                            {ownerName}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-mono block mt-0.5">
+                          {c.ibanMask} • {c.bankName}
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCardId("new");
+                      setCardOwnership(defaultOwner);
+                      setIsCardJoint(false);
+                    }}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      selectedCardId === "new"
+                        ? "border-[#00D09C] bg-emerald-50/70 ring-2 ring-[#00D09C]/20 text-slate-900 shadow-xs"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5 text-xs font-black text-[#00A37A]">
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Nueva Tarjeta (Primera vez)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                      Se crea y asigna a ti ({myName})
+                    </span>
+                  </button>
+                </div>
+
+                {cardRecognitionMessage && (
+                  <div className="p-2.5 rounded-xl bg-purple-100/70 border border-purple-300 text-purple-900 text-xs font-bold flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+                    <span>{cardRecognitionMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* MANUAL CARD CREATION FORM (IF USER CHOOSES 'CREAR A MANO' OR NEW CARD CONFIG) */}
+              {(showManualCardForm || selectedCardId === "new") && (
+                <div className="p-3.5 rounded-2xl bg-white border border-slate-200 space-y-3">
+                  <span className="text-xs font-extrabold text-slate-900 block">
+                    {selectedCardId === "new" ? "Datos de la Nueva Tarjeta:" : "Registrar Tarjeta a Mano:"}
+                  </span>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block">Banco Emisor:</label>
+                      <input
+                        type="text"
+                        value={newCardBank}
+                        onChange={(e) => setNewCardBank(e.target.value)}
+                        placeholder="Ej. Bankinter"
+                        className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block">Nombre / Alias:</label>
+                      <input
+                        type="text"
+                        value={newCardName}
+                        onChange={(e) => setNewCardName(e.target.value)}
+                        placeholder="Ej. Tarjeta VISA Clásica"
+                        className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block">Últimos 4 dígitos:</label>
+                      <input
+                        type="text"
+                        maxLength={4}
+                        value={newCardDigits}
+                        onChange={(e) => setNewCardDigits(e.target.value)}
+                        placeholder="3080"
+                        className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* TITULARIDAD DE LA TARJETA */}
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
+                    <span className="text-xs font-bold text-slate-700 block">
+                      Titularidad inicial (asignada por defecto a quien la carga):
+                    </span>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardOwnership(defaultOwner);
+                          setIsCardJoint(false);
+                        }}
+                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          cardOwnership === defaultOwner && !isCardJoint
+                            ? "bg-slate-900 text-white border-slate-900 font-bold shadow-xs"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-xs truncate block">{myName} (Tú)</span>
+                        <span className="text-[9px] opacity-75 font-normal">Por defecto</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardOwnership("JOINT");
+                          setIsCardJoint(true);
+                        }}
+                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          cardOwnership === "JOINT"
+                            ? "bg-[#00D09C] text-white border-[#00D09C] font-bold shadow-xs"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-xs truncate block">Conjunta</span>
+                        <span className="text-[9px] opacity-75 font-normal">Gastos 50/50</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCardOwnership(partnerOwner);
+                          setIsCardJoint(false);
+                        }}
+                        className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                          cardOwnership === partnerOwner && !isCardJoint
+                            ? "bg-blue-600 text-white border-blue-600 font-bold shadow-xs"
+                            : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        <span className="text-xs truncate block">{partnerName}</span>
+                        <span className="text-[9px] opacity-75 font-normal">Pareja</span>
+                      </button>
+                    </div>
+
+                    {showManualCardForm && parsedMovements.length === 0 && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={handleCreateCardDirect}
+                          className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                        >
+                          Guardar Tarjeta a Mano
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* UPLOAD EXTRACT (CSV, EXCEL, TXT) */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="p-6 rounded-2xl border-2 border-dashed border-slate-200 hover:border-[#00D09C] bg-slate-50/50 hover:bg-emerald-50/30 text-center cursor-pointer transition-all space-y-2"
+                className="p-6 rounded-2xl border-2 border-dashed border-slate-200 hover:border-purple-400 bg-slate-50/50 hover:bg-purple-50/30 text-center cursor-pointer transition-all space-y-2"
               >
-                <UploadCloud className="w-8 h-8 text-[#00A37A] mx-auto" />
+                <UploadCloud className="w-8 h-8 text-purple-600 mx-auto" />
                 <div className="text-xs font-extrabold text-slate-800">
-                  Arrastra tu archivo aquí o haz clic para seleccionarlo
+                  Arrastra aquí tu extracto de tarjeta (CSV, Excel o TXT) o haz clic para subirlo
                 </div>
                 <div className="text-[11px] text-slate-400">
-                  Archivos soportados: .csv, .txt, .tsv (o copia y pega debajo)
+                  Reconoce automáticamente los movimientos de compras de la tarjeta.
                 </div>
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".csv,.txt,.tsv"
-                  onChange={handleFileChange}
+                  accept=".csv,.xlsx,.xls,.txt,.tsv"
+                  onChange={handleCardFileInput}
                   className="hidden"
                 />
               </div>
@@ -1409,43 +1130,77 @@ export default function ConnectBankModal({
                 </div>
               )}
 
-              {/* O pegar texto */}
+              {/* O PEGAR TEXTO DEL EXTRACTO */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-700 block">
-                  O pega directamente el texto del extracto:
+                  O pega directamente el texto del extracto de la tarjeta:
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={statementText}
                   onChange={(e) => {
                     setStatementText(e.target.value);
                     if (e.target.value.trim().length > 10) {
-                      processStatementContent(e.target.value, statementBankName);
+                      processCardFileContent(e.target.value, newCardBank);
                     }
                   }}
-                  placeholder="Fecha;Concepto;Importe;Saldo&#10;15/09/2026;Mercadona;-45,30;1250,00"
+                  placeholder="Tarjeta: VISA CLÁSICA (**** 3080)&#10;15/09/2026;MERCADONA;-45,30&#10;12/09/2026;REPSOL;-30,00"
                   className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-mono text-[11px] text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-[#00D09C]"
                 />
               </div>
 
+              {/* MOVEMENTS PREVIEW AND CONFIRM BUTTON */}
               {parsedMovements.length > 0 && (
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5 animate-in fade-in">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-900">
-                      Vista previa de movimientos ({parsedMovements.length}):
+                      Vista previa ({parsedMovements.length} compras detectadas):
                     </span>
                     <span className="text-xs font-extrabold text-slate-900">
-                      Saldo: {statementBalance.toFixed(2)} €
+                      Total:{" "}
+                      {parsedMovements
+                        .reduce((sum, m) => sum + Math.abs(m.amount), 0)
+                        .toFixed(2)}{" "}
+                      €
                     </span>
+                  </div>
+
+                  <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                    {parsedMovements.slice(0, 6).map((m, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-white border border-slate-100 flex items-center justify-between text-xs"
+                      >
+                        <div className="min-w-0 pr-2">
+                          <span className="font-bold text-slate-900 block truncate text-[11px]">
+                            {m.concept}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {m.date}
+                          </span>
+                        </div>
+                        <span className="font-black text-xs shrink-0 text-slate-900">
+                          {Math.abs(m.amount).toFixed(2)} €
+                        </span>
+                      </div>
+                    ))}
+                    {parsedMovements.length > 6 && (
+                      <div className="text-center text-[10px] text-slate-400 py-1 font-semibold">
+                        + {parsedMovements.length - 6} compras más...
+                      </div>
+                    )}
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleImportRealStatement}
+                    onClick={handleImportMovementsToCard}
                     className="w-full py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Vincular Cuenta e Importar {parsedMovements.length} Movimientos</span>
+                    <span>
+                      Incorporar {parsedMovements.length} Movimientos a{" "}
+                      {selectedCardId === "new" ? "la Nueva Tarjeta" : "esta Tarjeta"}
+                    </span>
                   </button>
                 </div>
               )}
@@ -1453,7 +1208,7 @@ export default function ConnectBankModal({
           )}
 
           {/* ========================================================= */}
-          {/* TAB 5: ENABLE BANKING API CONFIGURATION                   */}
+          {/* TAB 3: ENABLE BANKING API CONFIGURATION                   */}
           {/* ========================================================= */}
           {step === "SELECT_BANK" && activeMode === "config" && (
             <div className="space-y-4">
@@ -1463,7 +1218,7 @@ export default function ConnectBankModal({
                   <span>Configuración de tu Conexión Real Enable Banking</span>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  Enable Banking permite conectar bancos españoles de forma <strong>100% gratuita para uso personal</strong>.
+                  Enable Banking permite conectar bancos españoles de forma <strong>100% gratuita para uso personal</strong> mediante la API PSD2 AIS.
                 </p>
               </div>
 
@@ -1565,7 +1320,7 @@ export default function ConnectBankModal({
           {step === "ASSIGN_OWNERSHIP" && (
             <div className="space-y-4">
               <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950">
-                <span className="font-extrabold block">¡Cuentas recuperadas de tu banco!</span>
+                <span className="font-extrabold block">¡Cuentas recuperadas de tu banco por PSD2!</span>
                 <span className="text-[11px] text-emerald-800">
                   Asignadas por defecto a ti ({myName}), salvo que marques la opción de cuenta conjunta.
                 </span>

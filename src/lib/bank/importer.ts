@@ -285,3 +285,60 @@ export function parseBankinterExcel(
     };
   }
 }
+
+export interface DetectedCardDetails {
+  detectedBank: string;
+  detectedCardName: string;
+  detectedDigits?: string;
+  detectedMask?: string;
+}
+
+export function detectCardDetails(content: string, defaultBank = "Bankinter"): DetectedCardDetails {
+  const lower = content.toLowerCase();
+
+  let detectedBank = defaultBank;
+  if (lower.includes("bankinter")) detectedBank = "Bankinter";
+  else if (lower.includes("bbva")) detectedBank = "BBVA";
+  else if (lower.includes("santander")) detectedBank = "Banco Santander";
+  else if (lower.includes("caixa")) detectedBank = "CaixaBank";
+  else if (lower.includes("sabadell")) detectedBank = "Banco Sabadell";
+  else if (lower.includes("ing")) detectedBank = "ING";
+  else if (lower.includes("revolut")) detectedBank = "Revolut";
+  else if (lower.includes("openbank")) detectedBank = "Openbank";
+
+  let detectedDigits: string | undefined;
+  const digitsMatch =
+    content.match(/(?:tarjeta|card|visa|mastercard)?\s*(?:n[úu]m(?:\.|ero)?)?\s*[:.-]?\s*(?:\.{2,}|\*{2,}|\s)+(\d{4})\b/i) ||
+    content.match(/\((?:\.{2,}|\*{2,})?(\d{4})\)/) ||
+    content.match(/\*{4}\s*(\d{4})/) ||
+    content.match(/(?:visa|mastercard)[^\n\r\d]*(\d{4})\b/i);
+
+  if (digitsMatch) {
+    detectedDigits = digitsMatch[1];
+  }
+
+  let detectedCardName = "Tarjeta VISA";
+  if (lower.includes("visa clásica") || lower.includes("visa clasica")) {
+    detectedCardName = "Tarjeta VISA Clásica";
+  } else if (lower.includes("visa oro")) {
+    detectedCardName = "Tarjeta VISA Oro";
+  } else if (lower.includes("mastercard")) {
+    detectedCardName = "Tarjeta Mastercard";
+  } else if (lower.includes("débito") || lower.includes("debito")) {
+    detectedCardName = `Tarjeta Débito ${detectedBank}`;
+  } else if (lower.includes("crédito") || lower.includes("credito")) {
+    detectedCardName = `Tarjeta Crédito ${detectedBank}`;
+  } else if (detectedBank) {
+    detectedCardName = `Tarjeta VISA ${detectedBank}`;
+  }
+
+  const detectedMask = detectedDigits ? `VISA **** ${detectedDigits}` : undefined;
+
+  return {
+    detectedBank,
+    detectedCardName,
+    detectedDigits,
+    detectedMask,
+  };
+}
+

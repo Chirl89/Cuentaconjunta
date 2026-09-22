@@ -1251,7 +1251,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       persistTransactions((prev) => {
         const existingIds = new Set(prev.map((t) => t.id));
-        const toAdd = newTxs.filter((t) => !existingIds.has(t.id));
+        const toAdd = newTxs.filter((t) => {
+          if (existingIds.has(t.id)) return false;
+          const isDuplicate = prev.some(
+            (p) =>
+              p.date === t.date &&
+              Math.abs(p.amount - t.amount) < 0.01 &&
+              p.merchant.toLowerCase().trim() === t.merchant.toLowerCase().trim() &&
+              (p.accountLabel === t.accountLabel ||
+                (Boolean(p.accountLabel?.toLowerCase().includes("tarjeta")) &&
+                  Boolean(t.accountLabel?.toLowerCase().includes("tarjeta"))))
+          );
+          return !isDuplicate;
+        });
         return [...toAdd, ...prev];
       });
     },
