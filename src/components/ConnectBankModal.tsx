@@ -40,6 +40,7 @@ import {
   UploadCloud,
   Lock,
   Plus,
+  ShieldCheck,
 } from "lucide-react";
 
 export type ConnectModalMode = "catalog" | "card" | "statement" | "config" | "account";
@@ -514,6 +515,9 @@ export default function ConnectBankModal({
     setIsProcessingAuth(true);
     setErrorMessage(null);
     setShowConnectPrompt(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pending_bank_connection", bank.name);
+    }
 
     try {
       const data = await createBankAuthLink({
@@ -1288,28 +1292,41 @@ export default function ConnectBankModal({
           {/* ========================================================= */}
           {step === "AUTHORIZING" && (
             <div className="p-6 text-center space-y-4">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#00A37A] animate-bounce">
-                <ExternalLink className="w-6 h-6" />
+              <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto text-[#00A37A] shadow-sm">
+                <Landmark className="w-7 h-7" />
               </div>
-              <div>
+              <div className="space-y-1">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider">
+                  <ShieldCheck className="w-3 h-3" />
+                  Pasarela Oficial PSD2
+                </span>
                 <h3 className="text-base font-extrabold text-slate-900">
-                  Redirigiendo a tu banco...
+                  Conectar con {selectedBank?.name || "tu Banco"}
                 </h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Se abrirá la pasarela oficial para autorizar la conexión. Al volver, tus cuentas estarán vinculadas.
+                <p className="text-xs text-slate-600 max-w-sm mx-auto leading-relaxed">
+                  Pulsa el botón inferior para abrir la pasarela regulada de <strong>Enable Banking</strong>. Iniciarás sesión de forma 100% segura en tu entidad para vincular tus cuentas reales.
                 </p>
               </div>
 
               {authUrl && (
-                <a
-                  href={authUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs shadow-md shadow-[#00D09C]/20 transition-all"
-                >
-                  <span>Abrir Pasarela Bancaria</span>
-                  <ArrowRight className="w-4 h-4" />
-                </a>
+                <div className="pt-2 space-y-3">
+                  <a
+                    href={authUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs shadow-md shadow-[#00D09C]/25 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                  >
+                    <span>Abrir Pasarela Oficial de {selectedBank?.name || "tu Banco"}</span>
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-left text-[11px] text-slate-500 space-y-1">
+                    <p className="font-bold text-slate-700">ℹ️ Pasos para conectar tu cuenta real:</p>
+                    <p>1. Se abrirá la pasarela segura oficial de Enable Banking.</p>
+                    <p>2. Elige tu cuenta o identifícate en la app/web de tu entidad bancaria.</p>
+                    <p>3. Al terminar, la pasarela te devolverá a la app con tus cuentas reales conectadas.</p>
+                  </div>
+                </div>
               )}
             </div>
           )}

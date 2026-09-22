@@ -276,13 +276,35 @@ export default function HomePage() {
     const sessionId = urlParams.get("session_id");
     const reqId = urlParams.get("requisition_id");
     const errorParam = urlParams.get("error");
+    const stateParam = urlParams.get("state") || "";
 
     if (code) {
-      localStorage.setItem("last_bank_auth_code", code);
-      setBankAuthCodeReceived(code);
-      setToastMsg(`✅ Código bancario recibido de Bankinter`);
+      let detectedBank = "Bankinter";
+      const pendingBank = localStorage.getItem("pending_bank_connection");
+      if (stateParam.toLowerCase().includes("revolut") || pendingBank?.toLowerCase().includes("revolut")) {
+        detectedBank = "Revolut";
+      } else if (stateParam.toLowerCase().includes("bbva") || pendingBank?.toLowerCase().includes("bbva")) {
+        detectedBank = "BBVA";
+      } else if (stateParam.toLowerCase().includes("santander") || pendingBank?.toLowerCase().includes("santander")) {
+        detectedBank = "Banco Santander";
+      } else if (stateParam.toLowerCase().includes("caixa") || pendingBank?.toLowerCase().includes("caixa")) {
+        detectedBank = "CaixaBank";
+      } else if (stateParam.toLowerCase().includes("ing") || pendingBank?.toLowerCase().includes("ing")) {
+        detectedBank = "ING";
+      } else if (stateParam.toLowerCase().includes("openbank") || pendingBank?.toLowerCase().includes("openbank")) {
+        detectedBank = "Openbank";
+      } else if (stateParam.toLowerCase().includes("n26") || pendingBank?.toLowerCase().includes("n26")) {
+        detectedBank = "N26";
+      } else if (pendingBank) {
+        detectedBank = pendingBank;
+      }
 
-      // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys PSD2
+      localStorage.setItem("last_bank_auth_code", code);
+      localStorage.removeItem("pending_bank_connection");
+      setBankAuthCodeReceived(code);
+      setToastMsg(`✅ ¡Autorización bancaria completada en ${detectedBank}! Sincronizando cuentas reales por PSD2...`);
+
+      // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys/PSD2
       (async () => {
         try {
           const userAgent = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -302,7 +324,7 @@ export default function HomePage() {
                   event: "BANK_AUTH_CODE",
                   payload: {
                     code,
-                    bank: "Bankinter",
+                    bank: detectedBank,
                     psuIp: clientIp,
                     psuUserAgent: userAgent,
                     timestamp: Date.now(),

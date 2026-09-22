@@ -342,110 +342,104 @@ export class EnableBankingClient {
 
     // In live mode with credentials configured
     if (this.hasLiveCredentials() && !aspsp?.isMock && !isTestEnv) {
+      // 1. Try local server-side API route (/api/bank/auth-link) first
       try {
-        const jwt = await this.getSignedJWT();
-        const headers: Record<string, string> = {
-          "Content-Type": "application/json",
-        };
-        if (jwt) {
-          headers["Authorization"] = `Bearer ${jwt}`;
-        }
-
-        const validUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-        const res = await fetch(`${this.apiBaseUrl}/auth`, {
+        const localApiRes = await fetch("/api/bank/auth-link", {
           method: "POST",
-          headers,
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            access: {
-              valid_until: validUntil,
-              accounts: [{ iban: "ES9301280082940100030803" }],
-              balances: true,
-              transactions: true,
-            },
-            aspsp: {
-              name: targetAspspName,
-              country: aspsp?.country || "ES",
-            },
-            psu_type: "personal",
-            state: state,
-            redirect_url: redirectUrl,
+            bankName: targetAspspName,
+            country: aspsp?.country || "ES",
+            redirectUrl,
           }),
-        });
+        }).catch(() => null);
 
-        if (res.ok) {
-          const data = await res.json();
-          return {
-            sessionId: data.authorization_id || data.session_id || state,
-            url: data.url,
-            aspspName: targetAspspName,
-            state,
-            isMock: false,
-            expiresAt: validUntil,
-          };
-        } else {
-          const errData = await res.json().catch(() => null);
-          const msg = errData?.message || "";
-          if (res.status === 403 || msg.toLowerCase().includes("not active") || msg.toLowerCase().includes("active")) {
-            throw new Error(
-              "Tu aplicación en Enable Banking está en estado 'Inactive'. Debes activarla una única vez pulsando en 'Activate by linking accounts' dentro del Control Panel de Enable Banking."
-            );
+        if (localApiRes && localApiRes.ok) {
+          const apiData = await localApiRes.json();
+          if (apiData.success && apiData.url) {
+            return {
+              sessionId: apiData.sessionId || state,
+              url: apiData.url,
+              aspspName: targetAspspName,
+              state,
+              isMock: false,
+              expiresAt: apiData.expiresAt,
+            };
           }
-          throw new Error(msg || `Error ${res.status} al autorizar en Enable Banking`);
         }
-      } catch (err: any) {
-        console.warn("Enable Banking live /auth call encountered browser CORS/network block:", err);
-        if (err.message && (err.message.includes("Wrong ASPSP") || err.message.includes("403") || err.message.includes("Inactive"))) {
-          throw err;
-        }
-
-        // Browser CORS restriction on static frontend (GitHub Pages).
-        // The user's application is ACTIVE and already authorized with linked accounts in Enable Banking Control Panel.
-        const sessionId = `eb_session_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-
-        let accountName = `Cuenta Corriente ${bankName}`;
-        let ibanMask = "ES•• •••• •••• ••••";
-        if (targetAspspName.toLowerCase().includes("bankinter")) {
-          ibanMask = "ES93 0128 •••• 0803";
-          accountName = "Cuenta Corriente Bankinter";
-        } else if (targetAspspName.toLowerCase().includes("bbva")) {
-          accountName = "Cuenta Nómina BBVA";
-          ibanMask = "ES14 •••• •••• 1234";
-        } else if (targetAspspName.toLowerCase().includes("revolut")) {
-          accountName = "Cuenta Revolut (EUR)";
-          ibanMask = "ES21 •••• •••• 5678";
-        }
-
-        const linkedAccounts: EnableBankingAccount[] = [
-          {
-            id: `eb_acc_${targetAspspName.toLowerCase()}_${Date.now()}`,
-            name: accountName,
-            ibanMask: ibanMask,
-            currency: "EUR",
-            balance: 0,
-            bankName: bankName,
-            aspspName: targetAspspName,
-            ownerName: "Titular",
-          },
-        ];
-
-        mockSessionsStore.set(sessionId, {
-          sessionId,
-          aspspName: targetAspspName,
-          bankName,
-          state,
-          createdAt: new Date().toISOString(),
-          accounts: linkedAccounts,
-        });
-
-        return {
-          sessionId,
-          url: "",
-          aspspName: targetAspspName,
-          state,
-          isMock: false,
-          expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-        };
+      } catch {
+        // Continue to check active auth links pool
       }
+
+      // 2. Try pool of pre-generated live official links in public/data/bank-auth-links.json
+      try {
+        const basePath =
+          typeof window !== "undefined" && window.location.pathname.startsWith("/Cuentaconjunta")
+            ? "/Cuentaconjunta"
+            : "";
+        const poolRes = await fetch(`${basePath}/data/bank-auth-links.json?t=${Date.now()}`).catch(() => null);
+        if (poolRes && poolRes.ok) {
+          const links = await poolRes.json();
+          const matchKey = Object.keys(links).find(
+            (k) =>
+              k.toLowerCase() === targetAspspName.toLowerCase() ||
+              k.toLowerCase() === bankName.toLowerCase()
+          );
+          if (matchKey && links[matchKey]?.url) {
+            const linkData = links[matchKey];
+            return {
+              sessionId: linkData.authorizationId || state,
+              url: linkData.url,
+              aspspName: targetAspspName,
+              state,
+              isMock: false,
+              expiresAt: linkData.expiresAt,
+            };
+          }
+        }
+      } catch (poolErr) {
+        console.warn("Could not read bank-auth-links.json pool:", poolErr);
+      }
+
+      // 3. If running in a Node environment (e.g. CLI or Node script), try direct /auth call
+      if (typeof window === "undefined") {
+        try {
+          const jwt = await this.getSignedJWT();
+          const validUntil = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+          const res = await fetch(`${this.apiBaseUrl}/auth`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${jwt}`,
+            },
+            body: JSON.stringify({
+              access: { valid_until: validUntil },
+              aspsp: { name: targetAspspName, country: aspsp?.country || "ES" },
+              psu_type: "personal",
+              state,
+              redirect_url: redirectUrl,
+            }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            return {
+              sessionId: data.authorization_id || data.session_id || state,
+              url: data.url,
+              aspspName: targetAspspName,
+              state,
+              isMock: false,
+              expiresAt: validUntil,
+            };
+          }
+        } catch (nodeErr) {
+          console.warn("Direct /auth call in Node failed:", nodeErr);
+        }
+      }
+
+      // If no valid official link could be obtained, throw a descriptive error — NEVER invent fake accounts!
+      throw new Error(
+        `No se pudo obtener el enlace oficial de Enable Banking para ${bankName}. Genera un nuevo enlace ejecutando en la terminal: npm run auth:links`
+      );
     }
 
     // Sandbox / Simulation flow

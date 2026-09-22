@@ -135,7 +135,11 @@ async function main() {
     iban = existingConn.ibanMask;
   }
   if (!iban) {
-    iban = 'ES9301280082940100030803';
+    if (bankName.toLowerCase().includes('bankinter')) {
+      iban = 'ES9301280082940100030803';
+    } else {
+      iban = `ES•• •••• •••• (${bankName})`;
+    }
   }
 
   const newConn = {

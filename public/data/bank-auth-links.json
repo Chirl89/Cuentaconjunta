@@ -1,0 +1,58 @@
+{
+  "Revolut": {
+    "bankName": "Revolut",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=6d011b86-a234-4688-8043-728ba22954a9",
+    "authorizationId": "6d011b86-a234-4688-8043-728ba22954a9",
+    "createdAt": "2026-09-22T07:17:33.447Z",
+    "expiresAt": "2026-12-21T07:17:33.447Z"
+  },
+  "Bankinter": {
+    "bankName": "Bankinter",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=ab3c9293-7bd4-4331-a1e6-8e9de53eec12",
+    "authorizationId": "ab3c9293-7bd4-4331-a1e6-8e9de53eec12",
+    "createdAt": "2026-09-22T07:17:33.878Z",
+    "expiresAt": "2026-12-21T07:17:33.878Z"
+  },
+  "BBVA": {
+    "bankName": "BBVA",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=97dd100b-fe4e-434b-8fc9-ec24f417300a",
+    "authorizationId": "97dd100b-fe4e-434b-8fc9-ec24f417300a",
+    "createdAt": "2026-09-22T07:17:34.253Z",
+    "expiresAt": "2026-12-21T07:17:34.254Z"
+  },
+  "Banco Santander": {
+    "bankName": "Banco Santander",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=a16d17d6-ff8d-4fe9-bbf0-8b3cf0cd3be9",
+    "authorizationId": "a16d17d6-ff8d-4fe9-bbf0-8b3cf0cd3be9",
+    "createdAt": "2026-09-22T07:17:34.801Z",
+    "expiresAt": "2026-12-21T07:17:34.801Z"
+  },
+  "CaixaBank": {
+    "bankName": "CaixaBank",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=94c3aa09-026a-4d87-b281-a701cad9e203",
+    "authorizationId": "94c3aa09-026a-4d87-b281-a701cad9e203",
+    "createdAt": "2026-09-22T07:17:35.166Z",
+    "expiresAt": "2026-12-21T07:17:35.166Z"
+  },
+  "ING": {
+    "bankName": "ING",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=4a8bff48-9918-45e6-9eee-98966266a377",
+    "authorizationId": "4a8bff48-9918-45e6-9eee-98966266a377",
+    "createdAt": "2026-09-22T07:17:35.534Z",
+    "expiresAt": "2026-12-21T07:17:35.534Z"
+  },
+  "Openbank": {
+    "bankName": "Openbank",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=f6b5e730-260f-4a79-844a-19981f40028d",
+    "authorizationId": "f6b5e730-260f-4a79-844a-19981f40028d",
+    "createdAt": "2026-09-22T07:17:36.221Z",
+    "expiresAt": "2026-12-21T07:17:36.221Z"
+  },
+  "N26": {
+    "bankName": "N26",
+    "url": "https://tilisy.enablebanking.com/ais/start?sessionid=4ea860fa-8ecc-41eb-a855-d861b09eb564",
+    "authorizationId": "4ea860fa-8ecc-41eb-a855-d861b09eb564",
+    "createdAt": "2026-09-22T07:17:37.419Z",
+    "expiresAt": "2026-12-21T07:17:37.419Z"
+  }
+}
