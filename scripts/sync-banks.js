@@ -292,13 +292,36 @@ async function main() {
                   console.warn(`Could not fetch balance for ${accUid}:`, e.message);
                 }
 
-                const existingAccIdx = updatedAccounts.findIndex((a) => a.bankName === conn.bankName);
+                const richAcc = (conn.accounts || []).find((a) => (a.uid || a.id) === accUid) || (typeof acc === 'object' ? acc : {});
+                const iban = richAcc.account_id?.iban || (isBankinter ? 'ES9301280082940100030803' : conn.ibanMask) || '';
+                const isJoint = richAcc.name?.includes('&') || richAcc.name?.toLowerCase().includes('andrea') || iban === 'ES0715830001109142458796';
+                let accId = conn.id || `acc_${conn.bankName.toLowerCase()}`;
+                let accTitle = conn.accountName || `Cuenta ${conn.bankName}`;
+                let ownership = conn.ownership || 'USER_A';
+
+                if (conn.bankName.toLowerCase().includes('revolut')) {
+                  if (isJoint) {
+                    accId = 'acc_revolut_conjunta';
+                    accTitle = 'Revolut Conjunta';
+                    ownership = 'JOINT';
+                  } else if (richAcc.currency === 'USD') {
+                    accId = 'acc_revolut_usd';
+                    accTitle = 'Revolut (USD)';
+                    ownership = 'USER_A';
+                  } else {
+                    accId = 'acc_revolut_personal';
+                    accTitle = 'Revolut Personal';
+                    ownership = 'USER_A';
+                  }
+                }
+
+                const existingAccIdx = updatedAccounts.findIndex((a) => a.id === accId || (iban && a.ibanMask === iban));
                 const accEntry = {
-                  id: conn.id || `acc_${conn.bankName.toLowerCase()}`,
+                  id: accId,
                   bankName: conn.bankName,
-                  accountName: conn.accountName || `Cuenta ${conn.bankName}`,
-                  ibanMask: conn.ibanMask || acc.account_id?.iban || 'ES9301280082940100030803',
-                  ownership: conn.ownership || 'USER_A',
+                  accountName: accTitle,
+                  ibanMask: iban || (isBankinter ? 'ES9301280082940100030803' : `ES•• •••• •••• (${conn.bankName})`),
+                  ownership: ownership,
                   balance: balance,
                   lastUpdated: nowIso,
                 };
@@ -316,29 +339,6 @@ async function main() {
       } catch (err) {
         console.warn(`Error querying Enable Banking for ${conn.bankName}:`, err.message);
       }
-    }
-
-    // Ensure the configured connection always appears in accounts feed with its verified balance
-    const existingAccIdx = updatedAccounts.findIndex((a) => a.bankName.toLowerCase() === conn.bankName.toLowerCase());
-    const isBankinter = conn.bankName.toLowerCase().includes('bankinter');
-    const verifiedBalance = (existingAccIdx >= 0 && updatedAccounts[existingAccIdx].balance > 0)
-      ? updatedAccounts[existingAccIdx].balance
-      : (conn.balance !== undefined ? conn.balance : (isBankinter ? 12546.57 : 0));
-
-    const accEntry = {
-      id: conn.id || `acc_${conn.bankName.toLowerCase()}`,
-      bankName: conn.bankName,
-      accountName: conn.accountName || `Cuenta ${conn.bankName}`,
-      ibanMask: conn.ibanMask || (isBankinter ? 'ES9301280082940100030803' : `ES•• •••• •••• (${conn.bankName})`),
-      ownership: conn.ownership || 'USER_A',
-      balance: verifiedBalance,
-      lastUpdated: nowIso,
-    };
-
-    if (existingAccIdx >= 0) {
-      updatedAccounts[existingAccIdx] = { ...updatedAccounts[existingAccIdx], ...accEntry };
-    } else {
-      updatedAccounts.push(accEntry);
     }
   }
 
@@ -360,6 +360,31 @@ async function main() {
   if (supabaseUrl && supabaseKey) {
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
+      // Persist accounts directly into household_state in Supabase
+      const { data: currentHousehold } = await supabase
+        .from('household_state')
+        .select('accounts')
+        .eq('household_code', 'FITDUO')
+        .single();
+
+      const existingCloudAccs = currentHousehold?.accounts || [];
+      const mergedCloudAccs = [...existingCloudAccs];
+
+      for (const newAcc of updatedAccounts) {
+        const idx = mergedCloudAccs.findIndex(ca => ca.id === newAcc.id || (ca.ibanMask && newAcc.ibanMask && ca.ibanMask === newAcc.ibanMask));
+        if (idx >= 0) {
+          mergedCloudAccs[idx] = { ...mergedCloudAccs[idx], ...newAcc };
+        } else {
+          mergedCloudAccs.push(newAcc);
+        }
+      }
+
+      await supabase
+        .from('household_state')
+        .update({ accounts: mergedCloudAccs })
+        .eq('household_code', 'FITDUO');
+      console.log(`✅ Synced ${mergedCloudAccs.length} accounts to Supabase household_state`);
+
       const channel = supabase.channel('household_room_FITDUO');
       await channel.subscribe();
       await channel.send({
@@ -371,7 +396,7 @@ async function main() {
           senderId: 'github-actions-worker',
           timestamp: Date.now(),
           transactions: allTransactions,
-          accounts: updatedAccounts,
+          accounts: mergedCloudAccs,
         },
       });
       console.log('📡 Sent Supabase Realtime broadcast to household room FITDUO');

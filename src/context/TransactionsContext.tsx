@@ -958,21 +958,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return merged;
       });
 
-      // 4. Unified account sync: Cloud DB is the source of truth for accounts
-      if (cloudAccs.length > 0) {
-        setAccounts((prev) => {
-          const updated = cloudAccs.map((ca) => {
-            const fa = feedAccs.find(
-              (f: any) => f.id === ca.id || f.bankName?.toLowerCase() === ca.bankName.toLowerCase()
-            );
-            return fa?.balance !== undefined ? { ...ca, balance: fa.balance } : ca;
-          });
-          try {
-            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
-          } catch {}
-          return updated;
-        });
-      }
+      // 4. Unified account sync: Cloud DB + Local Feed
+      setAccounts((prev) => {
+        const base = cloudAccs.length > 0 ? cloudAccs : prev;
+        const map = new Map<string, any>();
+        for (const a of base) {
+          map.set(a.id, a);
+        }
+        for (const fa of feedAccs) {
+          if (!map.has(fa.id)) {
+            map.set(fa.id, fa);
+          } else {
+            const existing = map.get(fa.id)!;
+            map.set(fa.id, { ...existing, balance: fa.balance ?? existing.balance });
+          }
+        }
+        const updated = Array.from(map.values());
+        try {
+          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+        } catch {}
+        return updated;
+      });
 
       // 5. Unified settlements merge
       if (cloudSettlements && Object.keys(cloudSettlements).length > 0) {
