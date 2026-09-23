@@ -842,9 +842,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return [];
   });
 
+  const transactionsRef = React.useRef<Transaction[]>(transactions);
+  const accountsRef = React.useRef<BankAccount[]>(accounts);
+  const settlementsRef = React.useRef<Record<string, any>>(settlementCutoffs);
   const rulesRef = React.useRef(rules);
   const learningsRef = React.useRef(learnings);
   const categoriesRef = React.useRef(categories);
+
+  useEffect(() => {
+    transactionsRef.current = transactions;
+  }, [transactions]);
+  useEffect(() => {
+    accountsRef.current = accounts;
+  }, [accounts]);
+  useEffect(() => {
+    settlementsRef.current = settlementCutoffs;
+  }, [settlementCutoffs]);
   useEffect(() => {
     rulesRef.current = rules;
   }, [rules]);
@@ -928,9 +941,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const cloudMap = new Map<string, Transaction>();
             for (const ct of cloud.transactions) {
               const local = prevMap.get(ct.id);
-              if (local && local.status === "classified" && ct.status === "pending") {
+              if (!local) {
+                cloudMap.set(ct.id, ct);
+              } else if (local.split === "ignored") {
                 cloudMap.set(ct.id, local);
-              } else if (local && (local.updatedAt || 0) > (ct.updatedAt || 0)) {
+              } else if (local.status === "classified" && ct.status === "pending") {
+                cloudMap.set(ct.id, local);
+              } else if ((local.updatedAt || 0) >= (ct.updatedAt || 0)) {
                 cloudMap.set(ct.id, local);
               } else {
                 cloudMap.set(ct.id, ct);
@@ -1041,17 +1058,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const local = txMap.get(ct.id);
           if (!local) {
             txMap.set(ct.id, ct);
-          } else if (local.status === "classified" && ct.status === "pending") {
-            // Local has already been classified; preserve local classification!
-            txMap.set(ct.id, local);
-          } else if ((ct.updatedAt || 0) >= (local.updatedAt || 0) && ct.status === "classified") {
-            // Cloud has a newer or equal classified update
-            txMap.set(ct.id, ct);
           } else if (local.split === "ignored") {
             // Never lose ignored state
             txMap.set(ct.id, local);
-          } else {
+          } else if (local.status === "classified" && ct.status === "pending") {
+            // Local has already been classified; preserve local classification!
+            txMap.set(ct.id, local);
+          } else if ((local.updatedAt || 0) > (ct.updatedAt || 0)) {
+            // Local has a newer update than cloud; preserve local!
+            txMap.set(ct.id, local);
+          } else if ((ct.updatedAt || 0) > (local.updatedAt || 0)) {
+            // Cloud has a newer update; take cloud!
             txMap.set(ct.id, ct);
+          } else {
+            // Equal or missing timestamps: if local is classified, preserve local!
+            if (local.status === "classified") {
+              txMap.set(ct.id, local);
+            } else {
+              txMap.set(ct.id, ct);
+            }
           }
         }
 
@@ -1218,27 +1243,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Persistent & sync dispatchers
   const persistTransactions = useCallback(
     (newTxs: Transaction[] | ((prev: Transaction[]) => Transaction[]), broadcast = true) => {
-      let updatedToSync: Transaction[] | null = null;
-      setTransactions((prev) => {
-        const updated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
-        updatedToSync = updated;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(updated));
-          } catch {}
-        }
-        if (broadcast) {
-          broadcastHouseholdSync({
-            type: "TRANSACTIONS_SYNC",
-            inviteCode,
-            transactions: updated,
-          });
-        }
-        return updated;
-      });
+      const prev = transactionsRef.current;
+      const updated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
+      transactionsRef.current = updated;
+      setTransactions(updated);
 
-      if (broadcast && updatedToSync) {
-        pushStateToCloud(inviteCode, { transactions: updatedToSync }).catch((e) => {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "TRANSACTIONS_SYNC",
+          inviteCode,
+          transactions: updated,
+        });
+
+        pushStateToCloud(inviteCode, { transactions: updated }).catch((e) => {
           console.warn("Could not push transactions to cloud:", e);
         });
       }
@@ -1248,27 +1271,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const persistAccounts = useCallback(
     (newAccs: BankAccount[] | ((prev: BankAccount[]) => BankAccount[]), broadcast = true) => {
-      let updatedToSync: BankAccount[] | null = null;
-      setAccounts((prev) => {
-        const updated = typeof newAccs === "function" ? newAccs(prev) : newAccs;
-        updatedToSync = updated;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
-          } catch {}
-        }
-        if (broadcast) {
-          broadcastHouseholdSync({
-            type: "ACCOUNTS_SYNC",
-            inviteCode,
-            accounts: updated,
-          });
-        }
-        return updated;
-      });
+      const prev = accountsRef.current;
+      const updated = typeof newAccs === "function" ? newAccs(prev) : newAccs;
+      accountsRef.current = updated;
+      setAccounts(updated);
 
-      if (broadcast && updatedToSync) {
-        pushStateToCloud(inviteCode, { accounts: updatedToSync }).catch((e) => {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "ACCOUNTS_SYNC",
+          inviteCode,
+          accounts: updated,
+        });
+
+        pushStateToCloud(inviteCode, { accounts: updated }).catch((e) => {
           console.warn("Could not push accounts to cloud:", e);
         });
       }
@@ -1283,28 +1304,26 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         | ((prev: Record<string, any>) => Record<string, any>),
       broadcast = true
     ) => {
-      let updatedToSync: Record<string, any> | null = null;
-      setSettlementCutoffs((prev) => {
-        const updated =
-          typeof newSettlements === "function" ? newSettlements(prev) : newSettlements;
-        updatedToSync = updated;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
-          } catch {}
-        }
-        if (broadcast) {
-          broadcastHouseholdSync({
-            type: "SETTLEMENTS_SYNC",
-            inviteCode,
-            settlements: updated,
-          });
-        }
-        return updated;
-      });
+      const prev = settlementsRef.current;
+      const updated =
+        typeof newSettlements === "function" ? newSettlements(prev) : newSettlements;
+      settlementsRef.current = updated;
+      setSettlementCutoffs(updated);
 
-      if (broadcast && updatedToSync) {
-        pushStateToCloud(inviteCode, { settlements: updatedToSync }).catch((e) => {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "SETTLEMENTS_SYNC",
+          inviteCode,
+          settlements: updated,
+        });
+
+        pushStateToCloud(inviteCode, { settlements: updated }).catch((e) => {
           console.warn("Could not push settlements to cloud:", e);
         });
       }
@@ -1314,27 +1333,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const persistRules = useCallback(
     (newRules: AssignmentRule[] | ((prev: AssignmentRule[]) => AssignmentRule[]), broadcast = true) => {
-      let updatedToSync: AssignmentRule[] | null = null;
-      setRules((prev) => {
-        const updated = typeof newRules === "function" ? newRules(prev) : newRules;
-        updatedToSync = updated;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(updated));
-          } catch {}
-        }
-        if (broadcast) {
-          broadcastHouseholdSync({
-            type: "RULES_SYNC",
-            inviteCode,
-            rules: updated,
-          });
-        }
-        return updated;
-      });
+      const prev = rulesRef.current;
+      const updated = typeof newRules === "function" ? newRules(prev) : newRules;
+      rulesRef.current = updated;
+      setRules(updated);
 
-      if (broadcast && updatedToSync) {
-        pushStateToCloud(inviteCode, { rules: updatedToSync }).catch((e) => {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "RULES_SYNC",
+          inviteCode,
+          rules: updated,
+        });
+
+        pushStateToCloud(inviteCode, { rules: updated }).catch((e) => {
           console.warn("Could not push rules to cloud:", e);
         });
       }
@@ -1344,27 +1361,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const persistLearnings = useCallback(
     (newLearnings: CategoryLearningItem[] | ((prev: CategoryLearningItem[]) => CategoryLearningItem[]), broadcast = true) => {
-      let updatedToSync: CategoryLearningItem[] | null = null;
-      setLearnings((prev) => {
-        const updated = typeof newLearnings === "function" ? newLearnings(prev) : newLearnings;
-        updatedToSync = updated;
-        if (typeof window !== "undefined") {
-          try {
-            localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(updated));
-          } catch {}
-        }
-        if (broadcast) {
-          broadcastHouseholdSync({
-            type: "LEARNINGS_SYNC",
-            inviteCode,
-            learnings: updated,
-          });
-        }
-        return updated;
-      });
+      const prev = learningsRef.current;
+      const updated = typeof newLearnings === "function" ? newLearnings(prev) : newLearnings;
+      learningsRef.current = updated;
+      setLearnings(updated);
 
-      if (broadcast && updatedToSync) {
-        pushStateToCloud(inviteCode, { category_learnings: updatedToSync }).catch((e) => {
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "LEARNINGS_SYNC",
+          inviteCode,
+          learnings: updated,
+        });
+
+        pushStateToCloud(inviteCode, { category_learnings: updated }).catch((e) => {
           console.warn("Could not push category_learnings to cloud:", e);
         });
       }
@@ -1802,9 +1817,13 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const cloudMap = new Map<string, Transaction>();
           for (const ct of cloud.transactions) {
             const local = prevMap.get(ct.id);
-            if (local && local.status === "classified" && ct.status === "pending") {
+            if (!local) {
+              cloudMap.set(ct.id, ct);
+            } else if (local.split === "ignored") {
               cloudMap.set(ct.id, local);
-            } else if (local && (local.updatedAt || 0) > (ct.updatedAt || 0)) {
+            } else if (local.status === "classified" && ct.status === "pending") {
+              cloudMap.set(ct.id, local);
+            } else if ((local.updatedAt || 0) >= (ct.updatedAt || 0)) {
               cloudMap.set(ct.id, local);
             } else {
               cloudMap.set(ct.id, ct);
@@ -2097,17 +2116,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const color = found ? found.color : "#64748B";
       const now = Date.now();
 
-      persistTransactions((prev) => {
-        const targetTx = prev.find((t) => t.id === id);
-        const targetMerchant = targetTx?.merchant || "";
+      const current = transactionsRef.current;
+      const targetTx = current.find((t) => t.id === id);
+      const targetMerchant = targetTx?.merchant || "";
 
-        // Continuous feedback learning: memorize user's preference for future movements
-        if (targetMerchant) {
-          learnCategory(targetMerchant, newCategoryName);
-        }
+      // Continuous feedback learning: memorize user's preference for future movements
+      if (targetMerchant) {
+        learnCategory(targetMerchant, newCategoryName);
+      }
 
-        return prev.map((t) => {
-          if (t.id === id) {
+      persistTransactions((prev) =>
+        prev.map((t) => {
+          if (t.id === id || (targetMerchant && isMerchantMatch(t.merchant, targetMerchant))) {
             return {
               ...t,
               category: newCategoryName,
@@ -2115,20 +2135,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               updatedAt: now,
             };
           }
-
-          // Check if t matches targetTx merchant/literal
-          if (targetMerchant && isMerchantMatch(t.merchant, targetMerchant)) {
-            return {
-              ...t,
-              category: newCategoryName,
-              categoryColor: color,
-              updatedAt: now,
-            };
-          }
-
           return t;
-        });
-      });
+        })
+      );
     },
     [categories, learnCategory, persistTransactions]
   );

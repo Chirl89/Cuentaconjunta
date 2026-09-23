@@ -55,24 +55,23 @@ export async function pushStateToCloud(
     if (state.category_learnings !== undefined) payload.category_learnings = state.category_learnings;
 
     // We push to the active code and mirror to both FITDUO and HKGMQB so all devices stay permanently synchronized
-    const codesToUpdate = new Set<string>();
-    codesToUpdate.add(cleanCode);
-    codesToUpdate.add("FITDUO");
-    codesToUpdate.add("HKGMQB");
+    const codesToUpdate = Array.from(new Set([cleanCode, "FITDUO", "HKGMQB"]));
 
-    for (const code of codesToUpdate) {
-      try {
-        const { error } = await (supabase as any)
-          .from("household_state")
-          .upsert({ ...payload, household_code: code }, { onConflict: "household_code" });
+    await Promise.all(
+      codesToUpdate.map(async (code) => {
+        try {
+          const { error } = await (supabase as any)
+            .from("household_state")
+            .upsert({ ...payload, household_code: code }, { onConflict: "household_code" });
 
-        if (error) {
-          console.warn(`Supabase household_state upsert warning (${code}):`, error.message);
+          if (error) {
+            console.warn(`Supabase household_state upsert warning (${code}):`, error.message);
+          }
+        } catch (upsertErr: any) {
+          console.warn(`Exception during cloud sync upsert for ${code}:`, upsertErr?.message);
         }
-      } catch (upsertErr: any) {
-        console.warn(`Exception during cloud sync upsert for ${code}:`, upsertErr?.message);
-      }
-    }
+      })
+    );
 
     return { success: true };
   } catch (err: any) {

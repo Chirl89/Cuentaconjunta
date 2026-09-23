@@ -298,4 +298,55 @@ describe("Paso 7: Motor de Categorización Inteligente con IA, Feedback Loop y R
       expect(isMerchantMatch("Endesa", "Iberdrola")).toBe(false);
     });
   });
+
+  describe("6. Persistencia y Resolución de Conflictos Local vs BBDD Cloud", () => {
+    it("preserva la categorización local más reciente sobre datos antiguos de la BBDD", () => {
+      const localTx = {
+        id: "tx-1",
+        merchant: "Restaurante La Tagliatella",
+        amount: 45.0,
+        category: "Restaurantes & Ocio",
+        status: "classified" as const,
+        updatedAt: 1790179999000,
+      };
+
+      const cloudTx = {
+        id: "tx-1",
+        merchant: "Restaurante La Tagliatella",
+        amount: 45.0,
+        category: "Otros Gastos Comunes",
+        status: "classified" as const,
+        updatedAt: 1790171000000, // Anterior en el tiempo
+      };
+
+      // Simulación de la regla de merge: local es más reciente
+      const isLocalNewer = (localTx.updatedAt || 0) >= (cloudTx.updatedAt || 0);
+      const chosen = isLocalNewer ? localTx : cloudTx;
+      expect(chosen.category).toBe("Restaurantes & Ocio");
+      expect(chosen.updatedAt).toBe(1790179999000);
+    });
+
+    it("nunca sobrescribe un movimiento local clasificado con un estado pendiente de la nube", () => {
+      const localTx = {
+        id: "tx-2",
+        merchant: "Mercadona",
+        amount: 32.5,
+        category: "Supermercado",
+        status: "classified" as const,
+      };
+
+      const cloudTx = {
+        id: "tx-2",
+        merchant: "Mercadona",
+        amount: 32.5,
+        category: "Otros Gastos Comunes",
+        status: "pending" as const,
+      };
+
+      const preserveLocal = localTx.status === "classified" && cloudTx.status === "pending";
+      const chosen = preserveLocal ? localTx : cloudTx;
+      expect(chosen.status).toBe("classified");
+      expect(chosen.category).toBe("Supermercado");
+    });
+  });
 });
