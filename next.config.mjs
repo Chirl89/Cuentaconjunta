@@ -6,7 +6,7 @@ const basePath = isGithubActions ? `/${repoName}` : (process.env.NEXT_PUBLIC_BAS
 const isStaticExport = process.env.GITHUB_ACTIONS === "true" || process.env.NEXT_STATIC_EXPORT === "true";
 
 const nextConfig = {
-  ...(isStaticExport ? { output: "export" } : {}),
+  output: "export",
   basePath: basePath || undefined,
   assetPrefix: basePath ? `${basePath}/` : undefined,
   images: {
