@@ -47,12 +47,13 @@ channel
         expiresAt: new Date(Date.now() + 600000).toISOString(),
       };
 
+      const isLt = bank.toLowerCase().includes('lt') || bank.toLowerCase().includes('lituania') || bank.toLowerCase().includes('europa');
       const updatedSettlements = {
         ...(curr?.settlements || {}),
         _live_bank_links: {
           ...((curr?.settlements?._live_bank_links) || {}),
           [bank]: linkEntry,
-          ...(bank.toLowerCase().includes('revolut') ? { Revolut: linkEntry } : {}),
+          ...(bank.toLowerCase().includes('revolut') ? (isLt ? { 'Revolut (Europa / LT)': linkEntry, Revolut_LT: linkEntry } : { Revolut: linkEntry, 'Revolut (España)': linkEntry }) : {}),
           ...(bank.toLowerCase().includes('bankinter') ? { Bankinter: linkEntry } : {}),
         },
       };

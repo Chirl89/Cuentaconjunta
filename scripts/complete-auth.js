@@ -142,13 +142,14 @@ async function main() {
     }
   }
 
+  const safeId = `acc_${bankName.toLowerCase().replace(/[^a-z0-9]/g, '_').replace(/_+/g, '_').replace(/_$/, '')}`;
   const newConn = {
-    id: `acc_${bankName.toLowerCase()}`,
+    id: safeId,
     bankName: bankName,
     accountName: `Cuenta ${bankName}`,
     ibanMask: iban,
     ownership: existingConn?.ownership || 'USER_A',
-    institutionId: bankName.toLowerCase(),
+    institutionId: safeId,
     sessionId: session.session_id,
     accounts: session.accounts || [],
     accounts_data: session.accounts_data || existingConn?.accounts_data || [],

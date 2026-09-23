@@ -91,6 +91,13 @@ export const SPANISH_ASPSPS: ASPSP[] = [
     logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
   },
   {
+    name: "Revolut (Europa / LT)",
+    title: "Revolut (Europa / LT)",
+    country: "LT",
+    bic: "REVOLT21XXX",
+    logo: "https://cdn.jsdelivr.net/gh/atomiclabs/cryptocurrency-icons@1a63539be0e37454f142db20c2e0a4f640e14137/svg/color/generic.svg",
+  },
+  {
     name: "ING",
     title: "ING",
     country: "ES",

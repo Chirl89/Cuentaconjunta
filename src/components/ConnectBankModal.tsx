@@ -80,7 +80,8 @@ const POPULAR_BANKS = [
   "BBVA",
   "Banco Santander",
   "CaixaBank",
-  "Revolut",
+  "Revolut (IBAN ES)",
+  "Revolut (Europa / LT)",
   "ING",
   "Banco Sabadell",
   "Openbank",
@@ -551,7 +552,11 @@ export default function ConnectBankModal({
     const a = (nameA || "").toLowerCase();
     const b = (nameB || "").toLowerCase();
     if (a === b) return true;
-    if (a.includes("revolut") && b.includes("revolut")) return true;
+    if (a.includes("revolut") && b.includes("revolut")) {
+      const aLt = a.includes("lt") || a.includes("europa") || a.includes("lituania");
+      const bLt = b.includes("lt") || b.includes("europa") || b.includes("lituania");
+      return aLt === bLt;
+    }
     if (a.includes("bankinter") && b.includes("bankinter")) return true;
     if (a.includes("santander") && b.includes("santander")) return true;
     if (a.includes("bbva") && b.includes("bbva")) return true;

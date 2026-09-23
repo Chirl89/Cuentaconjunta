@@ -9,22 +9,49 @@ const fs = require('fs');
 const path = require('path');
 const { importPKCS8, SignJWT } = require('jose');
 
-function normalizeBankName(name = '') {
+function resolveBankAndCountry(name = '') {
   const lower = name.toLowerCase();
-  if (lower.includes('revolut')) return 'Revolut';
-  if (lower.includes('bankinter')) return 'Bankinter';
-  if (lower.includes('santander')) return 'Banco Santander';
-  if (lower.includes('bbva')) return 'BBVA';
-  if (lower.includes('caixa')) return 'CaixaBank';
-  if (lower.includes('ing')) return 'ING';
-  if (lower.includes('sabadell')) return 'Banco Sabadell';
-  if (lower.includes('openbank')) return 'Openbank';
-  if (lower.includes('n26')) return 'N26';
-  return name;
+  let aspspName = name;
+  let country = 'ES';
+
+  if (lower.includes('revolut')) {
+    aspspName = 'Revolut';
+    if (lower.includes('lt') || lower.includes('lituania') || lower.includes('europa')) {
+      country = 'LT';
+    } else {
+      country = 'ES';
+    }
+  } else if (lower.includes('bankinter')) {
+    aspspName = 'Bankinter';
+    country = 'ES';
+  } else if (lower.includes('santander')) {
+    aspspName = 'Banco Santander';
+    country = 'ES';
+  } else if (lower.includes('bbva')) {
+    aspspName = 'BBVA';
+    country = 'ES';
+  } else if (lower.includes('caixa')) {
+    aspspName = 'CaixaBank';
+    country = 'ES';
+  } else if (lower.includes('ing')) {
+    aspspName = 'ING';
+    country = 'ES';
+  } else if (lower.includes('sabadell')) {
+    aspspName = 'Banco Sabadell';
+    country = 'ES';
+  } else if (lower.includes('openbank')) {
+    aspspName = 'Openbank';
+    country = 'ES';
+  } else if (lower.includes('n26')) {
+    aspspName = 'N26';
+    country = lower.includes('de') ? 'DE' : 'ES';
+  }
+
+  return { aspspName, country };
 }
 
 async function getDirectBankLink(bankName = 'Bankinter') {
-  const aspspName = normalizeBankName(bankName);
+  const { aspspName, country } = resolveBankAndCountry(bankName);
   const appId = process.env.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f';
   let privateKey = process.env.ENABLEBANKING_PRIVATE_KEY;
   if (!privateKey) {
@@ -61,9 +88,9 @@ async function getDirectBankLink(bankName = 'Bankinter') {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({
       access: accessObj,
-      aspsp: { name: aspspName, country: 'ES' },
+      aspsp: { name: aspspName, country },
       psu_type: 'personal',
-      state: `${aspspName.toLowerCase()}_${Date.now()}`,
+      state: `${aspspName.toLowerCase()}_${country.toLowerCase()}_${Date.now()}`,
       redirect_url: 'https://chirl89.github.io/Cuentaconjunta/',
     }),
   });
