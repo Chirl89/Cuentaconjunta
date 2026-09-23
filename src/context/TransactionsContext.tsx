@@ -2067,41 +2067,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
     const now = Date.now();
-    persistTransactions((prev) => {
-      const target = prev.find((t) => t.id === id);
-      if (!target) return prev;
-
-      const targetMerchant = target.merchant;
-      const targetPayer = payer || target.payer;
-
-      return prev.map((t) => {
-        if (t.id === id) {
-          return {
-            ...t,
-            status: "classified",
-            split,
-            payer: targetPayer,
-            updatedAt: now,
-          };
-        }
-
-        // Auto-assign any other pending transaction with the exact same literal or matching merchant
-        if (t.status === "pending" && isMerchantMatch(t.merchant, targetMerchant)) {
-          return {
-            ...t,
-            status: "auto_assigned",
-            split,
-            payer: targetPayer,
-            category: target.category || t.category,
-            categoryColor: target.categoryColor || t.categoryColor,
-            autoAssignedReason: `Auto-asignado por coincidencia con "${targetMerchant}"`,
-            updatedAt: now,
-          };
-        }
-
-        return t;
-      });
-    });
+    persistTransactions((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              status: "classified",
+              split,
+              payer: payer || t.payer,
+              updatedAt: now,
+            }
+          : t
+      )
+    );
   };
 
   const reclassifyTransaction = (id: string, split: SplitType) => {
@@ -2120,13 +2098,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (!targetTx) return;
 
     const targetMerchant = targetTx.merchant;
-    const targetSplit = targetTx.split;
-    const targetPayer = targetTx.payer;
 
-    // Continuous feedback learning: memorize user's preference
+    // Continuous feedback learning: memorize user's preference for future movements
     learnCategory(targetMerchant, newCategoryName);
 
-    // Update target transaction AND real-time auto-assign all transactions with the same literal/merchant
+    // Update category across all transactions with the same literal/merchant, preserving their status and split intact
     persistTransactions((prev) =>
       prev.map((t) => {
         if (t.id === id) {
@@ -2142,41 +2118,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const matches = isMerchantMatch(t.merchant, targetMerchant);
         if (!matches) return t;
 
-        // If already classified/confirmed, only update category and color
-        if (t.status === "classified") {
-          return {
-            ...t,
-            category: newCategoryName,
-            categoryColor: color,
-            updatedAt: now,
-          };
-        }
-
-        // Check if an active rule matches it
-        const ruleResult = evaluateRules(rules, t);
-        if (ruleResult) {
-          return {
-            ...t,
-            status: "auto_assigned",
-            category: ruleResult.categoryName || newCategoryName,
-            categoryColor: color,
-            split: ruleResult.split,
-            payer: ruleResult.payer,
-            autoAssignedRuleId: ruleResult.matchedRule.id,
-            autoAssignedReason: ruleResult.reason,
-            updatedAt: now,
-          };
-        }
-
-        // Otherwise auto-assign to same split & category
+        // Simply update default category & color, keep status intact so they never disappear from view/triage
         return {
           ...t,
-          status: "auto_assigned",
           category: newCategoryName,
           categoryColor: color,
-          split: targetSplit || "50/50",
-          payer: targetPayer || t.payer,
-          autoAssignedReason: `Auto-asignado por coincidencia con "${targetMerchant}"`,
           updatedAt: now,
         };
       })
