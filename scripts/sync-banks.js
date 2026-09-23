@@ -360,47 +360,48 @@ async function main() {
   if (supabaseUrl && supabaseKey) {
     try {
       const supabase = createClient(supabaseUrl, supabaseKey);
-      // Persist accounts directly into household_state in Supabase
-      const { data: currentHousehold } = await supabase
-        .from('household_state')
-        .select('accounts')
-        .eq('household_code', 'FITDUO')
-        .single();
+      for (const code of ['FITDUO', 'HKGMQB']) {
+        const { data: currentHousehold } = await supabase
+          .from('household_state')
+          .select('accounts')
+          .eq('household_code', code)
+          .single();
 
-      const existingCloudAccs = currentHousehold?.accounts || [];
-      const mergedCloudAccs = [...existingCloudAccs];
+        const existingCloudAccs = currentHousehold?.accounts || [];
+        const mergedCloudAccs = [...existingCloudAccs];
 
-      for (const newAcc of updatedAccounts) {
-        const idx = mergedCloudAccs.findIndex(ca => ca.id === newAcc.id || (ca.ibanMask && newAcc.ibanMask && ca.ibanMask === newAcc.ibanMask));
-        if (idx >= 0) {
-          mergedCloudAccs[idx] = { ...mergedCloudAccs[idx], ...newAcc };
-        } else {
-          mergedCloudAccs.push(newAcc);
+        for (const newAcc of updatedAccounts) {
+          const idx = mergedCloudAccs.findIndex(ca => ca.id === newAcc.id || (ca.ibanMask && newAcc.ibanMask && ca.ibanMask === newAcc.ibanMask));
+          if (idx >= 0) {
+            mergedCloudAccs[idx] = { ...mergedCloudAccs[idx], ...newAcc };
+          } else {
+            mergedCloudAccs.push(newAcc);
+          }
         }
+
+        await supabase
+          .from('household_state')
+          .update({ accounts: mergedCloudAccs, transactions: allTransactions })
+          .eq('household_code', code);
+        console.log(`✅ Synced ${mergedCloudAccs.length} accounts to Supabase household_state (${code})`);
+
+        const channel = supabase.channel(`household_room_${code}`);
+        await channel.subscribe();
+        await channel.send({
+          type: 'broadcast',
+          event: 'SYNC_EVENT',
+          payload: {
+            type: 'TRANSACTIONS_SYNC',
+            inviteCode: code,
+            senderId: 'github-actions-worker',
+            timestamp: Date.now(),
+            transactions: allTransactions,
+            accounts: mergedCloudAccs,
+          },
+        });
+        console.log(`📡 Sent Supabase Realtime broadcast to household room ${code}`);
+        await supabase.removeChannel(channel);
       }
-
-      await supabase
-        .from('household_state')
-        .update({ accounts: mergedCloudAccs })
-        .eq('household_code', 'FITDUO');
-      console.log(`✅ Synced ${mergedCloudAccs.length} accounts to Supabase household_state`);
-
-      const channel = supabase.channel('household_room_FITDUO');
-      await channel.subscribe();
-      await channel.send({
-        type: 'broadcast',
-        event: 'SYNC_EVENT',
-        payload: {
-          type: 'TRANSACTIONS_SYNC',
-          inviteCode: 'FITDUO',
-          senderId: 'github-actions-worker',
-          timestamp: Date.now(),
-          transactions: allTransactions,
-          accounts: mergedCloudAccs,
-        },
-      });
-      console.log('📡 Sent Supabase Realtime broadcast to household room FITDUO');
-      await supabase.removeChannel(channel);
     } catch (e) {
       console.warn('Supabase Realtime broadcast warning:', e.message);
     }

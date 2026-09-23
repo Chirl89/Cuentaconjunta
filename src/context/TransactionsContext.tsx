@@ -827,10 +827,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
         }
         if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
-          setAccounts(cloud.accounts);
-          try {
-            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cloud.accounts));
-          } catch {}
+          setAccounts((prev) => {
+            const map = new Map<string, BankAccount>();
+            for (const a of prev) map.set(a.id, a);
+            for (const ca of cloud.accounts) map.set(ca.id, ca);
+            const merged = Array.from(map.values());
+            try {
+              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+            } catch {}
+            return merged;
+          });
         }
         if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
           setSettlementCutoffs(cloud.settlements);
@@ -1290,10 +1296,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(msg.transactions));
         } catch {}
       } else if (msg.type === "ACCOUNTS_SYNC" && Array.isArray(msg.accounts)) {
-        setAccounts(msg.accounts);
-        try {
-          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(msg.accounts));
-        } catch {}
+        setAccounts((prev) => {
+          const map = new Map<string, BankAccount>();
+          for (const a of prev) map.set(a.id, a);
+          for (const ma of msg.accounts) map.set(ma.id, ma);
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       } else if (msg.type === "SETTLEMENTS_SYNC" && msg.settlements) {
         setSettlementCutoffs(msg.settlements);
         try {
@@ -1373,10 +1385,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         });
       }
       if (cloud.accounts && Array.isArray(cloud.accounts)) {
-        setAccounts(cloud.accounts);
-        try {
-          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cloud.accounts));
-        } catch {}
+        setAccounts((prev) => {
+          const map = new Map<string, BankAccount>();
+          for (const a of prev) map.set(a.id, a);
+          for (const ca of cloud.accounts) map.set(ca.id, ca);
+          const merged = Array.from(map.values());
+          try {
+            localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       }
       if (cloud.settlements) {
         setSettlementCutoffs(cloud.settlements);
