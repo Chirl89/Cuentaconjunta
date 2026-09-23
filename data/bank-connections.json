@@ -53,6 +53,21 @@
       "authorizedAt": "2026-09-17T14:37:26.592Z",
       "expiresAt": "2026-12-16T14:37:26.596Z",
       "accounts_data": []
+    },
+    {
+      "id": "acc_revolut",
+      "bankName": "Revolut",
+      "accountName": "Cuenta Revolut",
+      "ibanMask": "ES•• •••• •••• (Revolut)",
+      "ownership": "USER_A",
+      "institutionId": "revolut",
+      "sessionId": "09d8ea3c-c749-4c8d-972c-d5a3c419d679",
+      "accounts": [],
+      "accounts_data": [],
+      "status": "active",
+      "authorizedAt": "2026-09-23T09:28:26.184Z",
+      "expiresAt": "2026-12-22T09:28:26.191Z",
+      "lastSyncAt": null
     }
   ]
 }

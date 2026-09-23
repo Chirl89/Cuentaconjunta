@@ -884,7 +884,7 @@ export default function ConnectBankModal({
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Tarjetas & Extracto CSV</span>
+              <span>Cuentas Directas & Tarjetas</span>
             </button>
 
             <button
@@ -1566,6 +1566,37 @@ export default function ConnectBankModal({
                     <p className="font-bold text-slate-700">ℹ️ Pasos para conectar tu cuenta real:</p>
                     <p>1. Se abrirá la pasarela segura oficial de {selectedBank?.name || "tu entidad"}.</p>
                     <p>2. Introduce tu teléfono o escanea el QR para autorizar con tu app bancaria.</p>
+                    {selectedBank?.name.toLowerCase().includes("revolut") && (
+                      <div className="my-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1.5">
+                        <p className="font-bold">⚠️ Importante para usuarios de Revolut:</p>
+                        <p>
+                          La pasarela PSD2 de Revolut <strong>solo autoriza Cuentas Personales individuales</strong>. Revolut no permite conectar Cuentas Conjuntas por Open Banking.
+                        </p>
+                        <p>
+                          • En la app de Revolut, <strong>marca únicamente tu cuenta Personal</strong>.
+                        </p>
+                        <p>
+                          • Si quieres registrar tu <strong>Cuenta Conjunta de Revolut</strong>, hazlo directamente a mano o subiendo extracto:
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStep("SELECT_BANK");
+                            setActiveMode("card");
+                            setNewAccountType("account");
+                            setNewCardBank("Revolut");
+                            setNewCardName("Revolut Conjunta");
+                            setCardOwnership("JOINT");
+                            setIsCardJoint(true);
+                            setShowManualCardForm(true);
+                            setSelectedCardId("new");
+                          }}
+                          className="mt-1 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] cursor-pointer inline-flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <span>👉 Registrar Revolut Conjunta directamente a mano</span>
+                        </button>
+                      </div>
+                    )}
                     <p>3. Los enlaces tienen 10 minutos de validez. Si tardaste en entrar, pulsa arriba <strong>"Renovar enlace nuevo"</strong>.</p>
                     <p>4. Al terminar, volverás a la app con tus cuentas reales conectadas.</p>
                   </div>
