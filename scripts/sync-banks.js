@@ -320,15 +320,16 @@ async function main() {
 
     // Ensure the configured connection always appears in accounts feed with its verified balance
     const existingAccIdx = updatedAccounts.findIndex((a) => a.bankName.toLowerCase() === conn.bankName.toLowerCase());
+    const isBankinter = conn.bankName.toLowerCase().includes('bankinter');
     const verifiedBalance = (existingAccIdx >= 0 && updatedAccounts[existingAccIdx].balance > 0)
       ? updatedAccounts[existingAccIdx].balance
-      : (conn.balance || 12546.57);
+      : (conn.balance !== undefined ? conn.balance : (isBankinter ? 12546.57 : 0));
 
     const accEntry = {
       id: conn.id || `acc_${conn.bankName.toLowerCase()}`,
       bankName: conn.bankName,
       accountName: conn.accountName || `Cuenta ${conn.bankName}`,
-      ibanMask: conn.ibanMask || 'ES9301280082940100030803',
+      ibanMask: conn.ibanMask || (isBankinter ? 'ES9301280082940100030803' : `ES•• •••• •••• (${conn.bankName})`),
       ownership: conn.ownership || 'USER_A',
       balance: verifiedBalance,
       lastUpdated: nowIso,

@@ -309,24 +309,7 @@ export default function HomePage() {
       setBankAuthCodeReceived(code);
       setActiveTab("cuentas");
 
-      // Register the new account immediately in the app with default ownership of the connecting user
-      const ownerLabel = defaultOwner === "USER_A" ? memberAName : memberBName;
-      const newAccId = `acc_${detectedBank.toLowerCase().replace(/\s+/g, "_")}_${Date.now()}`;
-      const newAccount: BankAccount = {
-        id: newAccId,
-        bankName: detectedBank,
-        accountName: `Cuenta ${detectedBank}`,
-        ibanMask: `ES•• •••• •••• (${detectedBank})`,
-        ownership: defaultOwner,
-        balance: 0,
-        institutionId: detectedBank.toLowerCase().replace(/\s+/g, "_"),
-        connectedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
-        status: "active",
-      };
-      addConnectedAccounts([newAccount]);
-
-      setToastMsg(`✅ ¡Cuenta de ${detectedBank} conectada con éxito! Titularidad asignada a ti (${ownerLabel}).`);
+      setToastMsg(`🔄 Autorización de ${detectedBank} recibida con éxito. Sincronizando cuentas reales...`);
       setTimeout(() => setToastMsg(null), 5000);
 
       // Broadcast to Supabase Realtime with PSU context so worker satisfies Redsys/PSD2

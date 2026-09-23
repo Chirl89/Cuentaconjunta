@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-09-23T03:17:03.203Z",
+  "lastSyncAt": "2026-09-23T07:41:08.451Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,11 +7,45 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 12546.57,
-      "lastUpdated": "2026-09-23T03:17:03.203Z"
+      "balance": 12462.21,
+      "lastUpdated": "2026-09-23T07:41:08.451Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-09-22.0",
+      "merchant": "Recibo Repsol, S.L.U - Gas",
+      "amount": 14.11,
+      "date": "22 Sep",
+      "monthKey": "2026-09",
+      "category": "Hogar & Luz",
+      "categoryColor": "#0EA5E9",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-09-22.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_2026-09-22.1",
+      "merchant": "Recibo Repsol, S.L.U.",
+      "amount": 70.25,
+      "date": "22 Sep",
+      "monthKey": "2026-09",
+      "category": "Transporte & Gasolina",
+      "categoryColor": "#6366F1",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-09-22.1",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_2026-06-23.0",
       "merchant": "Recibo Repsol, S.L.U.",

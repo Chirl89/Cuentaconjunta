@@ -139,6 +139,8 @@ export default function ConnectBankModal({
   const [newCardBank, setNewCardBank] = useState("Bankinter");
   const [newCardName, setNewCardName] = useState("Tarjeta VISA");
   const [newCardDigits, setNewCardDigits] = useState("");
+  const [newAccountType, setNewAccountType] = useState<"account" | "card">("account");
+  const [initialBalanceInput, setInitialBalanceInput] = useState("");
   const [cardOwnership, setCardOwnership] = useState<"USER_A" | "USER_B" | "JOINT">(defaultOwner);
   const [isCardJoint, setIsCardJoint] = useState(false);
   const [cardRecognitionMessage, setCardRecognitionMessage] = useState<string | null>(null);
@@ -482,34 +484,38 @@ export default function ConnectBankModal({
     }, 1200);
   };
 
-  // Direct manual card creation (without extract)
+  // Direct manual account / card creation (without extract)
   const handleCreateCardDirect = (e: React.FormEvent) => {
     e.preventDefault();
-    const bank = newCardBank.trim() || "Bankinter";
-    let name = newCardName.trim() || "Tarjeta VISA";
-    if (!name.toLowerCase().includes("tarjeta")) {
+    const bank = newCardBank.trim() || "Revolut";
+    let name = newCardName.trim() || (newAccountType === "card" ? "Tarjeta VISA" : `Cuenta ${bank}`);
+    if (newAccountType === "card" && !name.toLowerCase().includes("tarjeta")) {
       name = `Tarjeta ${name}`;
     }
     const cleanDigits = newCardDigits.replace(/\D/g, "");
-    const ibanMask = cleanDigits ? `VISA **** ${cleanDigits.slice(-4)}` : "VISA **** 0000";
+    const ibanMask = cleanDigits
+      ? (newAccountType === "card" ? `VISA **** ${cleanDigits.slice(-4)}` : `ES•• •••• ${cleanDigits.slice(-4)}`)
+      : (newAccountType === "card" ? "VISA **** 0000" : `ES•• •••• •••• (${bank})`);
 
-    const createdCard: BankAccount = {
-      id: `card_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    const balance = parseFloat(initialBalanceInput.replace(",", ".")) || 0;
+
+    const createdItem: BankAccount = {
+      id: `${newAccountType === "card" ? "card" : "acc"}_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       bankName: bank,
       accountName: name,
       ibanMask,
       ownership: cardOwnership,
-      balance: 0,
+      balance,
       institutionId: bank.toLowerCase().replace(/\s+/g, "_"),
       connectedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       status: "active",
     };
 
-    onAccountsConnected([createdCard]);
+    onAccountsConnected([createdItem]);
     setSuccessBanner(
-      `¡Tarjeta "${name}" añadida con éxito (Titular: ${
-        cardOwnership === "JOINT" ? "Conjunta" : cardOwnership === "USER_A" ? memberAName : memberBName
+      `¡${newAccountType === "card" ? "Tarjeta" : "Cuenta"} "${name}" añadida con éxito con saldo de ${balance.toFixed(2)} € (Titular: ${
+        cardOwnership === "JOINT" ? "Conjunta 50/50" : cardOwnership === "USER_A" ? memberAName : memberBName
       })!`
     );
 
@@ -1171,21 +1177,43 @@ export default function ConnectBankModal({
                 )}
               </div>
 
-              {/* MANUAL CARD CREATION FORM (IF USER CHOOSES 'CREAR A MANO' OR NEW CARD CONFIG) */}
+              {/* MANUAL CARD / ACCOUNT CREATION FORM */}
               {(showManualCardForm || selectedCardId === "new") && (
                 <div className="p-3.5 rounded-2xl bg-white border border-slate-200 space-y-3">
-                  <span className="text-xs font-extrabold text-slate-900 block">
-                    {selectedCardId === "new" ? "Datos de la Nueva Tarjeta:" : "Registrar Tarjeta a Mano:"}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-900 block">
+                      {selectedCardId === "new" ? "Datos de la Nueva Cuenta o Tarjeta:" : "Registrar Cuenta o Tarjeta a Mano:"}
+                    </span>
+                    <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setNewAccountType("account")}
+                        className={`px-2 py-0.5 rounded-md transition-all ${
+                          newAccountType === "account" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        🏦 Cuenta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewAccountType("card")}
+                        className={`px-2 py-0.5 rounded-md transition-all ${
+                          newAccountType === "card" ? "bg-white text-slate-900 shadow-2xs" : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        💳 Tarjeta
+                      </button>
+                    </div>
+                  </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                     <div>
                       <label className="text-[11px] font-bold text-slate-700 block">Banco Emisor:</label>
                       <input
                         type="text"
                         value={newCardBank}
                         onChange={(e) => setNewCardBank(e.target.value)}
-                        placeholder="Ej. Bankinter"
+                        placeholder="Ej. Revolut / Bankinter"
                         className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
                       />
                     </div>
@@ -1196,16 +1224,27 @@ export default function ConnectBankModal({
                         type="text"
                         value={newCardName}
                         onChange={(e) => setNewCardName(e.target.value)}
-                        placeholder="Ej. Tarjeta VISA Clásica"
+                        placeholder={newAccountType === "account" ? "Ej. Revolut Conjunta" : "Ej. Tarjeta Débito"}
                         className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[11px] font-bold text-slate-700 block">Últimos 4 dígitos:</label>
+                      <label className="text-[11px] font-bold text-slate-700 block">Saldo actual (€):</label>
                       <input
                         type="text"
-                        maxLength={4}
+                        value={initialBalanceInput}
+                        onChange={(e) => setInitialBalanceInput(e.target.value)}
+                        placeholder="0,00 €"
+                        className="w-full mt-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-900 focus:outline-none focus:border-[#00D09C]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-700 block">Últimos 4 dígitos o IBAN:</label>
+                      <input
+                        type="text"
+                        maxLength={10}
                         value={newCardDigits}
                         onChange={(e) => setNewCardDigits(e.target.value)}
                         placeholder="3080"
@@ -1214,7 +1253,7 @@ export default function ConnectBankModal({
                     </div>
                   </div>
 
-                  {/* TITULARIDAD DE LA TARJETA */}
+                  {/* TITULARIDAD */}
                   <div className="pt-2 border-t border-slate-100 space-y-2">
                     <span className="text-xs font-bold text-slate-700 block">
                       Titularidad inicial (asignada por defecto a quien la carga):
@@ -1275,9 +1314,9 @@ export default function ConnectBankModal({
                         <button
                           type="button"
                           onClick={handleCreateCardDirect}
-                          className="w-full py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
+                          className="w-full py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
                         >
-                          Guardar Tarjeta a Mano
+                          Guardar {newAccountType === "card" ? "Tarjeta" : "Cuenta"} a Mano
                         </button>
                       </div>
                     )}
