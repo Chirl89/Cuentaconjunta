@@ -9,7 +9,22 @@ const fs = require('fs');
 const path = require('path');
 const { importPKCS8, SignJWT } = require('jose');
 
+function normalizeBankName(name = '') {
+  const lower = name.toLowerCase();
+  if (lower.includes('revolut')) return 'Revolut';
+  if (lower.includes('bankinter')) return 'Bankinter';
+  if (lower.includes('santander')) return 'Banco Santander';
+  if (lower.includes('bbva')) return 'BBVA';
+  if (lower.includes('caixa')) return 'CaixaBank';
+  if (lower.includes('ing')) return 'ING';
+  if (lower.includes('sabadell')) return 'Banco Sabadell';
+  if (lower.includes('openbank')) return 'Openbank';
+  if (lower.includes('n26')) return 'N26';
+  return name;
+}
+
 async function getDirectBankLink(bankName = 'Bankinter') {
+  const aspspName = normalizeBankName(bankName);
   const appId = process.env.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f';
   let privateKey = process.env.ENABLEBANKING_PRIVATE_KEY;
   if (!privateKey) {
@@ -46,9 +61,9 @@ async function getDirectBankLink(bankName = 'Bankinter') {
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwt}` },
     body: JSON.stringify({
       access: accessObj,
-      aspsp: { name: bankName, country: 'ES' },
+      aspsp: { name: aspspName, country: 'ES' },
       psu_type: 'personal',
-      state: `${bankName.toLowerCase()}_${Date.now()}`,
+      state: `${aspspName.toLowerCase()}_${Date.now()}`,
       redirect_url: 'https://chirl89.github.io/Cuentaconjunta/',
     }),
   });

@@ -1,58 +1,58 @@
 {
   "Revolut": {
     "bankName": "Revolut",
-    "url": "https://oba.revolut.com/ui/index.html?response_type=code%20id_token&client_id=5658c87a-f8db-4423-a0c6-5401c3d9e63e&state=84e0c80d-9475-4a24-80af-cac1d3cb0ce5&scope=openid%20accounts&nonce=d18a533c-b66a-11f1-b3fa-4200a9fe0102&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&request=eyJhbGciOiJQUzI1NiIsImtpZCI6IkdjWVNvYUxubkFDV21WTXl5VEN4Q3ZLblo0USIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI1NjU4Yzg3YS1mOGRiLTQ0MjMtYTBjNi01NDAxYzNkOWU2M2UiLCJhdWQiOiJodHRwczovL29iYS1hdXRoLnJldm9sdXQuY29tIiwiaWF0IjoxNzkwMDcwNTMyLCJuYmYiOjE3OTAwNzA1MzEsImV4cCI6MTc5MDA3MTEzMiwicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJyZXNwb25zZV9tb2RlIjoicXVlcnkiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL3RpbGlzeS5lbmFibGViYW5raW5nLmNvbS8iLCJjbGllbnRfaWQiOiI1NjU4Yzg3YS1mOGRiLTQ0MjMtYTBjNi01NDAxYzNkOWU2M2UiLCJzY29wZSI6Im9wZW5pZCBhY2NvdW50cyIsInN0YXRlIjoiODRlMGM4MGQtOTQ3NS00YTI0LTgwYWYtY2FjMWQzY2IwY2U1Iiwibm9uY2UiOiJkMThhNTMzYy1iNjZhLTExZjEtYjNmYS00MjAwYTlmZTAxMDIiLCJtYXhfYWdlIjo4NjQwMCwiY2xhaW1zIjp7InVzZXJpbmZvIjp7Im9wZW5iYW5raW5nX2ludGVudF9pZCI6eyJ2YWx1ZSI6IjZhYjI0ZjA0LTAxYTYtYWI3My04MWM3LWE4Yzk2ZjJiODVlZCIsImVzc2VudGlhbCI6dHJ1ZX19LCJpZF90b2tlbiI6eyJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsidmFsdWUiOiI2YWIyNGYwNC0wMWE2LWFiNzMtODFjNy1hOGM5NmYyYjg1ZWQiLCJlc3NlbnRpYWwiOnRydWV9LCJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIiwidXJuOm9wZW5iYW5raW5nOnBzZDI6Y2EiXX19fX0.t2EJILqtLmtG1VnZUUNOrWY7MUCKVl4hlc6GkHAi1EYV1j23-0vtq-ZCQwNgJFNnDas0aiX7RM_6QsWehjMVDccqIW1Y-2Dz0i5tPgfY0Bxip0ZUKx24AjqsPXYgMaiIyWSQEGlZ-eRNhvKMWDlxtJuhrTiGh8AZ2yOGEwo5AJG0IMzaoCdIi76RbNuSSUTKv8r8Fhic2hlAmoPGjwk_wMyANHQLThFS55jgyb2MY-a2cTTC0v8bS74tuy8GGevBQiO1THiMInN_BEAoBy2RUDVIDCGNEaWyYnbBr_jIYXIOjiCKVxnVrUy-xxjAxEO1S9EYXm_-BEx4ygSUPg2irA",
-    "authorizationId": "712c5070-8d34-4a08-9ff9-6014bd6438d3",
-    "createdAt": "2026-09-22T09:48:57.234Z",
-    "expiresAt": "2026-12-21T09:48:55.466Z"
+    "url": "https://oba.revolut.com/ui/index.html?response_type=code%20id_token&client_id=5658c87a-f8db-4423-a0c6-5401c3d9e63e&state=f207601b-8fda-4135-a029-641279aecbdf&scope=openid%20accounts&nonce=ead43ed2-b720-11f1-86fc-4200a9fe0102&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&request=eyJhbGciOiJQUzI1NiIsImtpZCI6IkdjWVNvYUxubkFDV21WTXl5VEN4Q3ZLblo0USIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI1NjU4Yzg3YS1mOGRiLTQ0MjMtYTBjNi01NDAxYzNkOWU2M2UiLCJhdWQiOiJodHRwczovL29iYS1hdXRoLnJldm9sdXQuY29tIiwiaWF0IjoxNzkwMTQ4NzQzLCJuYmYiOjE3OTAxNDg3NDIsImV4cCI6MTc5MDE0OTM0MywicmVzcG9uc2VfdHlwZSI6ImNvZGUgaWRfdG9rZW4iLCJyZXNwb25zZV9tb2RlIjoicXVlcnkiLCJyZWRpcmVjdF91cmkiOiJodHRwczovL3RpbGlzeS5lbmFibGViYW5raW5nLmNvbS8iLCJjbGllbnRfaWQiOiI1NjU4Yzg3YS1mOGRiLTQ0MjMtYTBjNi01NDAxYzNkOWU2M2UiLCJzY29wZSI6Im9wZW5pZCBhY2NvdW50cyIsInN0YXRlIjoiZjIwNzYwMWItOGZkYS00MTM1LWEwMjktNjQxMjc5YWVjYmRmIiwibm9uY2UiOiJlYWQ0M2VkMi1iNzIwLTExZjEtODZmYy00MjAwYTlmZTAxMDIiLCJtYXhfYWdlIjo4NjQwMCwiY2xhaW1zIjp7InVzZXJpbmZvIjp7Im9wZW5iYW5raW5nX2ludGVudF9pZCI6eyJ2YWx1ZSI6IjZhYjM4MDg3LTM3ODQtYWU2Ny04Zjk4LTMxNWEzOGM0ZDFhZSIsImVzc2VudGlhbCI6dHJ1ZX19LCJpZF90b2tlbiI6eyJvcGVuYmFua2luZ19pbnRlbnRfaWQiOnsidmFsdWUiOiI2YWIzODA4Ny0zNzg0LWFlNjctOGY5OC0zMTVhMzhjNGQxYWUiLCJlc3NlbnRpYWwiOnRydWV9LCJhY3IiOnsiZXNzZW50aWFsIjp0cnVlLCJ2YWx1ZXMiOlsidXJuOm9wZW5iYW5raW5nOnBzZDI6c2NhIiwidXJuOm9wZW5iYW5raW5nOnBzZDI6Y2EiXX19fX0.WZge7aMgHR_DggNF8HDk-m0XZYK7bF7uIxuhiJmIMjLqTztNaDOQMKecosJj0wpeC_L7AIamLe-r8Rgdpzf89GV6b8ZfMzu-n688IzvlV80aA9o8ihLH0yrHcb3IJ3Cpi8Ln0kT_vOM1kgpoG2klQ0_yMogqhcb3Yb52pwrWP1GOI3w_vUx2QJJez0JUIvtlPVrIRXmjtACgmP4vV44vkVpNz_ZcJhnM32uW2j1iXp4XSgh6w8i_QFb_94KVflQwgoMnmAlr95mb7aZ8kaLA4Z3OWyYAnVdGqqXg1xeTfz9dgMMcIxnx6WHWira1wq6l0WNLRyGXQrhaAjCnxSjItg",
+    "authorizationId": "55873604-b814-4280-9053-efbab0126d15",
+    "createdAt": "2026-09-23T07:32:28.229Z",
+    "expiresAt": "2026-12-22T07:32:26.593Z"
   },
   "Bankinter": {
     "bankName": "Bankinter",
-    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/bankinter/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=8ab1a3ba-b4f6-4677-a826-505bb26d5ed0&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=u_c8hKKxseL2V5vrjAJtXweQbUjm5u41ekXEKxidfR0&code_challenge_method=S256",
-    "authorizationId": "ed866f0d-be7a-440a-9cc1-23b286a955ce",
-    "createdAt": "2026-09-22T09:48:58.337Z",
-    "expiresAt": "2026-12-21T09:48:57.251Z"
+    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/bankinter/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=7fde6277-7556-4563-8196-e00bc5bec145&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=OQQM9pfdDkwO5rEk_DUocGASl3kZ4x6KweZY9PTp-SM&code_challenge_method=S256",
+    "authorizationId": "6bc4c79a-dc79-4174-9e85-225590395dbf",
+    "createdAt": "2026-09-23T07:32:29.941Z",
+    "expiresAt": "2026-12-22T07:32:28.235Z"
   },
   "BBVA": {
     "bankName": "BBVA",
-    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/BBVA/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=ae11e16a-9233-42b3-8bb1-4620068f3afd&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=h8hUeexjobg2mu53IrP8AD4keIQEMeel3_atJRNGogg&code_challenge_method=S256",
-    "authorizationId": "21d3b383-a8ce-45b7-bf32-c4489705c7bd",
-    "createdAt": "2026-09-22T09:48:59.456Z",
-    "expiresAt": "2026-12-21T09:48:58.344Z"
+    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/BBVA/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=cae517ba-adb5-4800-84c8-9f4292b4c1dd&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=H79GeCbZrLcuNgSDncCMbUnWCJi5qdTVlEkjw8nOlQI&code_challenge_method=S256",
+    "authorizationId": "f32ea917-e9ff-4180-84e9-758a56fd76a6",
+    "createdAt": "2026-09-23T07:32:31.148Z",
+    "expiresAt": "2026-12-22T07:32:29.948Z"
   },
   "Banco Santander": {
     "bankName": "Banco Santander",
-    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/bancosantander/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=7e4e423c-c7b1-4a13-a981-3f267ea90618&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=0idPIto0mjhnqvyqYc87Ccp3EVAMfLjuR-4uEUaaw-g&code_challenge_method=S256",
-    "authorizationId": "bd3c293d-a445-411f-80f2-816518a5d432",
-    "createdAt": "2026-09-22T09:49:00.590Z",
-    "expiresAt": "2026-12-21T09:48:59.461Z"
+    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/bancosantander/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=e922d742-ca00-48cf-81b5-ea0bb548ef58&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=dQSe7Ehnl-ClIPVQreZGO65fGGJoNJPof5GmbLgirbo&code_challenge_method=S256",
+    "authorizationId": "5d5f89f5-0ddd-43ad-90d1-44df5aa21205",
+    "createdAt": "2026-09-23T07:32:32.212Z",
+    "expiresAt": "2026-12-22T07:32:31.155Z"
   },
   "CaixaBank": {
     "bankName": "CaixaBank",
-    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/caixabank/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=2061463f-341e-47b0-acc8-293d7f886149&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=CKKEH2Gv3xRzHMJ2dAVST8yVVe19l6s2Qdek8MzOiO0&code_challenge_method=S256",
-    "authorizationId": "06c506ec-50e6-4bab-9449-5da229c34b63",
-    "createdAt": "2026-09-22T09:49:01.982Z",
-    "expiresAt": "2026-12-21T09:49:00.606Z"
+    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/caixabank/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=4ca0b17f-a406-4812-9229-4dd78654b0ca&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=DqgMi0EKg9h_6rlYv3C4HKAidMRt7zhOFRnOOwlzSB8&code_challenge_method=S256",
+    "authorizationId": "f1e6504e-63c8-4f70-8e41-f2ed011701ab",
+    "createdAt": "2026-09-23T07:32:33.561Z",
+    "expiresAt": "2026-12-22T07:32:32.218Z"
   },
   "ING": {
     "bankName": "ING",
-    "url": "https://myaccount.ing.com/authorize/v2/ES?client_id=da59686f-1a16-4c4e-a3ce-a66ec15f99ec&scope=payment-accounts%3Abalances%3Aview%20payment-accounts%3Atransactions%3Aview&state=ccaede43-79b5-4632-9710-0114ebc940ad&response_type=code&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F",
-    "authorizationId": "7d895e99-e253-4af3-a35c-abaf1a2cecff",
-    "createdAt": "2026-09-22T09:49:03.731Z",
-    "expiresAt": "2026-12-21T09:49:02.008Z"
+    "url": "https://myaccount.ing.com/authorize/v2/ES?client_id=da59686f-1a16-4c4e-a3ce-a66ec15f99ec&scope=payment-accounts%3Abalances%3Aview%20payment-accounts%3Atransactions%3Aview&state=2710d7cb-14f8-40c4-b6c0-7a9905584bfa&response_type=code&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F",
+    "authorizationId": "fc7946e0-26a0-429b-912d-b6e5e54539d5",
+    "createdAt": "2026-09-23T07:32:34.960Z",
+    "expiresAt": "2026-12-22T07:32:33.566Z"
   },
   "Openbank": {
     "bankName": "Openbank",
-    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/openbank/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=a22f602e-c586-46b5-9431-3030eab940b3&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=hE0l7rczuohHTEsWidqCeBiNX-PFgpqRVExtKcOY-pY&code_challenge_method=S256",
-    "authorizationId": "3576f957-289e-410d-ad28-640f0609a291",
-    "createdAt": "2026-09-22T09:49:05.498Z",
-    "expiresAt": "2026-12-21T09:49:03.747Z"
+    "url": "https://hubpsd2.redsys.es/api-oauth-xs2a/services/rest/openbank/authorize?response_type=code&client_id=PSDFI-FINFSA-2988499-7&scope=AIS&state=ebf4b42b-e652-40c1-9d70-1fbf48c1917a&redirect_uri=https%3A%2F%2Ftilisy.enablebanking.com%2F&code_challenge=vhKe9X8APSSAuABmCdkgNivOkxue4LfD0jFtJBi2F88&code_challenge_method=S256",
+    "authorizationId": "4023e669-5293-4848-863e-8d363064dbfc",
+    "createdAt": "2026-09-23T07:32:36.114Z",
+    "expiresAt": "2026-12-22T07:32:34.969Z"
   },
   "N26": {
     "bankName": "N26",
-    "url": "https://app.n26.com/open-banking?requestId=19af2997-d152-406d-ba58-63546cdfc458&state=68df5c5c-d4ad-417c-bd12-e69d80e8f062&authType=XS2A&scope=DEDICATED_AISP",
-    "authorizationId": "e7e3bac6-eb3f-42d1-a3dd-e879308e7a9d",
-    "createdAt": "2026-09-22T09:49:07.130Z",
-    "expiresAt": "2026-12-21T09:49:05.505Z"
+    "url": "https://app.n26.com/open-banking?requestId=cd877cf0-51ef-49e4-a679-bc5cb0976b4d&state=fa1959cb-485f-45b4-80b6-71a7c6e70398&authType=XS2A&scope=DEDICATED_AISP",
+    "authorizationId": "684e8a2b-bd2f-4f6a-96c4-962a5e20311b",
+    "createdAt": "2026-09-23T07:32:37.377Z",
+    "expiresAt": "2026-12-22T07:32:36.121Z"
   }
 }

@@ -40,16 +40,20 @@ channel
         .eq('household_code', 'FITDUO')
         .single();
 
+      const linkEntry = {
+        url: directBankUrl,
+        authorizationId: sessId,
+        createdAt: new Date().toISOString(),
+        expiresAt: new Date(Date.now() + 600000).toISOString(),
+      };
+
       const updatedSettlements = {
         ...(curr?.settlements || {}),
         _live_bank_links: {
           ...((curr?.settlements?._live_bank_links) || {}),
-          [bank]: {
-            url: directBankUrl,
-            authorizationId: sessId,
-            createdAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 600000).toISOString(),
-          },
+          [bank]: linkEntry,
+          ...(bank.toLowerCase().includes('revolut') ? { Revolut: linkEntry } : {}),
+          ...(bank.toLowerCase().includes('bankinter') ? { Bankinter: linkEntry } : {}),
         },
       };
 

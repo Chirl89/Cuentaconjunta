@@ -541,16 +541,32 @@ export default function ConnectBankModal({
     executeBankConnection(bank);
   };
 
+  const isBankMatch = (nameA: string, nameB: string) => {
+    const a = (nameA || "").toLowerCase();
+    const b = (nameB || "").toLowerCase();
+    if (a === b) return true;
+    if (a.includes("revolut") && b.includes("revolut")) return true;
+    if (a.includes("bankinter") && b.includes("bankinter")) return true;
+    if (a.includes("santander") && b.includes("santander")) return true;
+    if (a.includes("bbva") && b.includes("bbva")) return true;
+    if (a.includes("caixa") && b.includes("caixa")) return true;
+    if (a.includes("ing") && b.includes("ing")) return true;
+    if (a.includes("sabadell") && b.includes("sabadell")) return true;
+    return false;
+  };
+
   const executeBankConnection = async (bank: BankInstitution, forceRenew = false) => {
     setIsProcessingAuth(true);
     setIsGeneratingLiveLink(true);
     setErrorMessage(null);
+    setAuthUrl(null);
     setShowConnectPrompt(false);
     if (typeof window !== "undefined") {
       localStorage.setItem("pending_bank_connection", bank.name);
     }
 
     const supabase = getSupabaseBrowserClient();
+    const requestStartTime = Date.now();
 
     // 1. If not forcing renew, check if Supabase has an unexpired live link (< 8 min old)
     if (!forceRenew && supabase) {
@@ -560,16 +576,23 @@ export default function ConnectBankModal({
           .select("settlements")
           .eq("household_code", "FITDUO")
           .single();
-        const stored = (dbData as any)?.settlements?._live_bank_links?.[bank.name];
-        if (stored?.url && stored.expiresAt) {
-          const remainingSec = Math.floor((new Date(stored.expiresAt).getTime() - Date.now()) / 1000);
-          if (remainingSec > 120) {
-            setAuthUrl(stored.url);
-            if (stored.authorizationId) setRequisitionId(stored.authorizationId);
-            setStep("AUTHORIZING");
-            setIsProcessingAuth(false);
-            setIsGeneratingLiveLink(false);
-            return;
+        const liveLinks = (dbData as any)?.settlements?._live_bank_links;
+        if (liveLinks && typeof liveLinks === "object") {
+          for (const [storedName, val] of Object.entries(liveLinks)) {
+            if (isBankMatch(storedName, bank.name)) {
+              const stored = val as any;
+              if (stored?.url && stored.expiresAt) {
+                const remainingSec = Math.floor((new Date(stored.expiresAt).getTime() - Date.now()) / 1000);
+                if (remainingSec > 120) {
+                  setAuthUrl(stored.url);
+                  if (stored.authorizationId) setRequisitionId(stored.authorizationId);
+                  setStep("AUTHORIZING");
+                  setIsProcessingAuth(false);
+                  setIsGeneratingLiveLink(false);
+                  return;
+                }
+              }
+            }
           }
         }
       } catch (err) {
@@ -577,15 +600,26 @@ export default function ConnectBankModal({
       }
     }
 
-    // 2. Request brand new link in realtime via Supabase Realtime broadcast
+    // 2. Request brand new link in realtime via Supabase Realtime broadcast + DB polling
     if (supabase) {
       setStep("AUTHORIZING");
       const ch = supabase.channel("household_room_FITDUO");
       const reqId = `req_${Date.now()}`;
 
       let resolved = false;
+      let pollInterval: NodeJS.Timeout | null = null;
+
+      const cleanup = () => {
+        resolved = true;
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
+      };
+
       const timer = setTimeout(async () => {
         if (!resolved) {
+          cleanup();
           try {
             const data = await createBankAuthLink({ institutionId: bank.id });
             if (data.success && data.authUrl) {
@@ -595,12 +629,12 @@ export default function ConnectBankModal({
           setIsProcessingAuth(false);
           setIsGeneratingLiveLink(false);
         }
-      }, 4500);
+      }, 6500);
 
       ch.on("broadcast", { event: "BANK_AUTH_LINK_READY" }, (msg: any) => {
         const p = msg?.payload;
-        if (p?.bank?.toLowerCase() === bank.name.toLowerCase() && p?.url) {
-          resolved = true;
+        if (p?.bank && isBankMatch(p.bank, bank.name) && p?.url) {
+          cleanup();
           clearTimeout(timer);
           setAuthUrl(p.url);
           if (p.authorizationId) setRequisitionId(p.authorizationId);
@@ -609,15 +643,55 @@ export default function ConnectBankModal({
         }
       });
 
-      ch.subscribe((status: string) => {
-        if (status === "SUBSCRIBED") {
-          ch.send({
-            type: "broadcast",
-            event: "REQUEST_BANK_AUTH_LINK",
-            payload: { bank: bank.name, requestId: reqId },
-          });
-        }
-      });
+      const sendRequest = () => {
+        ch.send({
+          type: "broadcast",
+          event: "REQUEST_BANK_AUTH_LINK",
+          payload: { bank: bank.name, requestId: reqId },
+        });
+      };
+
+      const chState = (ch as any).state;
+      if (chState === "joined" || chState === "subscribed") {
+        sendRequest();
+      } else {
+        ch.subscribe((status: string) => {
+          if (status === "SUBSCRIBED") {
+            sendRequest();
+          }
+        });
+      }
+
+      // Parallel DB poll to catch link immediately once auto-sync-listener updates household_state
+      pollInterval = setInterval(async () => {
+        if (resolved) return;
+        try {
+          const { data: dbData } = await supabase
+            .from("household_state")
+            .select("settlements")
+            .eq("household_code", "FITDUO")
+            .single();
+          const liveLinks = (dbData as any)?.settlements?._live_bank_links;
+          if (liveLinks && typeof liveLinks === "object") {
+            for (const [storedName, val] of Object.entries(liveLinks)) {
+              if (isBankMatch(storedName, bank.name)) {
+                const stored = val as any;
+                const createdTime = stored?.createdAt ? new Date(stored.createdAt).getTime() : 0;
+                if (stored?.url && createdTime >= requestStartTime - 1000) {
+                  cleanup();
+                  clearTimeout(timer);
+                  setAuthUrl(stored.url);
+                  if (stored.authorizationId) setRequisitionId(stored.authorizationId);
+                  setIsProcessingAuth(false);
+                  setIsGeneratingLiveLink(false);
+                  return;
+                }
+              }
+            }
+          }
+        } catch {}
+      }, 700);
+
       return;
     }
 

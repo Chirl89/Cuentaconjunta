@@ -342,21 +342,30 @@ export default function HomePage() {
           const supabase = getSupabaseBrowserClient();
           if (supabase) {
             const ch = supabase.channel("household_room_FITDUO");
-            ch.subscribe((status: any) => {
-              if (status === "SUBSCRIBED") {
-                ch.send({
-                  type: "broadcast",
-                  event: "BANK_AUTH_CODE",
-                  payload: {
-                    code,
-                    bank: detectedBank,
-                    psuIp: clientIp,
-                    psuUserAgent: userAgent,
-                    timestamp: Date.now(),
-                  },
-                });
-              }
-            });
+            const sendAuthCode = () => {
+              ch.send({
+                type: "broadcast",
+                event: "BANK_AUTH_CODE",
+                payload: {
+                  code,
+                  bank: detectedBank,
+                  psuIp: clientIp,
+                  psuUserAgent: userAgent,
+                  timestamp: Date.now(),
+                },
+              });
+            };
+
+            const chState = (ch as any).state;
+            if (chState === "joined" || chState === "subscribed") {
+              sendAuthCode();
+            } else {
+              ch.subscribe((status: any) => {
+                if (status === "SUBSCRIBED") {
+                  sendAuthCode();
+                }
+              });
+            }
           }
         } catch (err) {
           console.warn("Could not broadcast bank auth code:", err);
