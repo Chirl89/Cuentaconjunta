@@ -3,6 +3,7 @@ import {
   classifyConcept,
   normalizeConcept,
   extractMerchantPattern,
+  isMerchantMatch,
   findLearnedCategory,
   recordLearning,
   CategoryLearningItem,
@@ -275,6 +276,26 @@ describe("Paso 7: Motor de Categorización Inteligente con IA, Feedback Loop y R
       expect(result.split).toBe("50/50");
       expect(result.category).toBe("Restaurantes & Ocio");
       expect(result.categoryColor).toBe("#F59E0B");
+    });
+  });
+
+  describe("5. Auto-Asignación en Tiempo Real de Gastos con Mismo Literal (isMerchantMatch)", () => {
+    it("detecta coincidencia exacta de literales bancarios", () => {
+      expect(isMerchantMatch("MERCADONA", "MERCADONA")).toBe(true);
+      expect(isMerchantMatch("  mercadona  ", "MERCADONA")).toBe(true);
+      expect(isMerchantMatch("Netflix", "netflix")).toBe(true);
+    });
+
+    it("detecta comercios idénticos con ruido bancario o sufijos (S.A., TPV, ciudad)", () => {
+      expect(isMerchantMatch("MERCADONA S.A.", "COMPRA EN MERCADONA MADRID")).toBe(true);
+      expect(isMerchantMatch("UBER EATS", "PAGO TPV UBER EATS")).toBe(true);
+      expect(isMerchantMatch("Restaurante Tagliatella", "Tagliatella")).toBe(true);
+    });
+
+    it("no produce falsos positivos entre comercios distintos", () => {
+      expect(isMerchantMatch("Bar Pepe", "Embarque")).toBe(false);
+      expect(isMerchantMatch("Mercadona", "Carrefour")).toBe(false);
+      expect(isMerchantMatch("Endesa", "Iberdrola")).toBe(false);
     });
   });
 });

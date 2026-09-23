@@ -51,6 +51,38 @@ export function extractMerchantPattern(rawMerchant: string): string {
 }
 
 /**
+ * Checks whether two merchant strings refer to the same merchant or share the same literal.
+ * Used for real-time auto-assignment and bulk propagation.
+ */
+export function isMerchantMatch(rawA: string, rawB: string): boolean {
+  if (!rawA || !rawB) return false;
+
+  const trimA = rawA.trim().toLowerCase();
+  const trimB = rawB.trim().toLowerCase();
+  if (trimA === trimB) return true;
+
+  const normA = normalizeConcept(rawA);
+  const normB = normalizeConcept(rawB);
+  if (normA && normA === normB) return true;
+
+  const patA = extractMerchantPattern(rawA);
+  const patB = extractMerchantPattern(rawB);
+  if (patA && patB && patA === patB) return true;
+
+  // Word boundary or prefix matching for patterns >= 3 characters
+  if (patA && patA.length >= 3 && normB) {
+    const escapedA = patA.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(^|\\s)${escapedA}(\\s|$)`, "i").test(normB)) return true;
+  }
+  if (patB && patB.length >= 3 && normA) {
+    const escapedB = patB.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`(^|\\s)${escapedB}(\\s|$)`, "i").test(normA)) return true;
+  }
+
+  return false;
+}
+
+/**
  * Finds a learned category for a given merchant from the feedback loop repository.
  * Evaluates:
  * 1. Exact match of normalized merchant pattern.

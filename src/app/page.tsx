@@ -19,6 +19,7 @@ import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { isMerchantMatch } from "@/lib/categorization";
 import versionData from "../../version.json";
 import {
   TrendingDown,
@@ -517,10 +518,22 @@ export default function HomePage() {
   };
 
   const handleCategoryChange = (id: string, newCategory: string) => {
-    updateTransactionCategory(id, newCategory);
     const targetTx = transactions.find((t) => t.id === id);
-    const merchantName = targetTx?.merchant ? ` para "${targetTx.merchant}"` : "";
-    showToast(`✓ Categoría actualizada a "${newCategory}" y memorizada${merchantName}`);
+    updateTransactionCategory(id, newCategory);
+    if (targetTx) {
+      const matchingCount = transactions.filter(
+        (t) => t.id !== id && isMerchantMatch(t.merchant, targetTx.merchant)
+      ).length;
+      if (matchingCount > 0) {
+        showToast(
+          `✓ Categoría "${newCategory}" aplicada a "${targetTx.merchant}" y auto-asignada a ${matchingCount} gastos idénticos`
+        );
+      } else {
+        showToast(`✓ Categoría actualizada a "${newCategory}" para "${targetTx.merchant}"`);
+      }
+    } else {
+      showToast(`✓ Categoría actualizada a "${newCategory}"`);
+    }
   };
 
   const handleSaveNames = (e: React.FormEvent) => {

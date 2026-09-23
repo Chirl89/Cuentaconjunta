@@ -18,6 +18,11 @@ import {
   runCategorizationPipeline,
   recordLearning,
   extractMerchantPattern,
+  isMerchantMatch,
+  matchesRule,
+  resolveRuleAssignment,
+  evaluateRules,
+  findLearnedCategory,
 } from "@/lib/categorization";
 
 export type { AssignmentRule, CategoryLearningItem };
@@ -1377,35 +1382,143 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         updatedAt: now,
       };
       persistRules((prev) => [newRule, ...prev]);
+
+      if (newRule.isActive) {
+        persistTransactions((prevTxs) => {
+          return prevTxs.map((tx) => {
+            if (tx.status === "classified") return tx;
+            if (matchesRule(newRule, tx)) {
+              const { payer, split } = resolveRuleAssignment(newRule, tx.accountLabel || undefined);
+              const catName = newRule.categoryName || tx.category;
+              const foundColor = (categories.find((c) => c.name === catName) || CATEGORIES_LIST.find((c) => c.name === catName))?.color || tx.categoryColor;
+              return {
+                ...tx,
+                status: "auto_assigned",
+                split,
+                payer,
+                category: catName,
+                categoryColor: foundColor,
+                autoAssignedRuleId: newRule.id,
+                autoAssignedReason: newRule.name ? `Regla: ${newRule.name}` : `Regla automática "${newRule.pattern}"`,
+                updatedAt: Date.now(),
+              };
+            }
+            return tx;
+          });
+        });
+      }
     },
-    [persistRules]
+    [persistRules, persistTransactions, categories]
   );
 
   const updateRule = useCallback(
     (id: string, updates: Partial<AssignmentRule>) => {
       const now = new Date().toISOString();
+      let updatedTarget: AssignmentRule | undefined;
       persistRules((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: now } : r))
+        prev.map((r) => {
+          if (r.id === id) {
+            updatedTarget = { ...r, ...updates, updatedAt: now };
+            return updatedTarget;
+          }
+          return r;
+        })
       );
+
+      if (updatedTarget && updatedTarget.isActive) {
+        const rule = updatedTarget;
+        persistTransactions((prevTxs) =>
+          prevTxs.map((tx) => {
+            if (tx.status === "classified") return tx;
+            if (matchesRule(rule, tx)) {
+              const { payer, split } = resolveRuleAssignment(rule, tx.accountLabel || undefined);
+              const catName = rule.categoryName || tx.category;
+              const foundColor = (categories.find((c) => c.name === catName) || CATEGORIES_LIST.find((c) => c.name === catName))?.color || tx.categoryColor;
+              return {
+                ...tx,
+                status: "auto_assigned",
+                split,
+                payer,
+                category: catName,
+                categoryColor: foundColor,
+                autoAssignedRuleId: rule.id,
+                autoAssignedReason: rule.name ? `Regla: ${rule.name}` : `Regla automática "${rule.pattern}"`,
+                updatedAt: Date.now(),
+              };
+            }
+            return tx;
+          })
+        );
+      }
     },
-    [persistRules]
+    [persistRules, persistTransactions, categories]
   );
 
   const deleteRule = useCallback(
     (id: string) => {
       persistRules((prev) => prev.filter((r) => r.id !== id));
+      persistTransactions((prevTxs) =>
+        prevTxs.map((tx) =>
+          tx.status === "auto_assigned" && tx.autoAssignedRuleId === id
+            ? { ...tx, status: "pending", autoAssignedRuleId: undefined, autoAssignedReason: undefined, updatedAt: Date.now() }
+            : tx
+        )
+      );
     },
-    [persistRules]
+    [persistRules, persistTransactions]
   );
 
   const toggleRule = useCallback(
     (id: string) => {
       const now = new Date().toISOString();
+      let toggledRule: AssignmentRule | undefined;
+      let nextActiveState = false;
+
       persistRules((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, isActive: !r.isActive, updatedAt: now } : r))
+        prev.map((r) => {
+          if (r.id === id) {
+            nextActiveState = !r.isActive;
+            toggledRule = { ...r, isActive: nextActiveState, updatedAt: now };
+            return toggledRule;
+          }
+          return r;
+        })
       );
+
+      persistTransactions((prevTxs) => {
+        if (!nextActiveState) {
+          return prevTxs.map((tx) =>
+            tx.status === "auto_assigned" && tx.autoAssignedRuleId === id
+              ? { ...tx, status: "pending", autoAssignedRuleId: undefined, autoAssignedReason: undefined, updatedAt: Date.now() }
+              : tx
+          );
+        } else if (toggledRule) {
+          const rule = toggledRule;
+          return prevTxs.map((tx) => {
+            if (tx.status === "classified") return tx;
+            if (matchesRule(rule, tx)) {
+              const { payer, split } = resolveRuleAssignment(rule, tx.accountLabel || undefined);
+              const catName = rule.categoryName || tx.category;
+              const foundColor = (categories.find((c) => c.name === catName) || CATEGORIES_LIST.find((c) => c.name === catName))?.color || tx.categoryColor;
+              return {
+                ...tx,
+                status: "auto_assigned",
+                split,
+                payer,
+                category: catName,
+                categoryColor: foundColor,
+                autoAssignedRuleId: rule.id,
+                autoAssignedReason: rule.name ? `Regla: ${rule.name}` : `Regla automática "${rule.pattern}"`,
+                updatedAt: Date.now(),
+              };
+            }
+            return tx;
+          });
+        }
+        return prevTxs;
+      });
     },
-    [persistRules]
+    [persistRules, persistTransactions, categories]
   );
 
   const learnCategory = useCallback(
@@ -1954,19 +2067,41 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   const classifyTransaction = (id: string, split: SplitType, payer?: PayerType) => {
     const now = Date.now();
-    persistTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status: "classified",
-              split,
-              payer: payer || t.payer,
-              updatedAt: now,
-            }
-          : t
-      )
-    );
+    persistTransactions((prev) => {
+      const target = prev.find((t) => t.id === id);
+      if (!target) return prev;
+
+      const targetMerchant = target.merchant;
+      const targetPayer = payer || target.payer;
+
+      return prev.map((t) => {
+        if (t.id === id) {
+          return {
+            ...t,
+            status: "classified",
+            split,
+            payer: targetPayer,
+            updatedAt: now,
+          };
+        }
+
+        // Auto-assign any other pending transaction with the exact same literal or matching merchant
+        if (t.status === "pending" && isMerchantMatch(t.merchant, targetMerchant)) {
+          return {
+            ...t,
+            status: "auto_assigned",
+            split,
+            payer: targetPayer,
+            category: target.category || t.category,
+            categoryColor: target.categoryColor || t.categoryColor,
+            autoAssignedReason: `Auto-asignado por coincidencia con "${targetMerchant}"`,
+            updatedAt: now,
+          };
+        }
+
+        return t;
+      });
+    });
   };
 
   const reclassifyTransaction = (id: string, split: SplitType) => {
@@ -1981,24 +2116,71 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const color = found ? found.color : "#64748B";
     const now = Date.now();
 
-    let targetMerchant: string | null = null;
+    const targetTx = transactions.find((t) => t.id === id);
+    if (!targetTx) return;
+
+    const targetMerchant = targetTx.merchant;
+    const targetSplit = targetTx.split;
+    const targetPayer = targetTx.payer;
+
+    // Continuous feedback learning: memorize user's preference
+    learnCategory(targetMerchant, newCategoryName);
+
+    // Update target transaction AND real-time auto-assign all transactions with the same literal/merchant
     persistTransactions((prev) =>
       prev.map((t) => {
-        if (t.id !== id) return t;
-        targetMerchant = t.merchant;
+        if (t.id === id) {
+          return {
+            ...t,
+            category: newCategoryName,
+            categoryColor: color,
+            updatedAt: now,
+          };
+        }
+
+        // Check if t matches targetTx merchant/literal
+        const matches = isMerchantMatch(t.merchant, targetMerchant);
+        if (!matches) return t;
+
+        // If already classified/confirmed, only update category and color
+        if (t.status === "classified") {
+          return {
+            ...t,
+            category: newCategoryName,
+            categoryColor: color,
+            updatedAt: now,
+          };
+        }
+
+        // Check if an active rule matches it
+        const ruleResult = evaluateRules(rules, t);
+        if (ruleResult) {
+          return {
+            ...t,
+            status: "auto_assigned",
+            category: ruleResult.categoryName || newCategoryName,
+            categoryColor: color,
+            split: ruleResult.split,
+            payer: ruleResult.payer,
+            autoAssignedRuleId: ruleResult.matchedRule.id,
+            autoAssignedReason: ruleResult.reason,
+            updatedAt: now,
+          };
+        }
+
+        // Otherwise auto-assign to same split & category
         return {
           ...t,
+          status: "auto_assigned",
           category: newCategoryName,
           categoryColor: color,
+          split: targetSplit || "50/50",
+          payer: targetPayer || t.payer,
+          autoAssignedReason: `Auto-asignado por coincidencia con "${targetMerchant}"`,
           updatedAt: now,
         };
       })
     );
-
-    // Continuous feedback learning: memorize user's preference for future movements
-    if (targetMerchant) {
-      learnCategory(targetMerchant, newCategoryName);
-    }
   };
 
   const confirmAutoAssigned = useCallback(
@@ -2048,8 +2230,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const autoAssignedTransactions = useMemo(
-    () => filteredTransactions.filter((t) => t.status === "auto_assigned"),
-    [filteredTransactions]
+    () =>
+      transactions
+        .filter((t) => t.status === "auto_assigned")
+        .sort((a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)),
+    [transactions]
   );
 
   const allPendingTransactions = useMemo(
