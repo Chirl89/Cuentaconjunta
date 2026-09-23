@@ -20,6 +20,7 @@ import {
   detectCardDetails,
   ParsedBankMovement,
 } from "@/lib/bank/importer";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Landmark,
   X,
@@ -161,6 +162,7 @@ export default function ConnectBankModal({
   const [requisitionId, setRequisitionId] = useState<string | null>(initialRequisitionId || null);
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [isProcessingAuth, setIsProcessingAuth] = useState(false);
+  const [isGeneratingLiveLink, setIsGeneratingLiveLink] = useState(false);
   const [discoveredAccounts, setDiscoveredAccounts] = useState<DiscoveredAccountItem[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -539,14 +541,87 @@ export default function ConnectBankModal({
     executeBankConnection(bank);
   };
 
-  const executeBankConnection = async (bank: BankInstitution) => {
+  const executeBankConnection = async (bank: BankInstitution, forceRenew = false) => {
     setIsProcessingAuth(true);
+    setIsGeneratingLiveLink(true);
     setErrorMessage(null);
     setShowConnectPrompt(false);
     if (typeof window !== "undefined") {
       localStorage.setItem("pending_bank_connection", bank.name);
     }
 
+    const supabase = getSupabaseBrowserClient();
+
+    // 1. If not forcing renew, check if Supabase has an unexpired live link (< 8 min old)
+    if (!forceRenew && supabase) {
+      try {
+        const { data: dbData } = await supabase
+          .from("household_state")
+          .select("settlements")
+          .eq("household_code", "FITDUO")
+          .single();
+        const stored = (dbData as any)?.settlements?._live_bank_links?.[bank.name];
+        if (stored?.url && stored.expiresAt) {
+          const remainingSec = Math.floor((new Date(stored.expiresAt).getTime() - Date.now()) / 1000);
+          if (remainingSec > 120) {
+            setAuthUrl(stored.url);
+            if (stored.authorizationId) setRequisitionId(stored.authorizationId);
+            setStep("AUTHORIZING");
+            setIsProcessingAuth(false);
+            setIsGeneratingLiveLink(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Could not check Supabase live links:", err);
+      }
+    }
+
+    // 2. Request brand new link in realtime via Supabase Realtime broadcast
+    if (supabase) {
+      setStep("AUTHORIZING");
+      const ch = supabase.channel("household_room_FITDUO");
+      const reqId = `req_${Date.now()}`;
+
+      let resolved = false;
+      const timer = setTimeout(async () => {
+        if (!resolved) {
+          try {
+            const data = await createBankAuthLink({ institutionId: bank.id });
+            if (data.success && data.authUrl) {
+              setAuthUrl(data.authUrl);
+            }
+          } catch {}
+          setIsProcessingAuth(false);
+          setIsGeneratingLiveLink(false);
+        }
+      }, 4500);
+
+      ch.on("broadcast", { event: "BANK_AUTH_LINK_READY" }, (msg: any) => {
+        const p = msg?.payload;
+        if (p?.bank?.toLowerCase() === bank.name.toLowerCase() && p?.url) {
+          resolved = true;
+          clearTimeout(timer);
+          setAuthUrl(p.url);
+          if (p.authorizationId) setRequisitionId(p.authorizationId);
+          setIsProcessingAuth(false);
+          setIsGeneratingLiveLink(false);
+        }
+      });
+
+      ch.subscribe((status: string) => {
+        if (status === "SUBSCRIBED") {
+          ch.send({
+            type: "broadcast",
+            event: "REQUEST_BANK_AUTH_LINK",
+            payload: { bank: bank.name, requestId: reqId },
+          });
+        }
+      });
+      return;
+    }
+
+    // Fallback if no Supabase available
     try {
       const data = await createBankAuthLink({
         institutionId: bank.id,
@@ -568,6 +643,7 @@ export default function ConnectBankModal({
       setErrorMessage(err.message || "Error al conectar con la entidad");
     } finally {
       setIsProcessingAuth(false);
+      setIsGeneratingLiveLink(false);
     }
   };
 
@@ -1336,7 +1412,19 @@ export default function ConnectBankModal({
                 </p>
               </div>
 
-              {authUrl && (
+              {isGeneratingLiveLink ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-3 animate-in fade-in">
+                  <RefreshCw className="w-8 h-8 text-[#00A37A] animate-spin" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold text-slate-800">
+                      Generando enlace oficial en directo con {selectedBank?.name}...
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Creando pasarela oficial PSD2 autorizada (validez 10 min)
+                    </p>
+                  </div>
+                </div>
+              ) : authUrl ? (
                 <div className="pt-2 space-y-3">
                   <a
                     href={authUrl}
@@ -1348,14 +1436,28 @@ export default function ConnectBankModal({
                     <ExternalLink className="w-4 h-4" />
                   </a>
 
+                  <div className="flex items-center justify-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => selectedBank && executeBankConnection(selectedBank, true)}
+                      disabled={isGeneratingLiveLink}
+                      className="text-[11px] font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1.5 py-1.5 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs"
+                      title="Si el banco te indica que el enlace ha caducado, pulsa aquí para generar uno nuevo al instante"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isGeneratingLiveLink ? "animate-spin" : ""}`} />
+                      <span>🔄 ¿Enlace caducado? Renovar enlace nuevo</span>
+                    </button>
+                  </div>
+
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-left text-[11px] text-slate-500 space-y-1">
                     <p className="font-bold text-slate-700">ℹ️ Pasos para conectar tu cuenta real:</p>
-                    <p>1. Se abrirá la pasarela segura oficial de Enable Banking.</p>
-                    <p>2. Elige tu cuenta o identifícate en la app/web de tu entidad bancaria.</p>
-                    <p>3. Al terminar, la pasarela te devolverá a la app con tus cuentas reales conectadas.</p>
+                    <p>1. Se abrirá la pasarela segura oficial de {selectedBank?.name || "tu entidad"}.</p>
+                    <p>2. Introduce tu teléfono o escanea el QR para autorizar con tu app bancaria.</p>
+                    <p>3. Los enlaces tienen 10 minutos de validez. Si tardaste en entrar, pulsa arriba <strong>"Renovar enlace nuevo"</strong>.</p>
+                    <p>4. Al terminar, volverás a la app con tus cuentas reales conectadas.</p>
                   </div>
                 </div>
-              )}
+              ) : null}
             </div>
           )}
 

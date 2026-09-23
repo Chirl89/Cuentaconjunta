@@ -8,7 +8,10 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
-    "auth:links": "node scripts/generate-all-auth-links.js"
+    "auth:links": "node scripts/generate-all-auth-links.js",
+    "auth:revolut": "node scripts/get-direct-bank-link.js Revolut",
+    "auth:bankinter": "node scripts/get-direct-bank-link.js Bankinter",
+    "listener": "node scripts/auto-sync-listener.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",

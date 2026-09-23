@@ -105,5 +105,9 @@ async function getDirectBankLink(bankName = 'Bankinter') {
   return { sessId, directBankUrl: directBankUrl || data.url };
 }
 
-const targetBank = process.argv[2] || 'Bankinter';
-getDirectBankLink(targetBank).catch(console.error);
+if (require.main === module) {
+  const targetBank = process.argv[2] || 'Bankinter';
+  getDirectBankLink(targetBank).catch(console.error);
+}
+
+module.exports = { getDirectBankLink };

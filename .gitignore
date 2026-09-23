@@ -35,3 +35,4 @@ data/*.html
 data/*.png
 *.xls
 *.xlsx
+supabase/.temp/

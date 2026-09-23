@@ -17,10 +17,67 @@ const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'sb_publishable
 console.log('--- FitDuo Auto-Sync Listener Starting ---');
 console.log('📡 Connecting to Supabase Realtime channel: household_room_FITDUO...');
 
+const { getDirectBankLink } = require('./get-direct-bank-link');
+
 const supabase = createClient(supabaseUrl, supabaseKey);
 const channel = supabase.channel('household_room_FITDUO');
 
 channel
+  .on('broadcast', { event: 'REQUEST_BANK_AUTH_LINK' }, async (event) => {
+    const payload = event?.payload || {};
+    const bank = payload.bank || 'Revolut';
+    const requestId = payload.requestId;
+
+    console.log(`\n⚡ [REALTIME EVENT] Generating live on-demand auth link for ${bank}...`);
+    try {
+      const { sessId, directBankUrl } = await getDirectBankLink(bank);
+      console.log(`✅ [${bank}] Live link generated: ${directBankUrl.slice(0, 60)}...`);
+
+      // Save to Supabase household_state under settlements._live_bank_links
+      const { data: curr } = await supabase
+        .from('household_state')
+        .select('settlements')
+        .eq('household_code', 'FITDUO')
+        .single();
+
+      const updatedSettlements = {
+        ...(curr?.settlements || {}),
+        _live_bank_links: {
+          ...((curr?.settlements?._live_bank_links) || {}),
+          [bank]: {
+            url: directBankUrl,
+            authorizationId: sessId,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 600000).toISOString(),
+          },
+        },
+      };
+
+      await supabase
+        .from('household_state')
+        .update({ settlements: updatedSettlements })
+        .eq('household_code', 'FITDUO');
+
+      // Broadcast back to the webapp
+      channel.send({
+        type: 'broadcast',
+        event: 'BANK_AUTH_LINK_READY',
+        payload: {
+          bank,
+          requestId,
+          url: directBankUrl,
+          authorizationId: sessId,
+        },
+      });
+    } catch (err) {
+      console.error(`❌ Failed to generate live auth link for ${bank}:`, err.message);
+      channel.send({
+        type: 'broadcast',
+        event: 'BANK_AUTH_LINK_ERROR',
+        payload: { bank, requestId, error: err.message },
+      });
+    }
+  })
   .on('broadcast', { event: 'BANK_AUTH_CODE' }, async (event) => {
     const payload = event?.payload || {};
     const code = payload.code;
