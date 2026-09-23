@@ -615,8 +615,10 @@ export default function HomePage() {
                 {jointCategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart key={`piechart-joint-${jointCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
                         <Pie
+                          key={`pie-joint-${jointCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
+                          isAnimationActive={false}
                           data={jointCategoriesBreakdown}
                           innerRadius={76}
                           outerRadius={100}
@@ -797,8 +799,10 @@ export default function HomePage() {
                 {memberACategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart key={`piechart-memberA-${memberACategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
                         <Pie
+                          key={`pie-memberA-${memberACategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
+                          isAnimationActive={false}
                           data={memberACategoriesBreakdown}
                           innerRadius={76}
                           outerRadius={100}
@@ -945,8 +949,10 @@ export default function HomePage() {
                 {memberBCategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
+                      <PieChart key={`piechart-memberB-${memberBCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
                         <Pie
+                          key={`pie-memberB-${memberBCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
+                          isAnimationActive={false}
                           data={memberBCategoriesBreakdown}
                           innerRadius={76}
                           outerRadius={100}

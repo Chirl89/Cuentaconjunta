@@ -2089,45 +2089,49 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
   };
 
-  const updateTransactionCategory = (id: string, newCategoryName: string) => {
-    const found = categories.find((c) => c.name === newCategoryName) || CATEGORIES_LIST.find((c) => c.name === newCategoryName);
-    const color = found ? found.color : "#64748B";
-    const now = Date.now();
+  const updateTransactionCategory = useCallback(
+    (id: string, newCategoryName: string) => {
+      const found =
+        categories.find((c) => c.name === newCategoryName) ||
+        CATEGORIES_LIST.find((c) => c.name === newCategoryName);
+      const color = found ? found.color : "#64748B";
+      const now = Date.now();
 
-    const targetTx = transactions.find((t) => t.id === id);
-    if (!targetTx) return;
+      persistTransactions((prev) => {
+        const targetTx = prev.find((t) => t.id === id);
+        const targetMerchant = targetTx?.merchant || "";
 
-    const targetMerchant = targetTx.merchant;
-
-    // Continuous feedback learning: memorize user's preference for future movements
-    learnCategory(targetMerchant, newCategoryName);
-
-    // Update category across all transactions with the same literal/merchant, preserving their status and split intact
-    persistTransactions((prev) =>
-      prev.map((t) => {
-        if (t.id === id) {
-          return {
-            ...t,
-            category: newCategoryName,
-            categoryColor: color,
-            updatedAt: now,
-          };
+        // Continuous feedback learning: memorize user's preference for future movements
+        if (targetMerchant) {
+          learnCategory(targetMerchant, newCategoryName);
         }
 
-        // Check if t matches targetTx merchant/literal
-        const matches = isMerchantMatch(t.merchant, targetMerchant);
-        if (!matches) return t;
+        return prev.map((t) => {
+          if (t.id === id) {
+            return {
+              ...t,
+              category: newCategoryName,
+              categoryColor: color,
+              updatedAt: now,
+            };
+          }
 
-        // Simply update default category & color, keep status intact so they never disappear from view/triage
-        return {
-          ...t,
-          category: newCategoryName,
-          categoryColor: color,
-          updatedAt: now,
-        };
-      })
-    );
-  };
+          // Check if t matches targetTx merchant/literal
+          if (targetMerchant && isMerchantMatch(t.merchant, targetMerchant)) {
+            return {
+              ...t,
+              category: newCategoryName,
+              categoryColor: color,
+              updatedAt: now,
+            };
+          }
+
+          return t;
+        });
+      });
+    },
+    [categories, learnCategory, persistTransactions]
+  );
 
   const confirmAutoAssigned = useCallback(
     (id: string) => {
@@ -2219,7 +2223,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
   // Totals
   const totalJointSpent = useMemo(
-    () => jointClassifiedTransactions.reduce((sum, t) => sum + t.amount, 0),
+    () => jointClassifiedTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0),
     [jointClassifiedTransactions]
   );
 
@@ -2227,7 +2231,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     () =>
       memberAClassifiedTransactions
         .filter((t) => !t.isCredit)
-        .reduce((sum, t) => sum + t.amount, 0),
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
     [memberAClassifiedTransactions]
   );
 
@@ -2235,44 +2239,59 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     () =>
       memberBClassifiedTransactions
         .filter((t) => !t.isCredit)
-        .reduce((sum, t) => sum + t.amount, 0),
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
     [memberBClassifiedTransactions]
   );
 
   // Category breakdown builders helper
-  const buildCategoryBreakdown = (list: Transaction[]) => {
-    const map = new Map<string, { value: number; color: string; count: number }>();
-    for (const t of list) {
-      if (t.isCredit) continue;
-      const existing = map.get(t.category);
-      if (existing) {
-        existing.value += t.amount;
-        existing.count += 1;
-      } else {
-        map.set(t.category, { value: t.amount, color: t.categoryColor, count: 1 });
+  const buildCategoryBreakdown = useCallback(
+    (list: Transaction[]) => {
+      const map = new Map<string, { value: number; color: string; count: number }>();
+      for (const t of list) {
+        if (t.isCredit || t.movementType === "transfer_to_joint") continue;
+
+        const catObj =
+          categories.find((c) => c.name.toLowerCase().trim() === (t.category || "").toLowerCase().trim()) ||
+          CATEGORIES_LIST.find((c) => c.name.toLowerCase().trim() === (t.category || "").toLowerCase().trim());
+
+        const catName = catObj ? catObj.name : (t.category || "Otros");
+        const catColor = catObj ? catObj.color : (t.categoryColor || "#64748B");
+        const amt = Math.abs(t.amount);
+
+        const existing = map.get(catName);
+        if (existing) {
+          existing.value += amt;
+          existing.count += 1;
+        } else {
+          map.set(catName, { value: amt, color: catColor, count: 1 });
+        }
       }
-    }
-    return Array.from(map.entries()).map(([name, data]) => ({
-      name,
-      value: Math.round(data.value * 100) / 100,
-      color: data.color,
-      count: data.count,
-    }));
-  };
+      return Array.from(map.entries())
+        .filter(([, data]) => data.value > 0)
+        .map(([name, data]) => ({
+          name,
+          value: Math.round(data.value * 100) / 100,
+          color: data.color,
+          count: data.count,
+        }))
+        .sort((a, b) => b.value - a.value);
+    },
+    [categories]
+  );
 
   const jointCategoriesBreakdown = useMemo(
     () => buildCategoryBreakdown(jointClassifiedTransactions),
-    [jointClassifiedTransactions]
+    [jointClassifiedTransactions, buildCategoryBreakdown]
   );
 
   const memberACategoriesBreakdown = useMemo(
     () => buildCategoryBreakdown(memberAClassifiedTransactions),
-    [memberAClassifiedTransactions]
+    [memberAClassifiedTransactions, buildCategoryBreakdown]
   );
 
   const memberBCategoriesBreakdown = useMemo(
     () => buildCategoryBreakdown(memberBClassifiedTransactions),
-    [memberBClassifiedTransactions]
+    [memberBClassifiedTransactions, buildCategoryBreakdown]
   );
 
   const activeSettlement = settlementCutoffs[selectedMonth] || null;
