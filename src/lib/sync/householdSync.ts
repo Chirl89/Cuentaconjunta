@@ -2,13 +2,21 @@ import { getSupabaseBrowserClient } from "@/lib/supabase";
 import type { Transaction, BankAccount } from "@/context/TransactionsContext";
 
 export interface SyncMessage {
-  type: "TRANSACTIONS_SYNC" | "ACCOUNTS_SYNC" | "SETTLEMENTS_SYNC" | "REQUEST_SYNC";
+  type:
+    | "TRANSACTIONS_SYNC"
+    | "ACCOUNTS_SYNC"
+    | "SETTLEMENTS_SYNC"
+    | "REQUEST_SYNC"
+    | "RULES_SYNC"
+    | "LEARNINGS_SYNC";
   inviteCode: string;
   senderId: string;
   timestamp: number;
   transactions?: Transaction[];
   accounts?: BankAccount[];
   settlements?: Record<string, any>;
+  rules?: any[];
+  learnings?: any[];
 }
 
 // Unique client session ID for this browser tab/device to avoid echo loops

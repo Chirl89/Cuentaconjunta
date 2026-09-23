@@ -179,6 +179,15 @@ export default function HomePage() {
     removeAccount,
     syncBankFeed,
     clearAllTransactions,
+    rules,
+    learnings,
+    addRule,
+    updateRule,
+    deleteRule,
+    toggleRule,
+    confirmAutoAssigned,
+    confirmAllAutoAssigned,
+    autoAssignedTransactions,
   } = useTransactions();
 
   // Gasto acumulado en tarjeta en el mes seleccionado
@@ -271,6 +280,20 @@ export default function HomePage() {
 
   const [bankAuthCodeReceived, setBankAuthCodeReceived] = useState<string | null>(null);
   const [bankAuthCodeCopied, setBankAuthCodeCopied] = useState(false);
+
+  const [inputNameA, setInputNameA] = useState(memberAName);
+  const [inputNameB, setInputNameB] = useState(memberBName);
+  useEffect(() => {
+    setInputNameA(memberAName);
+  }, [memberAName]);
+  useEffect(() => {
+    setInputNameB(memberBName);
+  }, [memberBName]);
+
+  const [newRulePattern, setNewRulePattern] = useState("");
+  const [newRuleName, setNewRuleName] = useState("");
+  const [newRuleAssignTo, setNewRuleAssignTo] = useState<"JOINT" | "USER_A" | "USER_B">("JOINT");
+  const [newRuleCategory, setNewRuleCategory] = useState("");
 
   // Check for bank callback redirection in URL (PSD2 OAuth redirect)
   useEffect(() => {
@@ -459,9 +482,6 @@ export default function HomePage() {
     return str.length > maxLength ? str.slice(0, maxLength) + "..." : str;
   };
 
-  // Settings tab form state
-  const [inputNameA, setInputNameA] = useState(memberAName);
-  const [inputNameB, setInputNameB] = useState(memberBName);
 
   const showToast = (msg: string) => {
     setToastMsg(msg);
@@ -498,7 +518,9 @@ export default function HomePage() {
 
   const handleCategoryChange = (id: string, newCategory: string) => {
     updateTransactionCategory(id, newCategory);
-    showToast(`Categoría cambiada a "${newCategory}". Gráfico actualizado.`);
+    const targetTx = transactions.find((t) => t.id === id);
+    const merchantName = targetTx?.merchant ? ` para "${targetTx.merchant}"` : "";
+    showToast(`✓ Categoría actualizada a "${newCategory}" y memorizada${merchantName}`);
   };
 
   const handleSaveNames = (e: React.FormEvent) => {
@@ -1047,6 +1069,99 @@ export default function HomePage() {
               </button>
             </div>
           </div>
+
+          {/* SECTION 0: AUTO-ASIGNADOS POR REGLA / IA (Bandeja de Validación Reversible) */}
+          {autoAssignedTransactions.length > 0 && (
+            <div className="border border-indigo-200 bg-indigo-50/50 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-indigo-200/70 pb-3 gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                    Auto-Asignados por Regla ({autoAssignedTransactions.length})
+                  </h2>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-indigo-800 font-semibold bg-indigo-100/90 px-2.5 py-1 rounded-full">
+                    ⚡ 100% Reversibles
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      confirmAllAutoAssigned();
+                      showToast(`¡${autoAssignedTransactions.length} movimiento(s) confirmados con éxito!`);
+                    }}
+                    className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Validar todos</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="divide-y divide-indigo-100">
+                {autoAssignedTransactions.map((tx) => (
+                  <div
+                    key={tx.id}
+                    className="py-3 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-indigo-100/30 rounded-2xl transition-colors"
+                  >
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div
+                        className="w-8 h-8 rounded-xl flex items-center justify-center font-bold text-sm shrink-0 mt-0.5"
+                        style={{ backgroundColor: `${tx.categoryColor}20`, color: tx.categoryColor }}
+                      >
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                      <div className="flex flex-col gap-1 min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs sm:text-sm text-slate-900">
+                            {tx.merchant}
+                          </span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 border border-indigo-200">
+                            {tx.autoAssignedReason || "Auto-asignado por regla"}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                          <span>{tx.date} • {getAccountDisplay(tx)}</span>
+                          <span>•</span>
+                          <span className="font-semibold text-slate-700">{tx.category}</span>
+                          <span>•</span>
+                          <span className="font-bold text-indigo-700">
+                            Reparto: {tx.split === "50/50" ? "Ambos 50/50" : tx.split === "memberA" ? memberAName : memberBName}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <span className="text-sm font-black text-slate-900 mr-2">
+                        {tx.amount.toFixed(2)} €
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          confirmAutoAssigned(tx.id);
+                          showToast(`✓ Movimiento "${tx.merchant}" confirmado`);
+                        }}
+                        className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 text-xs font-bold flex items-center gap-1 transition-all cursor-pointer"
+                        title="Confirmar asignación"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Confirmar</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => reclassifyTransaction(tx.id, tx.split === "50/50" ? "memberA" : "50/50")}
+                        className="px-2 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                        title="Cambiar reparto"
+                      >
+                        Editar
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* SECTION 1: PENDIENTES (Bandeja unificada con preservación estricta de fecha) */}
           <div className="border border-amber-300/80 bg-amber-50/40 rounded-3xl p-4 sm:p-5 shadow-sm space-y-2">
@@ -2735,6 +2850,248 @@ export default function HomePage() {
           </div>
         );
       })()}
+
+      {/* ============================================================ */}
+      {/* TAB 8: AJUSTES & CONFIGURACIÓN (REGLAS Y APRENDIZAJE IA)     */}
+      {/* ============================================================ */}
+      {activeTab === "ajustes" && (
+        <div className="space-y-6">
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-2">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+              <SettingsIcon className="w-5 h-5 text-[#00A37A]" />
+              <span>Configuración y Reglas Inteligentes</span>
+            </h1>
+            <p className="text-xs text-slate-500">
+              Automatiza la asignación de tus movimientos bancarios, revisa las categorías aprendidas por IA y configura tu hogar.
+            </p>
+          </div>
+
+          {/* SECCIÓN 1: REGLAS AUTOMÁTICAS DE ASIGNACIÓN */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2">
+                <SlidersHorizontal className="w-5 h-5 text-indigo-600" />
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    Reglas de Asignación Automática
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Clasifican y reparten automáticamente los movimientos recurrentes al sincronizar con tu banco.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 self-start sm:self-auto">
+                {rules.length} reglas activas
+              </span>
+            </div>
+
+            {/* Formulario rápido para añadir regla */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!newRulePattern.trim()) return;
+                addRule({
+                  name: newRuleName.trim() || `Regla para ${newRulePattern.trim()}`,
+                  pattern: newRulePattern.trim(),
+                  assignTo: newRuleAssignTo,
+                  splitRatio: newRuleAssignTo === "JOINT" ? 0.5 : 1.0,
+                  categoryName: newRuleCategory || null,
+                  isActive: true,
+                });
+                const pat = newRulePattern.trim();
+                setNewRulePattern("");
+                setNewRuleName("");
+                showToast(`✓ Regla creada para "${pat}"`);
+              }}
+              className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3"
+            >
+              <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <Plus className="w-3.5 h-3.5 text-indigo-600" />
+                <span>Añadir nueva regla automática</span>
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <input
+                  type="text"
+                  placeholder="Texto a buscar (ej. Iberdrola, Netflix)"
+                  value={newRulePattern}
+                  onChange={(e) => setNewRulePattern(e.target.value)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                  required
+                />
+                <input
+                  type="text"
+                  placeholder="Nombre de la regla (opcional)"
+                  value={newRuleName}
+                  onChange={(e) => setNewRuleName(e.target.value)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                />
+                <select
+                  value={newRuleAssignTo}
+                  onChange={(e) => setNewRuleAssignTo(e.target.value as any)}
+                  className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="JOINT">Repartir al 50/50 (Ambos)</option>
+                  <option value="USER_A">Asignar a {memberAName} (100%)</option>
+                  <option value="USER_B">Asignar a {memberBName} (100%)</option>
+                </select>
+                <div className="flex gap-2">
+                  <select
+                    value={newRuleCategory}
+                    onChange={(e) => setNewRuleCategory(e.target.value)}
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="">Categoría automática (IA/Default)</option>
+                    {categories.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    disabled={!newRulePattern.trim()}
+                    className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center shrink-0 cursor-pointer"
+                  >
+                    Añadir
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Lista de reglas existentes */}
+            <div className="divide-y divide-slate-100">
+              {rules.length === 0 ? (
+                <p className="text-xs text-slate-400 py-4 text-center italic">
+                  No hay reglas configuradas. Añade una arriba para automatizar tus gastos recurrentes.
+                </p>
+              ) : (
+                rules.map((rule) => (
+                  <div key={rule.id} className="py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => toggleRule(rule.id)}
+                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer ${
+                          rule.isActive ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-300 bg-white"
+                        }`}
+                        title={rule.isActive ? "Desactivar regla" : "Activar regla"}
+                      >
+                        {rule.isActive && <Check className="w-3.5 h-3.5" />}
+                      </button>
+                      <div>
+                        <span className={`text-xs font-bold block ${rule.isActive ? "text-slate-900" : "text-slate-400 line-through"}`}>
+                          {rule.name || rule.pattern}
+                        </span>
+                        <span className="text-[10px] text-slate-500">
+                          Patrón: &quot;{rule.pattern}&quot; • Asignación: {rule.assignTo === "JOINT" ? "50/50 Conjunta" : rule.assignTo === "USER_A" ? memberAName : memberBName}
+                          {rule.categoryName ? ` • Categoría: ${rule.categoryName}` : ""}
+                        </span>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        deleteRule(rule.id);
+                        showToast("Regla eliminada");
+                      }}
+                      className="text-slate-400 hover:text-red-500 p-1.5 rounded-lg transition-colors cursor-pointer"
+                      title="Eliminar regla"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* SECCIÓN 2: FEEDBACK LOOP / MEMORIA DE APRENDIZAJE IA */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-600" />
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    Memoria de Categorías Aprendidas (Feedback Loop)
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Cada vez que corriges la categoría de un gasto, la app memoriza el patrón y lo prioriza sobre la IA.
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 self-start sm:self-auto">
+                {learnings.length} comercios memorizados
+              </span>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {learnings.length === 0 ? (
+                <p className="text-xs text-slate-400 py-4 text-center italic">
+                  Aún no has corregido categorías. Cuando cambies la categoría de cualquier movimiento en la app, se memorizará aquí de inmediato.
+                </p>
+              ) : (
+                learnings.map((item) => (
+                  <div key={item.id} className="py-2.5 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                      <span className="text-xs font-bold text-slate-800 capitalize">
+                        {item.merchantPattern}
+                      </span>
+                      <span className="text-slate-300">→</span>
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-slate-100 text-slate-700">
+                        {item.categoryName}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {new Date(item.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* SECCIÓN 3: PERFILES DE LA PAREJA */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+              <Users className="w-5 h-5 text-[#00A37A]" />
+              <div>
+                <h2 className="text-base font-extrabold text-slate-900">Perfiles de la Pareja</h2>
+                <p className="text-xs text-slate-400">Edita los nombres mostrados en tiempo real en toda la aplicación.</p>
+              </div>
+            </div>
+
+            <form onSubmit={handleSaveNames} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Nombre Persona A</label>
+                  <input
+                    type="text"
+                    value={inputNameA}
+                    onChange={(e) => setInputNameA(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#00D09C]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-slate-700 block mb-1">Nombre Persona B</label>
+                  <input
+                    type="text"
+                    value={inputNameB}
+                    onChange={(e) => setInputNameB(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#00D09C]"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer"
+                >
+                  Guardar Nombres
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal de Añadir / Editar / Eliminar Gasto */}
       <AddManualExpenseModal

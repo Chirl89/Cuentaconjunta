@@ -12,10 +12,57 @@ import {
   fetchStateFromCloud,
   subscribeHouseholdDbChanges,
 } from "@/lib/sync/cloudDbSync";
+import {
+  AssignmentRule,
+  CategoryLearningItem,
+  runCategorizationPipeline,
+  recordLearning,
+  extractMerchantPattern,
+} from "@/lib/categorization";
+
+export type { AssignmentRule, CategoryLearningItem };
 
 const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v2";
 const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
 const STORAGE_KEY_SETTLEMENTS = "cuentaconjunta_settlements_v1";
+const STORAGE_KEY_RULES = "cuentaconjunta_rules_v1";
+const STORAGE_KEY_LEARNINGS = "cuentaconjunta_category_learnings_v1";
+
+export const DEFAULT_RULES: AssignmentRule[] = [
+  {
+    id: "rule-def-1",
+    name: "Iberdrola / Luz Hogar (50/50)",
+    pattern: "Iberdrola",
+    assignTo: "JOINT",
+    splitRatio: 0.5,
+    categoryName: "Hogar & Luz",
+    isActive: true,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+  },
+  {
+    id: "rule-def-2",
+    name: "Endesa / Gas & Electricidad (50/50)",
+    pattern: "Endesa",
+    assignTo: "JOINT",
+    splitRatio: 0.5,
+    categoryName: "Hogar & Luz",
+    isActive: true,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+  },
+  {
+    id: "rule-def-3",
+    name: "Supermercado Mercadona (50/50)",
+    pattern: "Mercadona",
+    assignTo: "JOINT",
+    splitRatio: 0.5,
+    categoryName: "Supermercado",
+    isActive: true,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+  },
+];
 
 export type SplitType = "50/50" | "memberA" | "memberB" | "ignored";
 export type PayerType = "memberA" | "memberB" | "joint";
@@ -264,7 +311,7 @@ export interface Transaction {
   category: string;
   categoryColor: string;
   accountLabel: string;
-  status: "pending" | "classified";
+  status: "pending" | "classified" | "auto_assigned";
   payer: PayerType;
   split: SplitType;
   isManual?: boolean;
@@ -274,6 +321,8 @@ export interface Transaction {
   currency?: string;
   isCredit?: boolean;
   updatedAt?: number;
+  autoAssignedRuleId?: string;
+  autoAssignedReason?: string;
 }
 
 export interface DebtMovementItem {
@@ -666,6 +715,17 @@ interface TransactionsContextType {
   }>) => void;
   syncBankFeed: () => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
+  // Paso 7: Rules & Continuous Category Learning
+  rules: AssignmentRule[];
+  learnings: CategoryLearningItem[];
+  addRule: (rule: Omit<AssignmentRule, "id" | "createdAt" | "updatedAt">) => void;
+  updateRule: (id: string, updates: Partial<AssignmentRule>) => void;
+  deleteRule: (id: string) => void;
+  toggleRule: (id: string) => void;
+  learnCategory: (merchant: string, categoryName: string) => void;
+  confirmAutoAssigned: (id: string) => void;
+  confirmAllAutoAssigned: () => void;
+  autoAssignedTransactions: Transaction[];
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -751,11 +811,64 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return CATEGORIES_LIST;
   });
 
+  const [rules, setRules] = useState<AssignmentRule[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_RULES);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch {}
+    }
+    return DEFAULT_RULES;
+  });
+
+  const [learnings, setLearnings] = useState<CategoryLearningItem[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_LEARNINGS);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      } catch {}
+    }
+    return [];
+  });
+
+  const rulesRef = React.useRef(rules);
+  const learningsRef = React.useRef(learnings);
+  const categoriesRef = React.useRef(categories);
+  useEffect(() => {
+    rulesRef.current = rules;
+  }, [rules]);
+  useEffect(() => {
+    learningsRef.current = learnings;
+  }, [learnings]);
+  useEffect(() => {
+    categoriesRef.current = categories;
+  }, [categories]);
+
   // Explicit client hydration on mount (ensures Next.js static prerender doesn't overwrite saved data)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       localStorage.removeItem("cuentaconjunta_transactions_v1");
+      const savedRules = localStorage.getItem(STORAGE_KEY_RULES);
+      if (savedRules) {
+        try {
+          const parsed = JSON.parse(savedRules);
+          if (Array.isArray(parsed) && parsed.length > 0) setRules(parsed);
+        } catch {}
+      }
+      const savedLearnings = localStorage.getItem(STORAGE_KEY_LEARNINGS);
+      if (savedLearnings) {
+        try {
+          const parsed = JSON.parse(savedLearnings);
+          if (Array.isArray(parsed)) setLearnings(parsed);
+        } catch {}
+      }
       const savedTxs = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
       if (savedTxs) {
         const parsed = JSON.parse(savedTxs);
@@ -842,6 +955,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setSettlementCutoffs(cloud.settlements);
           try {
             localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
+          } catch {}
+        }
+        if (Array.isArray(cloud.rules) && cloud.rules.length > 0) {
+          setRules(cloud.rules);
+          try {
+            localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(cloud.rules));
+          } catch {}
+        }
+        if (Array.isArray(cloud.category_learnings) && cloud.category_learnings.length > 0) {
+          setLearnings(cloud.category_learnings);
+          try {
+            localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(cloud.category_learnings));
           } catch {}
         }
       });
@@ -939,11 +1064,48 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
           const isCredit = Boolean(ft.isCredit);
           const targetOwner = ft.payer === "memberB" ? "memberB" : "memberA";
+
+          let finalStatus = isCredit ? ("classified" as const) : ft.status || "pending";
+          let finalPayer = isCredit ? targetOwner : ft.payer || "memberA";
+          let finalSplit = isCredit ? targetOwner : ft.split || "50/50";
+          let finalCategory = ft.category;
+          let finalColor = ft.categoryColor;
+          let autoRuleId: string | undefined = undefined;
+          let autoReason: string | undefined = undefined;
+
+          if (!isCredit && finalStatus === "pending") {
+            const pipe = runCategorizationPipeline(
+              {
+                merchant: ft.merchant,
+                amount: ft.amount,
+                accountLabel: ft.accountLabel,
+              },
+              rulesRef.current,
+              learningsRef.current,
+              categoriesRef.current
+            );
+            if (pipe.status === "auto_assigned") {
+              finalStatus = "auto_assigned";
+              if (pipe.payer) finalPayer = pipe.payer;
+              if (pipe.split) finalSplit = pipe.split;
+              autoRuleId = pipe.matchedRuleId;
+              autoReason = pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale;
+            }
+            if (!finalCategory || finalCategory === "Otros Gastos Comunes" || pipe.assignedBy === "user_learning") {
+              finalCategory = pipe.category;
+              finalColor = pipe.categoryColor;
+            }
+          }
+
           txMap.set(ft.id, {
             ...ft,
-            status: isCredit ? ("classified" as const) : ft.status || "pending",
-            payer: isCredit ? targetOwner : ft.payer || "memberA",
-            split: isCredit ? targetOwner : ft.split || "50/50",
+            status: finalStatus,
+            payer: finalPayer,
+            split: finalSplit,
+            category: finalCategory || ft.category,
+            categoryColor: finalColor || ft.categoryColor,
+            autoAssignedRuleId: autoRuleId,
+            autoAssignedReason: autoReason,
           });
         }
 
@@ -1145,6 +1307,117 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [inviteCode]
   );
 
+  const persistRules = useCallback(
+    (newRules: AssignmentRule[] | ((prev: AssignmentRule[]) => AssignmentRule[]), broadcast = true) => {
+      let updatedToSync: AssignmentRule[] | null = null;
+      setRules((prev) => {
+        const updated = typeof newRules === "function" ? newRules(prev) : newRules;
+        updatedToSync = updated;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(updated));
+          } catch {}
+        }
+        if (broadcast) {
+          broadcastHouseholdSync({
+            type: "RULES_SYNC",
+            inviteCode,
+            rules: updated,
+          });
+        }
+        return updated;
+      });
+
+      if (broadcast && updatedToSync) {
+        pushStateToCloud(inviteCode, { rules: updatedToSync }).catch((e) => {
+          console.warn("Could not push rules to cloud:", e);
+        });
+      }
+    },
+    [inviteCode]
+  );
+
+  const persistLearnings = useCallback(
+    (newLearnings: CategoryLearningItem[] | ((prev: CategoryLearningItem[]) => CategoryLearningItem[]), broadcast = true) => {
+      let updatedToSync: CategoryLearningItem[] | null = null;
+      setLearnings((prev) => {
+        const updated = typeof newLearnings === "function" ? newLearnings(prev) : newLearnings;
+        updatedToSync = updated;
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(updated));
+          } catch {}
+        }
+        if (broadcast) {
+          broadcastHouseholdSync({
+            type: "LEARNINGS_SYNC",
+            inviteCode,
+            learnings: updated,
+          });
+        }
+        return updated;
+      });
+
+      if (broadcast && updatedToSync) {
+        pushStateToCloud(inviteCode, { category_learnings: updatedToSync }).catch((e) => {
+          console.warn("Could not push category_learnings to cloud:", e);
+        });
+      }
+    },
+    [inviteCode]
+  );
+
+  const addRule = useCallback(
+    (ruleData: Omit<AssignmentRule, "id" | "createdAt" | "updatedAt">) => {
+      const now = new Date().toISOString();
+      const newRule: AssignmentRule = {
+        ...ruleData,
+        id: `rule-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        createdAt: now,
+        updatedAt: now,
+      };
+      persistRules((prev) => [newRule, ...prev]);
+    },
+    [persistRules]
+  );
+
+  const updateRule = useCallback(
+    (id: string, updates: Partial<AssignmentRule>) => {
+      const now = new Date().toISOString();
+      persistRules((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, ...updates, updatedAt: now } : r))
+      );
+    },
+    [persistRules]
+  );
+
+  const deleteRule = useCallback(
+    (id: string) => {
+      persistRules((prev) => prev.filter((r) => r.id !== id));
+    },
+    [persistRules]
+  );
+
+  const toggleRule = useCallback(
+    (id: string) => {
+      const now = new Date().toISOString();
+      persistRules((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, isActive: !r.isActive, updatedAt: now } : r))
+      );
+    },
+    [persistRules]
+  );
+
+  const learnCategory = useCallback(
+    (merchant: string, categoryName: string) => {
+      persistLearnings((prev) => {
+        const { updatedLearnings } = recordLearning(merchant, categoryName, prev);
+        return updatedLearnings;
+      });
+    },
+    [persistLearnings]
+  );
+
   const addConnectedAccounts = useCallback(
     (newAccounts: BankAccount[]) => {
       persistAccounts((prev) => {
@@ -1232,28 +1505,48 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }>
     ) => {
       const newTxs: Transaction[] = movements.map((m, idx) => {
-        const payer: PayerType =
+        const defaultPayer: PayerType =
           m.ownership === "USER_B"
             ? "memberB"
             : m.ownership === "USER_A"
             ? "memberA"
             : "joint";
 
+        const concept = m.concept.trim() || "Movimiento Bancario";
+        const accountLabel = m.accountLabel || m.bankName || "Bankinter";
+
+        const pipe = runCategorizationPipeline(
+          {
+            merchant: concept,
+            amount: m.amount,
+            accountLabel,
+          },
+          rulesRef.current,
+          learningsRef.current,
+          categoriesRef.current
+        );
+
+        const status = pipe.status; // "auto_assigned" | "pending"
+        const payer = pipe.payer || defaultPayer;
+        const split = pipe.split || "50/50";
+
         return {
           id: m.id || `bank-stmt-${Date.now()}-${idx}`,
-          merchant: m.concept.trim() || "Movimiento Bancario",
+          merchant: concept,
           date: m.date,
           monthKey: m.monthKey,
           amount: Math.abs(m.amount),
-          category: "Otros Gastos Comunes",
-          categoryColor: "#64748B",
-          accountLabel: m.accountLabel || m.bankName || "Bankinter",
-          status: "pending",
+          category: pipe.category,
+          categoryColor: pipe.categoryColor,
+          accountLabel,
+          status,
           payer,
-          split: "50/50",
+          split,
           isManual: false,
           movementType: "expense",
           createdAt: Date.now() - idx * 1000,
+          autoAssignedRuleId: pipe.matchedRuleId,
+          autoAssignedReason: pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale,
         };
       });
 
@@ -1279,10 +1572,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   // Keep a ref to latest state for responsive sync handshakes
-  const latestStateRef = React.useRef({ transactions, accounts, settlementCutoffs });
+  const latestStateRef = React.useRef({ transactions, accounts, settlementCutoffs, rules, learnings });
   useEffect(() => {
-    latestStateRef.current = { transactions, accounts, settlementCutoffs };
-  }, [transactions, accounts, settlementCutoffs]);
+    latestStateRef.current = { transactions, accounts, settlementCutoffs, rules, learnings };
+  }, [transactions, accounts, settlementCutoffs, rules, learnings]);
 
   // Zero-login background sync listener (Supabase Realtime + BroadcastChannel + Storage)
   useEffect(() => {
@@ -1311,6 +1604,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
           localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(msg.settlements));
         } catch {}
+      } else if (msg.type === "RULES_SYNC" && Array.isArray(msg.rules)) {
+        setRules(msg.rules);
+        try {
+          localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(msg.rules));
+        } catch {}
+      } else if (msg.type === "LEARNINGS_SYNC" && Array.isArray(msg.learnings)) {
+        setLearnings(msg.learnings);
+        try {
+          localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(msg.learnings));
+        } catch {}
       } else if (msg.type === "REQUEST_SYNC") {
         broadcastHouseholdSync({
           type: "TRANSACTIONS_SYNC",
@@ -1326,6 +1629,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           type: "SETTLEMENTS_SYNC",
           inviteCode,
           settlements: latestStateRef.current.settlementCutoffs,
+        });
+        broadcastHouseholdSync({
+          type: "RULES_SYNC",
+          inviteCode,
+          rules: latestStateRef.current.rules,
+        });
+        broadcastHouseholdSync({
+          type: "LEARNINGS_SYNC",
+          inviteCode,
+          learnings: latestStateRef.current.learnings,
         });
       }
     };
@@ -1355,6 +1668,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       } else if (e.key === STORAGE_KEY_SETTLEMENTS && e.newValue) {
         try {
           setSettlementCutoffs(JSON.parse(e.newValue));
+        } catch {}
+      } else if (e.key === STORAGE_KEY_RULES && e.newValue) {
+        try {
+          setRules(JSON.parse(e.newValue));
+        } catch {}
+      } else if (e.key === STORAGE_KEY_LEARNINGS && e.newValue) {
+        try {
+          setLearnings(JSON.parse(e.newValue));
         } catch {}
       }
     };
@@ -1400,6 +1721,18 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setSettlementCutoffs(cloud.settlements);
         try {
           localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
+        } catch {}
+      }
+      if (cloud.rules && Array.isArray(cloud.rules)) {
+        setRules(cloud.rules);
+        try {
+          localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(cloud.rules));
+        } catch {}
+      }
+      if (cloud.category_learnings && Array.isArray(cloud.category_learnings)) {
+        setLearnings(cloud.category_learnings);
+        try {
+          localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(cloud.category_learnings));
         } catch {}
       }
     });
@@ -1648,19 +1981,42 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const color = found ? found.color : "#64748B";
     const now = Date.now();
 
+    let targetMerchant: string | null = null;
     persistTransactions((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              category: newCategoryName,
-              categoryColor: color,
-              updatedAt: now,
-            }
-          : t
-      )
+      prev.map((t) => {
+        if (t.id !== id) return t;
+        targetMerchant = t.merchant;
+        return {
+          ...t,
+          category: newCategoryName,
+          categoryColor: color,
+          updatedAt: now,
+        };
+      })
     );
+
+    // Continuous feedback learning: memorize user's preference for future movements
+    if (targetMerchant) {
+      learnCategory(targetMerchant, newCategoryName);
+    }
   };
+
+  const confirmAutoAssigned = useCallback(
+    (id: string) => {
+      const now = Date.now();
+      persistTransactions((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, status: "classified", updatedAt: now } : t))
+      );
+    },
+    [persistTransactions]
+  );
+
+  const confirmAllAutoAssigned = useCallback(() => {
+    const now = Date.now();
+    persistTransactions((prev) =>
+      prev.map((t) => (t.status === "auto_assigned" ? { ...t, status: "classified", updatedAt: now } : t))
+    );
+  }, [persistTransactions]);
 
   const getAccountDisplay = (tx: Transaction): string => {
     const raw = (tx.accountLabel || "").trim();
@@ -1691,6 +2047,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [filteredTransactions]
   );
 
+  const autoAssignedTransactions = useMemo(
+    () => filteredTransactions.filter((t) => t.status === "auto_assigned"),
+    [filteredTransactions]
+  );
+
   const allPendingTransactions = useMemo(
     () =>
       transactions
@@ -1700,7 +2061,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const classifiedTransactions = useMemo(
-    () => filteredTransactions.filter((t) => t.status === "classified"),
+    () => filteredTransactions.filter((t) => t.status === "classified" || t.status === "auto_assigned"),
     [filteredTransactions]
   );
 
@@ -2146,6 +2507,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         importBankMovements,
         syncBankFeed,
         clearAllTransactions,
+        rules,
+        learnings,
+        addRule,
+        updateRule,
+        deleteRule,
+        toggleRule,
+        learnCategory,
+        confirmAutoAssigned,
+        confirmAllAutoAssigned,
+        autoAssignedTransactions,
       }}
     >
       {children}

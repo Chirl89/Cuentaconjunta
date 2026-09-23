@@ -7,6 +7,8 @@ export interface CloudHouseholdState {
   accounts: BankAccount[];
   settlements: Record<string, any>;
   categories?: CategoryInfo[];
+  rules?: any[];
+  category_learnings?: any[];
   updated_at?: string;
 }
 
@@ -22,6 +24,8 @@ export async function pushStateToCloud(
     accounts?: BankAccount[];
     settlements?: Record<string, any>;
     categories?: CategoryInfo[];
+    rules?: any[];
+    category_learnings?: any[];
   }
 ): Promise<{ success: boolean; error?: string }> {
   if (typeof window === "undefined" || !inviteCode) {
@@ -47,6 +51,8 @@ export async function pushStateToCloud(
     if (state.accounts !== undefined) payload.accounts = state.accounts;
     if (state.settlements !== undefined) payload.settlements = state.settlements;
     if (state.categories !== undefined) payload.categories = state.categories;
+    if (state.rules !== undefined) payload.rules = state.rules;
+    if (state.category_learnings !== undefined) payload.category_learnings = state.category_learnings;
 
     // We push to the active code and mirror to both FITDUO and HKGMQB so all devices stay permanently synchronized
     const codesToUpdate = new Set<string>();
@@ -141,6 +147,8 @@ export async function fetchStateFromCloud(inviteCode: string): Promise<CloudHous
       accounts: exactRow?.accounts || allRows[0]?.accounts || [],
       settlements: exactRow?.settlements || allRows[0]?.settlements || {},
       categories: exactRow?.categories || allRows[0]?.categories,
+      rules: exactRow?.rules || allRows[0]?.rules || [],
+      category_learnings: exactRow?.category_learnings || allRows[0]?.category_learnings || [],
       updated_at: exactRow?.updated_at || allRows[0]?.updated_at,
     };
 
