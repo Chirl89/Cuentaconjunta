@@ -244,11 +244,11 @@ describe("Paso 9: DashboardInboxWidget Component", () => {
     expect(screen.getByText("Sugerido por IA")).toBeInTheDocument();
 
     // Check action buttons with real names
-    expect(screen.getByTestId("triage-joint-pending-1")).toHaveTextContent("Ambos (50/50)");
+    expect(screen.getByTestId("triage-joint-pending-1")).toHaveTextContent("50/50");
     expect(screen.getByTestId("triage-memberA-pending-1")).toHaveTextContent("Carlos");
     expect(screen.getByTestId("triage-memberB-pending-1")).toHaveTextContent("Andrea");
 
-    // Click Ambos (50/50)
+    // Click 50/50
     fireEvent.click(screen.getByTestId("triage-joint-pending-1"));
     expect(mockTriage).toHaveBeenCalledWith("pending-1", "50/50", "1/2 (Compartido)");
 

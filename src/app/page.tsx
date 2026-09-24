@@ -975,32 +975,33 @@ export default function HomePage() {
       {activeTab === "dashboard" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#00A37A] shrink-0">
                   <LayoutDashboard className="w-5 h-5" />
                 </div>
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
+                <div className="min-w-0">
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
                     <span>Dashboard</span>
                   </h1>
-                  <p className="text-xs text-slate-400 mt-0.5">
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
                     Visión rápida de triaje y balance en vivo de {memberAName} & {memberBName}
                   </p>
                 </div>
-                <MonthSelector />
               </div>
 
-              <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0 flex-wrap">
+              {/* Controls Toolbar: MonthSelector + Gasto Manual */}
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+                <MonthSelector />
                 <button
                   type="button"
                   onClick={() => setIsManualModalOpen(true)}
-                  className="px-4 py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
                   title="Añadir gasto en efectivo o manual"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>+ Gasto Manual</span>
+                  <span>Gasto Manual</span>
                 </button>
               </div>
             </div>
@@ -1090,14 +1091,14 @@ export default function HomePage() {
       {activeTab === "resumen_mensual" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-xs">
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-xs shrink-0">
                   <BarChart3 className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
                       Resumen Mensual
                     </h1>
@@ -1105,7 +1106,7 @@ export default function HomePage() {
                       Hogar Completo
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400 font-medium">
+                  <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
                     {monthlyForecast.isCurrentMonth
                       ? `Mes en curso • Día ${monthlyForecast.elapsedDays} de ${monthlyForecast.totalDaysInMonth} (Quedan ${monthlyForecast.remainingDays} días)`
                       : monthlyForecast.isPastMonth
@@ -1113,36 +1114,38 @@ export default function HomePage() {
                       : "Mes futuro planificado"}
                   </p>
                 </div>
-                <MonthSelector />
               </div>
 
-              {/* Status pill / Quick balance indicator */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Ahorro Neto Mes
-                  </span>
-                  <span
-                    className={`text-[11px] font-bold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap ${
+              {/* Controls Toolbar: MonthSelector + Savings Pill */}
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                <MonthSelector />
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                      Ahorro Neto
+                    </span>
+                    <span
+                      className={`text-[10px] sm:text-[11px] font-bold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap ${
+                        monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                      }`}
+                    >
+                      {monthlyForecast.currentSavings >= 0 ? (
+                        <TrendingUp className="w-3.5 h-3.5" />
+                      ) : (
+                        <TrendingDown className="w-3.5 h-3.5" />
+                      )}
+                      {monthlyForecast.currentSavings >= 0 ? "Superávit" : "Déficit"}
+                    </span>
+                  </div>
+                  <div
+                    className={`text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap ${
                       monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
                     }`}
                   >
-                    {monthlyForecast.currentSavings >= 0 ? (
-                      <TrendingUp className="w-3.5 h-3.5" />
-                    ) : (
-                      <TrendingDown className="w-3.5 h-3.5" />
-                    )}
-                    {monthlyForecast.currentSavings >= 0 ? "Superávit" : "Déficit"}
-                  </span>
-                </div>
-                <div
-                  className={`text-2xl sm:text-3xl font-black tracking-tight whitespace-nowrap ${
-                    monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
-                  }`}
-                >
-                  {monthlyForecast.currentSavings >= 0 ? "+" : ""}
-                  {monthlyForecast.currentSavings.toFixed(2)}
-                  <span className="text-lg ml-1 font-bold">€</span>
+                    {monthlyForecast.currentSavings >= 0 ? "+" : ""}
+                    {monthlyForecast.currentSavings.toFixed(2)}
+                    <span className="text-base ml-1 font-bold">€</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1698,31 +1701,43 @@ export default function HomePage() {
       {activeTab === "resumen_conjunta" && (
         <div className="space-y-6">
           {/* Header Banner */}
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
-                  <Users className="w-5 h-5 text-[#00A37A] shrink-0" />
-                  <span>Gastos Conjuntos</span>
-                </h1>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold whitespace-nowrap">
-                  Reparto 1/2
-                </span>
-                <MonthSelector />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-[#00A37A] shrink-0">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                      Gastos Conjuntos
+                    </h1>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold whitespace-nowrap">
+                      Reparto 50/50
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    Gastos compartidos por {memberAName} & {memberBName}
+                  </p>
+                </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Conjunto
-                  </span>
-                  <span className="text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
-                    <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
-                  </span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight whitespace-nowrap">
-                  {totalJointSpent.toFixed(2)}
-                  <span className="text-lg text-[#00A37A] ml-1 font-bold">€</span>
+              {/* Controls Toolbar: MonthSelector + Total Pill */}
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                <MonthSelector />
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                      Total Conjunto
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
+                      <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                    {totalJointSpent.toFixed(2)}
+                    <span className="text-base text-[#00A37A] ml-1 font-bold">€</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1939,30 +1954,42 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_carlos" && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
-                  <User className="w-5 h-5 text-red-500 shrink-0" />
-                  <span>Gastos de {memberAName}</span>
-                </h1>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold whitespace-nowrap">
-                  Individual
-                </span>
-                <MonthSelector />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-red-50 border border-red-200 flex items-center justify-center text-red-500 shrink-0">
+                  <User className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                      Gastos de {memberAName}
+                    </h1>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold whitespace-nowrap">
+                      Individual
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    Gastos personales exclusivos de {memberAName}
+                  </p>
+                </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Gastos ({memberAName})
-                  </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberAClassifiedTransactions.length} gastos
-                  </span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight whitespace-nowrap">
-                  {totalMemberASpent.toFixed(2)} €
+              {/* Controls Toolbar: MonthSelector + Total Pill */}
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                <MonthSelector />
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                      Total Gastos ({memberAName})
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
+                      {memberAClassifiedTransactions.length} gastos
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-red-600 tracking-tight whitespace-nowrap">
+                    {totalMemberASpent.toFixed(2)} €
+                  </div>
                 </div>
               </div>
             </div>
@@ -2161,30 +2188,42 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "resumen_andrea" && (
         <div className="space-y-6">
-          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
-                  <User className="w-5 h-5 text-blue-500 shrink-0" />
-                  <span>Gastos de {memberBName}</span>
-                </h1>
-                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold whitespace-nowrap">
-                  Individual
-                </span>
-                <MonthSelector />
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-500 shrink-0">
+                  <User className="w-5 h-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                      Gastos de {memberBName}
+                    </h1>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold whitespace-nowrap">
+                      Individual
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    Gastos personales exclusivos de {memberBName}
+                  </p>
+                </div>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Gastos ({memberBName})
-                  </span>
-                  <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberBClassifiedTransactions.length} gastos
-                  </span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight whitespace-nowrap">
-                  {totalMemberBSpent.toFixed(2)} €
+              {/* Controls Toolbar: MonthSelector + Total Pill */}
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                <MonthSelector />
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                      Total Gastos ({memberBName})
+                    </span>
+                    <span className="text-[10px] sm:text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
+                      {memberBClassifiedTransactions.length} gastos
+                    </span>
+                  </div>
+                  <div className="text-xl sm:text-2xl font-black text-blue-600 tracking-tight whitespace-nowrap">
+                    {totalMemberBSpent.toFixed(2)} €
+                  </div>
                 </div>
               </div>
             </div>
@@ -2383,42 +2422,50 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "movimientos" && (
         <div className="space-y-6">
-          {/* Header with Month Selector & "+ Gasto" Button */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-              <ReceiptText className="w-5 h-5 text-[#00A37A]" />
-              <span>Movimientos</span>
-            </h1>
-
-            <div className="flex items-center gap-2 justify-between sm:justify-end flex-wrap">
-              {/* Buscador reactivo de movimientos */}
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Buscar en movimientos..."
-                  value={movimientosSearchTerm}
-                  onChange={(e) => setMovimientosSearchTerm(e.target.value)}
-                  className="pl-8 pr-7 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all w-40 sm:w-56"
-                />
-                {movimientosSearchTerm && (
-                  <button
-                    type="button"
-                    onClick={() => setMovimientosSearchTerm("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
-                  >
-                    ✕
-                  </button>
-                )}
+          {/* Header Banner */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#00A37A] flex items-center justify-center shrink-0 border border-emerald-100">
+                  <ReceiptText className="w-5 h-5 text-[#00A37A]" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Movimientos</h1>
+                  <p className="text-xs text-slate-500 font-medium">Historial completo, buscador y gestión</p>
+                </div>
               </div>
-              <MonthSelector />
-              <button
-                onClick={() => setIsManualModalOpen(true)}
-                className="px-3.5 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Gasto</span>
-              </button>
+
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                {/* Buscador reactivo de movimientos */}
+                <div className="relative flex-1 sm:flex-initial min-w-[130px]">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar movimientos..."
+                    value={movimientosSearchTerm}
+                    onChange={(e) => setMovimientosSearchTerm(e.target.value)}
+                    className="w-full sm:w-44 pl-8 pr-7 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all"
+                  />
+                  {movimientosSearchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setMovimientosSearchTerm("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <MonthSelector />
+                <button
+                  type="button"
+                  onClick={() => setIsManualModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Gasto Manual</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -2478,7 +2525,7 @@ export default function HomePage() {
                           <span className="font-semibold text-slate-700">{tx.category}</span>
                           <span>•</span>
                           <span className="font-bold text-indigo-700">
-                            Reparto: {tx.split === "50/50" ? "Ambos 50/50" : tx.split === "memberA" ? memberAName : memberBName}
+                            Reparto: {tx.split === "50/50" ? "50/50" : tx.split === "memberA" ? memberAName : memberBName}
                           </span>
                         </div>
                       </div>
@@ -2730,7 +2777,7 @@ export default function HomePage() {
 
           {/* SECTION 2: HISTÓRICO RECLASIFICABLE */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3 gap-2">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal className="w-4 h-4 text-[#00A37A]" />
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
@@ -2739,9 +2786,6 @@ export default function HomePage() {
                 <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                   {visibleClassifiedTransactions.length}
                 </span>
-              </div>
-              <div className="flex items-center gap-2 self-start sm:self-auto">
-                <MonthSelector className="scale-90 sm:scale-95 origin-left sm:origin-right" />
               </div>
             </div>
 
@@ -2993,13 +3037,21 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "balances" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-                <ArrowRightLeft className="w-5 h-5 text-[#00A37A]" />
-                <span>Balances & Deuda</span>
-              </h1>
-              <MonthSelector />
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#00A37A] flex items-center justify-center shrink-0 border border-emerald-100">
+                  <ArrowRightLeft className="w-5 h-5 text-[#00A37A]" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Balances & Deuda</h1>
+                  <p className="text-xs text-slate-500 font-medium">Liquidación equitativa y neteo de cuentas</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+                <MonthSelector />
+              </div>
             </div>
 
             {/* Opciones de Liquidación / Neteo */}
@@ -3288,19 +3340,20 @@ export default function HomePage() {
       {activeTab === "cuentas" && (
         <div className="space-y-6">
           <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
-            {/* Header with Connect Button */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-              <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2.5">
+            {/* Header with Connect Button & MonthSelector */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 border-b border-slate-100 pb-5">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#00A37A] flex items-center justify-center shrink-0 border border-emerald-100">
                   <Landmark className="w-5 h-5 text-[#00A37A]" />
-                  <span>Cuentas Bancarias & Tarjetas</span>
-                </h1>
-                <p className="text-xs text-slate-500 mt-1">
-                  Conexión bancaria oficial PSD2 y control de saldos y tarjetas.
-                </p>
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Cuentas Bancarias & Tarjetas</h1>
+                  <p className="text-xs text-slate-500 font-medium">Conexión bancaria oficial PSD2 y control de saldos y tarjetas</p>
+                </div>
               </div>
 
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-2.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+                <MonthSelector />
                 <button
                   type="button"
                   onClick={() => {
@@ -3309,11 +3362,11 @@ export default function HomePage() {
                     setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
                   }}
-                  className="px-3.5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Conectar cuenta bancaria mediante pasarela oficial Open Banking (PSD2)"
                 >
                   <Landmark className="w-4 h-4" />
-                  <span>+ Conectar Cuenta (PSD2)</span>
+                  <span>Conectar PSD2</span>
                 </button>
 
                 <button
@@ -3324,11 +3377,11 @@ export default function HomePage() {
                     setBankModalInitialCardId(undefined);
                     setIsBankModalOpen(true);
                   }}
-                  className="px-3.5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-md shadow-slate-900/10 transition-all flex items-center gap-2 cursor-pointer"
+                  className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Añadir tarjeta o cargar extracto CSV/Excel"
                 >
                   <CreditCard className="w-4 h-4 text-purple-400" />
-                  <span>+ Tarjeta / Cargar Extracto</span>
+                  <span>Tarjeta / Extracto</span>
                 </button>
               </div>
             </div>
@@ -3366,7 +3419,9 @@ export default function HomePage() {
                 <span className="text-xs font-extrabold uppercase tracking-wider text-slate-400">
                   Cuentas & Tarjetas Registradas
                 </span>
-                <MonthSelector />
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  {visibleAccounts.length} activas
+                </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -3770,12 +3825,23 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "ajustes" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-6">
-            <div className="border-b border-slate-100 pb-4">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-                <SettingsIcon className="w-5 h-5 text-[#00A37A]" />
-                <span>Configuración</span>
-              </h1>
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
+            <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#00A37A] flex items-center justify-center shrink-0 border border-emerald-100">
+                  <SettingsIcon className="w-5 h-5 text-[#00A37A]" />
+                </div>
+                <div>
+                  <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Configuración & Reglas</h1>
+                  <p className="text-xs text-slate-500 font-medium">Vinculación de pareja, reglas automáticas y seguridad</p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+                <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 shrink-0">
+                  v{versionData.version}
+                </span>
+              </div>
             </div>
 
             {/* Household & Couple Profile Linking Card */}
@@ -4060,19 +4126,22 @@ export default function HomePage() {
         return (
           <div className="space-y-6">
             <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-5">
-              <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
+              <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-[#00A37A] flex items-center justify-center shrink-0 border border-emerald-100">
                     <Tag className="w-5 h-5 text-[#00A37A]" />
-                    <span>Categorías y Conceptos</span>
-                  </h1>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Gestiona categorías, colores únicos y consulta el histórico interactivo de los últimos 12 meses.
-                  </p>
+                  </div>
+                  <div>
+                    <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">Categorías y Conceptos</h1>
+                    <p className="text-xs text-slate-500 font-medium">Gestión de categorías, colores y desglose a 12 meses</p>
+                  </div>
                 </div>
-                <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#E6FAF4] text-[#008761] border border-[#00D09C]/30 self-start sm:self-auto shrink-0">
-                  {categories.length} categorías disponibles
-                </span>
+
+                <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+                  <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-[#E6FAF4] text-[#008761] border border-[#00D09C]/30 shrink-0">
+                    {categories.length} categorías disponibles
+                  </span>
+                </div>
               </div>
 
               {/* Formulario Añadir Nueva Categoría (LÍNEA COMPACTA HORIZONTAL) */}
@@ -4232,15 +4301,6 @@ export default function HomePage() {
       {/* ============================================================ */}
       {activeTab === "ajustes" && (
         <div className="space-y-6">
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-2">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 flex items-center gap-2">
-              <SettingsIcon className="w-5 h-5 text-[#00A37A]" />
-              <span>Configuración y Reglas Inteligentes</span>
-            </h1>
-            <p className="text-xs text-slate-500">
-              Automatiza la asignación de tus movimientos bancarios, revisa las categorías aprendidas por IA y configura tu hogar.
-            </p>
-          </div>
 
           {/* SECCIÓN 1: REGLAS AUTOMÁTICAS DE ASIGNACIÓN */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
@@ -4461,48 +4521,6 @@ export default function HomePage() {
                 ✓ PIN activo y protegido
               </span>
             </div>
-          </div>
-
-          {/* SECCIÓN 4: PERFILES DE LA PAREJA */}
-          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-              <Users className="w-5 h-5 text-[#00A37A]" />
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">Perfiles de la Pareja</h2>
-                <p className="text-xs text-slate-400">Edita los nombres mostrados en tiempo real en toda la aplicación.</p>
-              </div>
-            </div>
-
-            <form onSubmit={handleSaveNames} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Nombre Persona A</label>
-                  <input
-                    type="text"
-                    value={inputNameA}
-                    onChange={(e) => setInputNameA(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-700 block mb-1">Nombre Persona B</label>
-                  <input
-                    type="text"
-                    value={inputNameB}
-                    onChange={(e) => setInputNameB(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm font-semibold focus:outline-none focus:border-[#00D09C]"
-                  />
-                </div>
-              </div>
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  className="px-5 py-2.5 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer"
-                >
-                  Guardar Nombres
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}
