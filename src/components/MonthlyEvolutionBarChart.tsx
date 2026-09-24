@@ -1,0 +1,532 @@
+"use client";
+
+import React, { useMemo, useState } from "react";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend,
+} from "recharts";
+import {
+  TrendingUp,
+  ArrowUpRight,
+  ArrowDownRight,
+  Scale,
+  Calendar,
+  User,
+} from "lucide-react";
+import { Transaction, BankAccount } from "@/context/TransactionsContext";
+
+export interface MonthlyEvolutionBarChartProps {
+  transactions: Transaction[];
+  accounts?: BankAccount[];
+  referenceMonth?: string; // "YYYY-MM", defaults to "2026-09"
+  activeRole?: "memberA" | "memberB";
+  memberAName?: string;
+  memberBName?: string;
+  onUserChange?: (user: "memberA" | "memberB") => void;
+}
+
+export interface MonthlyEvolutionItem {
+  monthKey: string;
+  shortLabel: string;
+  fullLabel: string;
+  income: number;
+  expense: number;
+  net: number;
+  personalExpense: number;
+  jointExpenseHalf: number;
+  personalIncome: number;
+  jointIncomeHalf: number;
+}
+
+const MONTH_NAMES_SHORT = [
+  "Ene",
+  "Feb",
+  "Mar",
+  "Abr",
+  "May",
+  "Jun",
+  "Jul",
+  "Ago",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dic",
+];
+
+const MONTH_NAMES_FULL = [
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
+];
+
+/**
+ * Calculates rolling 12 months (not calendar year) ending in referenceMonth.
+ * E.g., for "2026-09", returns ["2025-10", "2025-11", ..., "2026-09"].
+ */
+export function getRolling12Months(referenceMonth: string = "2026-09"): string[] {
+  const [yStr, mStr] = referenceMonth.split("-");
+  const baseYear = parseInt(yStr, 10) || new Date().getFullYear();
+  const baseMonth = parseInt(mStr, 10) || new Date().getMonth() + 1; // 1-12
+
+  const months: string[] = [];
+  for (let i = 11; i >= 0; i--) {
+    let m = baseMonth - i;
+    let y = baseYear;
+    while (m <= 0) {
+      m += 12;
+      y -= 1;
+    }
+    months.push(`${y}-${String(m).padStart(2, "0")}`);
+  }
+  return months;
+}
+
+export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> = ({
+  transactions,
+  accounts = [],
+  referenceMonth = "2026-09",
+  activeRole = "memberA",
+  memberAName = "Carlos",
+  memberBName = "Andrea",
+  onUserChange,
+}) => {
+  const [selectedUser, setSelectedUser] = useState<"memberA" | "memberB">(activeRole);
+
+  // Sync when activeRole prop changes if not manually switched
+  React.useEffect(() => {
+    setSelectedUser(activeRole);
+  }, [activeRole]);
+
+  const handleUserToggle = (role: "memberA" | "memberB") => {
+    setSelectedUser(role);
+    if (onUserChange) onUserChange(role);
+  };
+
+  const currentPersonName = selectedUser === "memberA" ? memberAName : memberBName;
+
+  // Pre-calculate 12 rolling months data for selected viewing person
+  const { chartData, total12mIncome, total12mExpense, total12mNet } = useMemo(() => {
+    const rollingMonths = getRolling12Months(referenceMonth);
+
+    const getAccountOwnership = (tx: Transaction): "USER_A" | "USER_B" | "JOINT" | undefined => {
+      if (!accounts || accounts.length === 0) return undefined;
+      const acc = accounts.find((a) => a.id === tx.accountLabel || a.accountName === tx.accountLabel);
+      return acc?.ownership;
+    };
+
+    let sumIncome = 0;
+    let sumExpense = 0;
+
+    const data: MonthlyEvolutionItem[] = rollingMonths.map((mKey) => {
+      const [yStr, mStr] = mKey.split("-");
+      const y = parseInt(yStr, 10);
+      const mIdx = parseInt(mStr, 10) - 1;
+      const shortLabel = MONTH_NAMES_SHORT[mIdx] || mKey;
+      const fullLabel = `${MONTH_NAMES_FULL[mIdx]} ${y}`;
+
+      const monthTxs = transactions.filter((t) => t.monthKey === mKey);
+
+      let personalExpense = 0;
+      let jointExpenseHalf = 0;
+      let personalIncome = 0;
+      let jointIncomeHalf = 0;
+
+      for (const tx of monthTxs) {
+        if (tx.movementType === "transfer_to_joint" || tx.movementType === "settlement") {
+          continue;
+        }
+
+        const isIncome =
+          tx.isCredit ||
+          tx.category === "Ingreso / Nómina" ||
+          tx.category === "Ingresos";
+
+        const isExpense = !isIncome;
+
+        const ownership = getAccountOwnership(tx);
+
+        if (isExpense) {
+          const amt = Math.abs(tx.amount);
+          if (selectedUser === "memberA") {
+            const isPersonalA =
+              tx.split === "memberA" ||
+              (tx.status === "pending" &&
+                (tx.payer === "memberA" || ownership === "USER_A") &&
+                tx.payer !== "joint" &&
+                ownership !== "JOINT");
+
+            const isJoint =
+              tx.split === "50/50" ||
+              (tx.status === "pending" && (tx.payer === "joint" || ownership === "JOINT"));
+
+            if (isPersonalA) {
+              personalExpense += amt;
+            } else if (isJoint) {
+              jointExpenseHalf += amt * 0.5;
+            }
+          } else {
+            // memberB
+            const isPersonalB =
+              tx.split === "memberB" ||
+              (tx.status === "pending" &&
+                (tx.payer === "memberB" || ownership === "USER_B") &&
+                tx.payer !== "joint" &&
+                ownership !== "JOINT");
+
+            const isJoint =
+              tx.split === "50/50" ||
+              (tx.status === "pending" && (tx.payer === "joint" || ownership === "JOINT"));
+
+            if (isPersonalB) {
+              personalExpense += amt;
+            } else if (isJoint) {
+              jointExpenseHalf += amt * 0.5;
+            }
+          }
+        } else {
+          // Income
+          const amt = Math.abs(tx.amount);
+          if (selectedUser === "memberA") {
+            const isPersonalA =
+              (tx.payer === "memberA" || ownership === "USER_A" || tx.split === "memberA") &&
+              tx.payer !== "joint" &&
+              ownership !== "JOINT";
+
+            const isJoint =
+              tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
+
+            if (isPersonalA) {
+              personalIncome += amt;
+            } else if (isJoint) {
+              jointIncomeHalf += amt * 0.5;
+            }
+          } else {
+            // memberB
+            const isPersonalB =
+              (tx.payer === "memberB" || ownership === "USER_B" || tx.split === "memberB") &&
+              tx.payer !== "joint" &&
+              ownership !== "JOINT";
+
+            const isJoint =
+              tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
+
+            if (isPersonalB) {
+              personalIncome += amt;
+            } else if (isJoint) {
+              jointIncomeHalf += amt * 0.5;
+            }
+          }
+        }
+      }
+
+      const totalExpense = Math.round((personalExpense + jointExpenseHalf) * 100) / 100;
+      const totalIncome = Math.round((personalIncome + jointIncomeHalf) * 100) / 100;
+      const net = Math.round((totalIncome - totalExpense) * 100) / 100;
+
+      sumIncome += totalIncome;
+      sumExpense += totalExpense;
+
+      return {
+        monthKey: mKey,
+        shortLabel,
+        fullLabel,
+        income: totalIncome,
+        expense: totalExpense,
+        net,
+        personalExpense: Math.round(personalExpense * 100) / 100,
+        jointExpenseHalf: Math.round(jointExpenseHalf * 100) / 100,
+        personalIncome: Math.round(personalIncome * 100) / 100,
+        jointIncomeHalf: Math.round(jointIncomeHalf * 100) / 100,
+      };
+    });
+
+    return {
+      chartData: data,
+      total12mIncome: Math.round(sumIncome * 100) / 100,
+      total12mExpense: Math.round(sumExpense * 100) / 100,
+      total12mNet: Math.round((sumIncome - sumExpense) * 100) / 100,
+    };
+  }, [transactions, accounts, referenceMonth, selectedUser]);
+
+  // Tooltip personalizado
+  const CustomBarTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload.length) return null;
+    const d: MonthlyEvolutionItem = payload[0].payload;
+    const isNetPos = d.net >= 0;
+
+    return (
+      <div
+        data-testid="evolution-bar-tooltip"
+        className="bg-slate-900 text-white p-3.5 rounded-2xl shadow-xl border border-slate-700 text-xs animate-in fade-in zoom-in-95 pointer-events-none min-w-[200px]"
+      >
+        <div className="flex items-center gap-1.5 text-slate-300 font-bold mb-2 pb-1.5 border-b border-slate-800 text-[11px]">
+          <Calendar className="w-3.5 h-3.5 text-[#00D09C]" />
+          <span>{d.fullLabel}</span>
+        </div>
+
+        {/* Ingresos */}
+        <div className="space-y-1 mb-2">
+          <div className="flex items-center justify-between text-emerald-400 font-bold">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Ingresos:
+            </span>
+            <span>+{d.income.toFixed(2)} €</span>
+          </div>
+          <div className="text-[10px] text-slate-400 pl-3 flex justify-between">
+            <span>Propios: {d.personalIncome.toFixed(2)} €</span>
+            <span>50% Comunes: {d.jointIncomeHalf.toFixed(2)} €</span>
+          </div>
+        </div>
+
+        {/* Gastos */}
+        <div className="space-y-1 mb-2">
+          <div className="flex items-center justify-between text-rose-400 font-bold">
+            <span className="flex items-center gap-1">
+              <span className="w-2 h-2 rounded-full bg-rose-500" />
+              Gastos:
+            </span>
+            <span>-{d.expense.toFixed(2)} €</span>
+          </div>
+          <div className="text-[10px] text-slate-400 pl-3 flex justify-between">
+            <span>Propios: {d.personalExpense.toFixed(2)} €</span>
+            <span>50% Comunes: {d.jointExpenseHalf.toFixed(2)} €</span>
+          </div>
+        </div>
+
+        {/* Balance Neto */}
+        <div className="pt-2 border-t border-slate-700/80 flex items-center justify-between font-black">
+          <span className="text-slate-300">Neto del Mes:</span>
+          <span className={isNetPos ? "text-emerald-400 text-sm" : "text-rose-400 text-sm"}>
+            {isNetPos ? `+${d.net.toFixed(2)} €` : `${d.net.toFixed(2)} €`}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div
+      data-testid="monthly-evolution-bar-chart"
+      className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm space-y-5"
+    >
+      {/* Header with Title, User Toggle & Summary Pills */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+              <TrendingUp className="w-5 h-5" />
+            </span>
+            <div>
+              <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                <span>Evolución del Gasto (Últimos 12 Meses)</span>
+              </h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Reflejando ingresos y gastos de{" "}
+                <span className="font-bold text-slate-700">{currentPersonName}</span> (gastos propios +
+                50% comunes)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Controls: Persona switcher & Legend */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Persona selector toggle */}
+          <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200/70">
+            <button
+              type="button"
+              data-testid="evolution-user-memberA"
+              onClick={() => handleUserToggle("memberA")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedUser === "memberA"
+                  ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <User className="w-3.5 h-3.5 text-indigo-500" />
+              <span>{memberAName}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="evolution-user-memberB"
+              onClick={() => handleUserToggle("memberB")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                selectedUser === "memberB"
+                  ? "bg-white text-slate-900 shadow-xs font-extrabold"
+                  : "text-slate-500 hover:text-slate-900"
+              }`}
+            >
+              <User className="w-3.5 h-3.5 text-blue-500" />
+              <span>{memberBName}</span>
+            </button>
+          </div>
+
+          {/* Legend indicators */}
+          <div className="hidden sm:flex items-center gap-3 text-[11px] font-bold text-slate-600 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500" />
+              Ingresos
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-sm bg-rose-500" />
+              Gastos
+            </span>
+            <span className="flex items-center gap-1.5 text-slate-400">
+              <Scale className="w-3 h-3 text-slate-500" />
+              Neto inferior
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 12-Month Bar Chart */}
+      <div className="w-full overflow-x-auto">
+        <div className="min-w-[620px] sm:min-w-full h-64 pt-2">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 10, right: 10, left: -15, bottom: 25 }}
+              barGap={2}
+              barCategoryGap="18%"
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis
+                dataKey="monthKey"
+                interval={0}
+                tick={({ x, y, payload }: any) => {
+                  const d = chartData.find((item) => item.monthKey === payload.value);
+                  if (!d) return <g />;
+                  const isPos = d.net >= 0;
+                  return (
+                    <g transform={`translate(${x},${y})`}>
+                      {/* Month label */}
+                      <text
+                        x={0}
+                        y={10}
+                        textAnchor="middle"
+                        fill="#475569"
+                        fontSize={11}
+                        fontWeight={700}
+                      >
+                        {d.shortLabel}
+                      </text>
+                      {/* Net label below */}
+                      <text
+                        x={0}
+                        y={24}
+                        textAnchor="middle"
+                        fill={isPos ? "#059669" : "#e11d48"}
+                        fontSize={9.5}
+                        fontWeight={800}
+                      >
+                        {isPos ? `+${Math.round(d.net)}€` : `${Math.round(d.net)}€`}
+                      </text>
+                    </g>
+                  );
+                }}
+                axisLine={{ stroke: "#e2e8f0" }}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 10, fill: "#94a3b8" }}
+                tickFormatter={(val) => `${val}€`}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip content={<CustomBarTooltip />} />
+              <Bar
+                dataKey="income"
+                name="Ingresos"
+                fill="#10B981"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={22}
+              />
+              <Bar
+                dataKey="expense"
+                name="Gastos"
+                fill="#F43F5E"
+                radius={[4, 4, 0, 0]}
+                maxBarSize={22}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Grid of 12 months with explicit Net breakdown below */}
+      <div className="pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Resumen Neto Mes a Mes ({currentPersonName})
+          </span>
+          <span className="text-[11px] text-slate-500 font-semibold">
+            Balance 12m:{" "}
+            <span
+              className={`font-black ${
+                total12mNet >= 0 ? "text-emerald-600" : "text-rose-600"
+              }`}
+            >
+              {total12mNet >= 0 ? `+${total12mNet.toFixed(2)} €` : `${total12mNet.toFixed(2)} €`}
+            </span>
+          </span>
+        </div>
+
+        <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+          {chartData.map((d) => {
+            const isPos = d.net >= 0;
+            const isCurrent = d.monthKey === referenceMonth;
+            return (
+              <div
+                key={d.monthKey}
+                className={`p-2 rounded-2xl flex flex-col items-center justify-between transition-all text-center ${
+                  isCurrent
+                    ? "bg-indigo-50/80 border border-indigo-200 shadow-xs ring-1 ring-indigo-200"
+                    : "bg-slate-50 border border-slate-100"
+                }`}
+              >
+                <div className="flex items-center gap-1 mb-1">
+                  <span className="text-[11px] font-bold text-slate-700">{d.shortLabel}</span>
+                  {isCurrent && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-600" title="Mes en curso" />
+                  )}
+                </div>
+                <div className="w-full flex items-center justify-between text-[9px] text-slate-400 px-0.5 mb-1">
+                  <span className="text-emerald-600 font-semibold">+{Math.round(d.income)}</span>
+                  <span className="text-rose-600 font-semibold">-{Math.round(d.expense)}</span>
+                </div>
+                <div
+                  className={`w-full py-0.5 px-1 rounded-md text-[10px] font-extrabold truncate ${
+                    isPos
+                      ? "bg-emerald-100/70 text-emerald-800"
+                      : "bg-rose-100/70 text-rose-800"
+                  }`}
+                  title={`Neto: ${isPos ? `+${d.net.toFixed(2)} €` : `${d.net.toFixed(2)} €`}`}
+                >
+                  {isPos ? `+${Math.round(d.net)}€` : `${Math.round(d.net)}€`}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MonthlyEvolutionBarChart;

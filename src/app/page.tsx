@@ -24,6 +24,7 @@ import CategoryPieTooltip from "@/components/CategoryPieTooltip";
 import CumulativeExpenseAreaChart from "@/components/CumulativeExpenseAreaChart";
 import LiveBalanceCard from "@/components/LiveBalanceCard";
 import DashboardInboxWidget from "@/components/DashboardInboxWidget";
+import MonthlyEvolutionBarChart from "@/components/MonthlyEvolutionBarChart";
 import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
@@ -229,11 +230,8 @@ export default function HomePage() {
   // Ámbito de visualización en el Resumen Mensual
   const [monthlyScope, setMonthlyScope] = useState<"household" | "joint" | "memberA" | "memberB">("household");
 
-  // Filtros de movimientos (Todos / Gastos / Ingresos) en resúmenes
-  const [carlosMovementsFilter, setCarlosMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
-  const [andreaMovementsFilter, setAndreaMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
+  // Filtro de movimientos (Todos / Gastos / Ingresos) exclusivo de resumen_mensual
   const [monthlyMovementsFilter, setMonthlyMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
-  const [jointMovementsFilter, setJointMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
 
   // Filtros interactivos por clic en categoría (null = sin filtrar por categoría)
   const [carlosCategoryFilter, setCarlosCategoryFilter] = useState<string | null>(null);
@@ -1073,6 +1071,16 @@ export default function HomePage() {
             onResetSettlement={resetSettlement}
             onOpenManualModal={() => setIsManualModalOpen(true)}
           />
+
+          {/* 3. Evolución del Gasto (Últimos 12 Meses: Barras Verticales Ingresos vs Gastos + Neto) */}
+          <MonthlyEvolutionBarChart
+            transactions={transactions}
+            accounts={accounts}
+            referenceMonth={selectedMonth}
+            activeRole={activeRole}
+            memberAName={memberAName}
+            memberBName={memberBName}
+          />
         </div>
       )}
 
@@ -1720,16 +1728,6 @@ export default function HomePage() {
             </div>
           </section>
 
-          {/* Income vs Expenses Horizontal Bars */}
-          <IncomeExpenseBars
-            totalIncome={totalJointIncome}
-            totalExpenses={totalJointSpent}
-            title="Diferencia de Ingresos vs Gastos Conjuntos"
-            subtitle="Ingresos comunes vs gastos comunes con reparto 50/50"
-            incomeLabel="Total Ingresos"
-            expenseLabel="Total Gastos"
-          />
-
           {/* Grid: Donut Chart & Latest Joint Movements */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Joint Donut Chart */}
@@ -1834,7 +1832,7 @@ export default function HomePage() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Movimientos Conjuntos
+                    Movimientos Conjuntos ({jointClassifiedTransactions.length})
                   </h2>
                   <div className="flex items-center gap-1 flex-wrap">
                     {jointCategoryFilter && (
@@ -1848,58 +1846,14 @@ export default function HomePage() {
                         <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
                       </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("all");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "all" && !jointCategoryFilter
-                          ? "bg-slate-900 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
-                    >
-                      Todos ({jointMovementsWithIncome.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("expenses");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "expenses" && !jointCategoryFilter
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      Gastos ({jointClassifiedTransactions.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("incomes");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "incomes" && !jointCategoryFilter
-                          ? "bg-[#00A37A] text-white"
-                          : "bg-[#00D09C]/15 text-[#008761] hover:bg-[#00D09C]/25"
-                      }`}
-                    >
-                      Ingresos ({jointIncomeTransactions.length})
-                    </button>
                   </div>
                 </div>
 
                 {(() => {
-                  const filtered = jointMovementsWithIncome.filter((tx) => {
+                  const filtered = jointClassifiedTransactions.filter((tx) => {
                     if (jointCategoryFilter) {
                       return tx.category.toLowerCase().trim() === jointCategoryFilter.toLowerCase().trim();
                     }
-                    if (jointMovementsFilter === "expenses") return !tx.isCredit;
-                    if (jointMovementsFilter === "incomes") return tx.isCredit;
                     return true;
                   });
 
@@ -1907,8 +1861,8 @@ export default function HomePage() {
                     return (
                       <div className="text-center text-slate-400 text-xs py-8">
                         {jointCategoryFilter
-                          ? `No hay movimientos conjuntos registrados para la categoría "${jointCategoryFilter}".`
-                          : "No hay movimientos conjuntos registrados para este filtro."}
+                          ? `No hay gastos conjuntos registrados para la categoría "${jointCategoryFilter}".`
+                          : "No hay gastos conjuntos registrados para este mes."}
                       </div>
                     );
                   }
@@ -2004,7 +1958,7 @@ export default function HomePage() {
                     Total Gastos ({memberAName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberAClassifiedTransactions.length} gastos • {memberAIncomeTransactions.length} ingresos
+                    {memberAClassifiedTransactions.length} gastos
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight whitespace-nowrap">
@@ -2013,16 +1967,6 @@ export default function HomePage() {
               </div>
             </div>
           </section>
-
-          {/* Income vs Expenses Horizontal Bars */}
-          <IncomeExpenseBars
-            totalIncome={totalMemberAIncome}
-            totalExpenses={totalMemberASpent}
-            title={`Diferencia de Ingresos vs Gastos (${memberAName})`}
-            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos individuales`}
-            incomeLabel="Total Ingresos"
-            expenseLabel="Total Gastos"
-          />
 
           {/* Donut Chart Carlos */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2126,7 +2070,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  Movimientos de {memberAName}
+                  Movimientos Propios de {memberAName} ({memberAClassifiedTransactions.length})
                 </h2>
                 <div className="flex items-center gap-1 flex-wrap">
                   {carlosCategoryFilter && (
@@ -2140,57 +2084,13 @@ export default function HomePage() {
                       <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCarlosMovementsFilter("all");
-                      setCarlosCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "all" && !carlosCategoryFilter
-                        ? "bg-slate-900 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    Todos ({memberAPersonalMovements.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCarlosMovementsFilter("expenses");
-                      setCarlosCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "expenses" && !carlosCategoryFilter
-                        ? "bg-red-600 text-white"
-                        : "bg-red-50 text-red-600 hover:bg-red-100"
-                    }`}
-                  >
-                    Gastos ({memberAClassifiedTransactions.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCarlosMovementsFilter("incomes");
-                      setCarlosCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "incomes" && !carlosCategoryFilter
-                        ? "bg-emerald-600 text-white"
-                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    }`}
-                  >
-                    Ingresos ({memberAIncomeTransactions.length})
-                  </button>
                 </div>
               </div>
               {(() => {
-                const filtered = memberAPersonalMovements.filter((tx) => {
+                const filtered = memberAClassifiedTransactions.filter((tx) => {
                   if (carlosCategoryFilter) {
                     return tx.category.toLowerCase().trim() === carlosCategoryFilter.toLowerCase().trim();
                   }
-                  if (carlosMovementsFilter === "expenses") return !tx.isCredit;
-                  if (carlosMovementsFilter === "incomes") return tx.isCredit;
                   return true;
                 });
 
@@ -2280,7 +2180,7 @@ export default function HomePage() {
                     Total Gastos ({memberBName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberBClassifiedTransactions.length} gastos • {memberBIncomeTransactions.length} ingresos
+                    {memberBClassifiedTransactions.length} gastos
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight whitespace-nowrap">
@@ -2289,16 +2189,6 @@ export default function HomePage() {
               </div>
             </div>
           </section>
-
-          {/* Income vs Expenses Horizontal Bars */}
-          <IncomeExpenseBars
-            totalIncome={totalMemberBIncome}
-            totalExpenses={totalMemberBSpent}
-            title={`Diferencia de Ingresos vs Gastos (${memberBName})`}
-            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos individuales`}
-            incomeLabel="Total Ingresos"
-            expenseLabel="Total Gastos"
-          />
 
           {/* Donut Chart Andrea */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -2402,7 +2292,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  Movimientos Propios de {memberBName}
+                  Movimientos Propios de {memberBName} ({memberBClassifiedTransactions.length})
                 </h2>
                 <div className="flex items-center gap-1 flex-wrap">
                   {andreaCategoryFilter && (
@@ -2416,57 +2306,13 @@ export default function HomePage() {
                       <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAndreaMovementsFilter("all");
-                      setAndreaCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "all" && !andreaCategoryFilter
-                        ? "bg-slate-900 text-white"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                    }`}
-                  >
-                    Todos ({memberBPersonalMovements.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAndreaMovementsFilter("expenses");
-                      setAndreaCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "expenses" && !andreaCategoryFilter
-                        ? "bg-blue-600 text-white"
-                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
-                    }`}
-                  >
-                    Gastos ({memberBClassifiedTransactions.length})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAndreaMovementsFilter("incomes");
-                      setAndreaCategoryFilter(null);
-                    }}
-                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "incomes" && !andreaCategoryFilter
-                        ? "bg-emerald-600 text-white"
-                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                    }`}
-                  >
-                    Ingresos ({memberBIncomeTransactions.length})
-                  </button>
                 </div>
               </div>
               {(() => {
-                const filtered = memberBPersonalMovements.filter((tx) => {
+                const filtered = memberBClassifiedTransactions.filter((tx) => {
                   if (andreaCategoryFilter) {
                     return tx.category.toLowerCase().trim() === andreaCategoryFilter.toLowerCase().trim();
                   }
-                  if (andreaMovementsFilter === "expenses") return !tx.isCredit;
-                  if (andreaMovementsFilter === "incomes") return tx.isCredit;
                   return true;
                 });
 

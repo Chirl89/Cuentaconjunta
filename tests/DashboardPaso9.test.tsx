@@ -4,7 +4,8 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import CumulativeExpenseAreaChart from "../src/components/CumulativeExpenseAreaChart";
 import LiveBalanceCard from "../src/components/LiveBalanceCard";
 import DashboardInboxWidget from "../src/components/DashboardInboxWidget";
-import { Transaction, Category } from "../src/context/TransactionsContext";
+import { MonthlyEvolutionBarChart, getRolling12Months } from "../src/components/MonthlyEvolutionBarChart";
+import { Transaction, Category, BankAccount } from "../src/context/TransactionsContext";
 
 describe("Paso 9: CumulativeExpenseAreaChart Component", () => {
   const sampleTransactions: Transaction[] = [
@@ -283,3 +284,106 @@ describe("Paso 9: DashboardInboxWidget Component", () => {
     expect(sampleCategories.length).toBe(2);
   });
 });
+
+describe("Paso 9: MonthlyEvolutionBarChart Component", () => {
+  it("calculates rolling 12 months correctly (not calendar year)", () => {
+    const rolling = getRolling12Months("2026-09");
+    expect(rolling).toHaveLength(12);
+    // 12 months ending in 2026-09 should start in 2025-10
+    expect(rolling[0]).toBe("2025-10");
+    expect(rolling[11]).toBe("2026-09");
+    expect(rolling).toEqual([
+      "2025-10",
+      "2025-11",
+      "2025-12",
+      "2026-01",
+      "2026-02",
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+    ]);
+  });
+
+  const evolutionTxs: Transaction[] = [
+    // 2026-09: Carlos income 2000, joint expense 100 (50% Carlos = 50), Carlos personal expense 50 -> Carlos total expense = 100, Carlos net = +1900
+    {
+      id: "tx-inc-1",
+      date: "2026-09-01",
+      amount: 2000,
+      merchant: "Nómina Carlos",
+      category: "Ingreso / Nómina",
+      categoryColor: "#10B981",
+      payer: "memberA",
+      split: "memberA",
+      status: "classified",
+      monthKey: "2026-09",
+      isCredit: true,
+    },
+    {
+      id: "tx-joint-1",
+      date: "2026-09-05",
+      amount: 100,
+      merchant: "Mercadona Compra Conjunta",
+      category: "Supermercado",
+      categoryColor: "#00D09C",
+      payer: "memberA",
+      split: "50/50",
+      status: "classified",
+      monthKey: "2026-09",
+    },
+    {
+      id: "tx-pers-a",
+      date: "2026-09-10",
+      amount: 50,
+      merchant: "Ropa Carlos",
+      category: "Otros Gastos Comunes",
+      categoryColor: "#EC4899",
+      payer: "memberA",
+      split: "memberA",
+      status: "classified",
+      monthKey: "2026-09",
+    },
+    // 2026-09: Andrea personal expense 40 -> Andrea total expense = 50 (joint half) + 40 = 90
+    {
+      id: "tx-pers-b",
+      date: "2026-09-12",
+      amount: 40,
+      merchant: "Libros Andrea",
+      category: "Otros Gastos Comunes",
+      categoryColor: "#EC4899",
+      payer: "memberB",
+      split: "memberB",
+      status: "classified",
+      monthKey: "2026-09",
+    },
+  ];
+
+  it("renders 12-month evolution bar chart for viewing user with personal expenses + 50% joint expenses", () => {
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={evolutionTxs}
+        referenceMonth="2026-09"
+        activeRole="memberA"
+        memberAName="Carlos"
+        memberBName="Andrea"
+      />
+    );
+
+    expect(screen.getByTestId("monthly-evolution-bar-chart")).toBeInTheDocument();
+    expect(screen.getByText("Evolución del Gasto (Últimos 12 Meses)")).toBeInTheDocument();
+    // Carlos has income +2000 and total expense -100 (-50 personal + -50 half joint) -> net +1900€
+    expect(screen.getAllByText("+1900€").length).toBeGreaterThan(0);
+
+    // Toggle button to switch to Andrea
+    const andreaToggle = screen.getByTestId("evolution-user-memberB");
+    fireEvent.click(andreaToggle);
+
+    // Andrea has 0 income and 90 expense (50 joint + 40 personal) -> net -90€
+    expect(screen.getAllByText("-90€").length).toBeGreaterThan(0);
+  });
+});
+
