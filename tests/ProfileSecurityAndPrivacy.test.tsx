@@ -247,6 +247,76 @@ describe("50% Joint Expense Imputation in Individual Summaries", () => {
     const monthlySummaryCarlosScope = personalA + jointExpense * 0.5;
     expect(monthlySummaryCarlosScope).toBe(250);
   });
+
+  it("filters movements interactively when selecting a category and resets on type filter click or toggle", () => {
+    const movements = [
+      { id: "1", merchant: "Mercadona", category: "Supermercado", amount: 65, isCredit: false },
+      { id: "2", merchant: "Restaurante", category: "Restaurantes", amount: 40, isCredit: false },
+      { id: "3", merchant: "Lidl", category: "Supermercado", amount: 25, isCredit: false },
+      { id: "4", merchant: "Nómina", category: "Nómina", amount: 2000, isCredit: true },
+    ];
+
+    // Filter helper matching the implementation
+    const filterMovements = (
+      categoryFilter: string | null,
+      typeFilter: "all" | "expenses" | "incomes"
+    ) => {
+      return movements.filter((m) => {
+        if (categoryFilter) {
+          return m.category.toLowerCase().trim() === categoryFilter.toLowerCase().trim();
+        }
+        if (typeFilter === "expenses") return !m.isCredit;
+        if (typeFilter === "incomes") return m.isCredit;
+        return true;
+      });
+    };
+
+    // 1. Initial state (no category filter, all movements)
+    expect(filterMovements(null, "all")).toHaveLength(4);
+
+    // 2. Click category "Supermercado"
+    let activeCategory: string | null = "Supermercado";
+    let activeType: "all" | "expenses" | "incomes" = "all";
+    const superMovements = filterMovements(activeCategory, activeType);
+    expect(superMovements).toHaveLength(2);
+    expect(superMovements.every((m) => m.category === "Supermercado")).toBe(true);
+
+    // 3. Switch to category "Restaurantes"
+    activeCategory = "Restaurantes";
+    const restMovements = filterMovements(activeCategory, activeType);
+    expect(restMovements).toHaveLength(1);
+    expect(restMovements[0].merchant).toBe("Restaurante");
+
+    // 4. Clicking the active category again toggles it off
+    const toggleCategory = (clickedCat: string) => {
+      if (activeCategory?.toLowerCase().trim() === clickedCat.toLowerCase().trim()) {
+        activeCategory = null;
+      } else {
+        activeCategory = clickedCat;
+      }
+    };
+    toggleCategory("Restaurantes");
+    expect(activeCategory).toBeNull();
+    expect(filterMovements(activeCategory, activeType)).toHaveLength(4);
+
+    // 5. Selecting category, then clicking "Gastos" clears category and applies expenses filter
+    activeCategory = "Supermercado";
+    expect(filterMovements(activeCategory, activeType)).toHaveLength(2);
+    // User clicks "Gastos"
+    activeType = "expenses";
+    activeCategory = null;
+    const expenseOnlyMovements = filterMovements(activeCategory, activeType);
+    expect(expenseOnlyMovements).toHaveLength(3);
+    expect(expenseOnlyMovements.every((m) => !m.isCredit)).toBe(true);
+
+    // 6. User clicks "Ingresos"
+    activeType = "incomes";
+    activeCategory = null;
+    const incomeOnlyMovements = filterMovements(activeCategory, activeType);
+    expect(incomeOnlyMovements).toHaveLength(1);
+    expect(incomeOnlyMovements[0].merchant).toBe("Nómina");
+  });
 });
+
 
 

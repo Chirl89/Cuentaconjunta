@@ -229,6 +229,11 @@ export default function HomePage() {
   const [andreaMovementsFilter, setAndreaMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
   const [monthlyMovementsFilter, setMonthlyMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
 
+  // Filtros interactivos por clic en categoría (null = sin filtrar por categoría)
+  const [carlosCategoryFilter, setCarlosCategoryFilter] = useState<string | null>(null);
+  const [andreaCategoryFilter, setAndreaCategoryFilter] = useState<string | null>(null);
+  const [monthlyCategoryFilter, setMonthlyCategoryFilter] = useState<string | null>(null);
+
   // Tab & scope redirection for privacy isolation
   useEffect(() => {
     if (activeRole === "memberA" && activeTab === "resumen_andrea") {
@@ -1187,15 +1192,29 @@ export default function HomePage() {
                 )}
               </div>
 
-              {/* Categorías con porcentaje */}
-              <div className="space-y-2 pt-2 border-t border-slate-100 max-h-60 overflow-y-auto pr-1">
+              {/* Categorías con porcentaje y filtro interactivo */}
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 max-h-60 overflow-y-auto pr-1">
                 {monthlyScopeBreakdown.map((cat) => {
                   const pct =
                     monthlyScopeTotal > 0 ? Math.round((cat.value / monthlyScopeTotal) * 100) : 0;
+                  const isSelected = monthlyCategoryFilter?.toLowerCase().trim() === cat.name.toLowerCase().trim();
                   return (
-                    <div
+                    <button
                       key={cat.name}
-                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setMonthlyCategoryFilter(null);
+                        } else {
+                          setMonthlyCategoryFilter(cat.name);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "bg-indigo-50 border border-indigo-300 shadow-xs ring-1 ring-indigo-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                      title={isSelected ? "Pulsar para quitar filtro" : `Filtrar movimientos por ${cat.name}`}
                     >
                       <div className="flex items-center gap-3">
                         <span
@@ -1203,18 +1222,27 @@ export default function HomePage() {
                           style={{ backgroundColor: cat.color }}
                         />
                         <div>
-                          <span className="text-xs font-bold text-slate-800 block">{cat.name}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-xs font-bold block ${isSelected ? "text-indigo-900" : "text-slate-800"}`}>
+                              {cat.name}
+                            </span>
+                            {isSelected && (
+                              <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-indigo-600 text-white">
+                                Filtrando
+                              </span>
+                            )}
+                          </div>
                           <span className="text-[10px] text-slate-400 font-medium">
                             {cat.count} movimientos • {pct}%
                           </span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="text-xs font-black text-slate-900">
+                        <span className={`text-xs font-black ${isSelected ? "text-indigo-950" : "text-slate-900"}`}>
                           {cat.value.toFixed(2)} €
                         </span>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
               </div>
@@ -1358,11 +1386,25 @@ export default function HomePage() {
               </div>
 
               <div className="flex items-center gap-1.5 flex-wrap">
+                {monthlyCategoryFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setMonthlyCategoryFilter(null)}
+                    className="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                    title="Pulsar para quitar filtro de categoría"
+                  >
+                    <span>🏷️ {monthlyCategoryFilter}</span>
+                    <span className="text-[10px] bg-white/25 px-1 rounded-full">✕</span>
+                  </button>
+                )}
                 <button
                   type="button"
-                  onClick={() => setMonthlyMovementsFilter("all")}
+                  onClick={() => {
+                    setMonthlyMovementsFilter("all");
+                    setMonthlyCategoryFilter(null);
+                  }}
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "all"
+                    monthlyMovementsFilter === "all" && !monthlyCategoryFilter
                       ? "bg-slate-900 text-white shadow-xs"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
@@ -1371,9 +1413,12 @@ export default function HomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMonthlyMovementsFilter("expenses")}
+                  onClick={() => {
+                    setMonthlyMovementsFilter("expenses");
+                    setMonthlyCategoryFilter(null);
+                  }}
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "expenses"
+                    monthlyMovementsFilter === "expenses" && !monthlyCategoryFilter
                       ? "bg-rose-600 text-white shadow-xs"
                       : "bg-rose-50 text-rose-600 hover:bg-rose-100"
                   }`}
@@ -1382,9 +1427,12 @@ export default function HomePage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMonthlyMovementsFilter("incomes")}
+                  onClick={() => {
+                    setMonthlyMovementsFilter("incomes");
+                    setMonthlyCategoryFilter(null);
+                  }}
                   className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "incomes"
+                    monthlyMovementsFilter === "incomes" && !monthlyCategoryFilter
                       ? "bg-emerald-600 text-white shadow-xs"
                       : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                   }`}
@@ -1394,18 +1442,30 @@ export default function HomePage() {
               </div>
             </div>
 
-            {monthlyScopeMovements.filter((m) =>
-              monthlyMovementsFilter === "expenses" ? !m.isCredit : monthlyMovementsFilter === "incomes" ? m.isCredit : true
-            ).length === 0 ? (
+            {monthlyScopeMovements.filter((m) => {
+              if (monthlyCategoryFilter) {
+                return m.category.toLowerCase().trim() === monthlyCategoryFilter.toLowerCase().trim();
+              }
+              if (monthlyMovementsFilter === "expenses") return !m.isCredit;
+              if (monthlyMovementsFilter === "incomes") return m.isCredit;
+              return true;
+            }).length === 0 ? (
               <div className="text-center text-slate-400 text-xs py-8">
-                No hay movimientos registrados para este filtro en el ámbito seleccionado.
+                {monthlyCategoryFilter
+                  ? `No hay movimientos registrados para la categoría "${monthlyCategoryFilter}".`
+                  : "No hay movimientos registrados para este filtro en el ámbito seleccionado."}
               </div>
             ) : (
               <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto pr-1">
                 {monthlyScopeMovements
-                  .filter((m) =>
-                    monthlyMovementsFilter === "expenses" ? !m.isCredit : monthlyMovementsFilter === "incomes" ? m.isCredit : true
-                  )
+                  .filter((m) => {
+                    if (monthlyCategoryFilter) {
+                      return m.category.toLowerCase().trim() === monthlyCategoryFilter.toLowerCase().trim();
+                    }
+                    if (monthlyMovementsFilter === "expenses") return !m.isCredit;
+                    if (monthlyMovementsFilter === "incomes") return m.isCredit;
+                    return true;
+                  })
                   .map((item) => (
                     <div key={item.id} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
@@ -1756,12 +1816,48 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {memberAPersonalCategoriesBreakdown.map((cat) => (
-                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <span className="text-xs font-bold text-slate-800">{cat.name}</span>
-                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
-                  </div>
-                ))}
+                {memberAPersonalCategoriesBreakdown.map((cat) => {
+                  const isSelected = carlosCategoryFilter?.toLowerCase().trim() === cat.name.toLowerCase().trim();
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setCarlosCategoryFilter(null);
+                        } else {
+                          setCarlosCategoryFilter(cat.name);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "bg-red-50 border border-red-300 shadow-xs ring-1 ring-red-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                      title={isSelected ? "Pulsar para quitar filtro" : `Filtrar movimientos por ${cat.name}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold ${isSelected ? "text-red-900" : "text-slate-800"}`}>
+                            {cat.name}
+                          </span>
+                          {isSelected && (
+                            <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-red-600 text-white">
+                              Filtrando
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`text-xs font-black ${isSelected ? "text-red-950" : "text-slate-900"}`}>
+                        {cat.value.toFixed(2)} €
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -1772,86 +1868,129 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   Movimientos de {memberAName}
                 </h2>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {carlosCategoryFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setCarlosCategoryFilter(null)}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-red-600 hover:bg-red-700 text-white shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                      title="Pulsar para quitar filtro de categoría"
+                    >
+                      <span>🏷️ {carlosCategoryFilter}</span>
+                      <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setCarlosMovementsFilter("all")}
+                    onClick={() => {
+                      setCarlosMovementsFilter("all");
+                      setCarlosCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      carlosMovementsFilter === "all" && !carlosCategoryFilter
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
                     Todos ({memberAPersonalMovements.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCarlosMovementsFilter("expenses")}
+                    onClick={() => {
+                      setCarlosMovementsFilter("expenses");
+                      setCarlosCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "expenses" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"
+                      carlosMovementsFilter === "expenses" && !carlosCategoryFilter
+                        ? "bg-red-600 text-white"
+                        : "bg-red-50 text-red-600 hover:bg-red-100"
                     }`}
                   >
                     Gastos ({memberAClassifiedTransactions.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setCarlosMovementsFilter("incomes")}
+                    onClick={() => {
+                      setCarlosMovementsFilter("incomes");
+                      setCarlosCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      carlosMovementsFilter === "incomes" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      carlosMovementsFilter === "incomes" && !carlosCategoryFilter
+                        ? "bg-emerald-600 text-white"
+                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                     }`}
                   >
                     Ingresos ({memberAIncomeTransactions.length})
                   </button>
                 </div>
               </div>
-              {((carlosMovementsFilter === "expenses" ? memberAClassifiedTransactions : carlosMovementsFilter === "incomes" ? memberAIncomeTransactions : memberAPersonalMovements).length === 0) ? (
-                <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos registrados para este filtro.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {(carlosMovementsFilter === "expenses" ? memberAClassifiedTransactions : carlosMovementsFilter === "incomes" ? memberAIncomeTransactions : memberAPersonalMovements).map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {tx.isManual ? (
-                            <button
-                              type="button"
-                              onClick={() => setEditingTransaction(tx)}
-                              className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                              title="Gasto manual: Pulsar para editar o eliminar"
-                            >
-                              <span>{tx.merchant}</span>
-                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                                Manual
-                              </span>
-                            </button>
-                          ) : (
-                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                              {tx.merchant}
-                            </span>
-                          )}
-                          {tx.isCredit ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              💰 Ingreso {memberAName}
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
-                              100% {memberAName}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0 mt-0.5">
-                        <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                        </span>
-                      </div>
+              {(() => {
+                const filtered = memberAPersonalMovements.filter((tx) => {
+                  if (carlosCategoryFilter) {
+                    return tx.category.toLowerCase().trim() === carlosCategoryFilter.toLowerCase().trim();
+                  }
+                  if (carlosMovementsFilter === "expenses") return !tx.isCredit;
+                  if (carlosMovementsFilter === "incomes") return tx.isCredit;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center text-slate-400 text-xs py-8">
+                      {carlosCategoryFilter
+                        ? `No hay movimientos registrados para la categoría "${carlosCategoryFilter}".`
+                        : "No hay movimientos registrados para este filtro."}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                }
+
+                return (
+                  <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
+                    {filtered.map((tx) => (
+                      <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {tx.isManual ? (
+                              <button
+                                type="button"
+                                onClick={() => setEditingTransaction(tx)}
+                                className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                                title="Gasto manual: Pulsar para editar o eliminar"
+                              >
+                                <span>{tx.merchant}</span>
+                                <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                  Manual
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                                {tx.merchant}
+                              </span>
+                            )}
+                            {tx.isCredit ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                💰 Ingreso {memberAName}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
+                                100% {memberAName}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 block mt-1">
+                            {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0 mt-0.5">
+                          <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                            {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </section>
           </div>
         </div>
@@ -1953,12 +2092,48 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {memberBPersonalCategoriesBreakdown.map((cat) => (
-                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <span className="text-xs font-bold text-slate-800">{cat.name}</span>
-                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
-                  </div>
-                ))}
+                {memberBPersonalCategoriesBreakdown.map((cat) => {
+                  const isSelected = andreaCategoryFilter?.toLowerCase().trim() === cat.name.toLowerCase().trim();
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setAndreaCategoryFilter(null);
+                        } else {
+                          setAndreaCategoryFilter(cat.name);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "bg-blue-50 border border-blue-300 shadow-xs ring-1 ring-blue-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                      title={isSelected ? "Pulsar para quitar filtro" : `Filtrar movimientos por ${cat.name}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold ${isSelected ? "text-blue-900" : "text-slate-800"}`}>
+                            {cat.name}
+                          </span>
+                          {isSelected && (
+                            <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-blue-600 text-white">
+                              Filtrando
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`text-xs font-black ${isSelected ? "text-blue-950" : "text-slate-900"}`}>
+                        {cat.value.toFixed(2)} €
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
@@ -1969,86 +2144,129 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                   Movimientos Propios de {memberBName}
                 </h2>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 flex-wrap">
+                  {andreaCategoryFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setAndreaCategoryFilter(null)}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                      title="Pulsar para quitar filtro de categoría"
+                    >
+                      <span>🏷️ {andreaCategoryFilter}</span>
+                      <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setAndreaMovementsFilter("all")}
+                    onClick={() => {
+                      setAndreaMovementsFilter("all");
+                      setAndreaCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      andreaMovementsFilter === "all" && !andreaCategoryFilter
+                        ? "bg-slate-900 text-white"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
                     Todos ({memberBPersonalMovements.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAndreaMovementsFilter("expenses")}
+                    onClick={() => {
+                      setAndreaMovementsFilter("expenses");
+                      setAndreaCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "expenses" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                      andreaMovementsFilter === "expenses" && !andreaCategoryFilter
+                        ? "bg-blue-600 text-white"
+                        : "bg-blue-50 text-blue-600 hover:bg-blue-100"
                     }`}
                   >
                     Gastos ({memberBClassifiedTransactions.length})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAndreaMovementsFilter("incomes")}
+                    onClick={() => {
+                      setAndreaMovementsFilter("incomes");
+                      setAndreaCategoryFilter(null);
+                    }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                      andreaMovementsFilter === "incomes" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      andreaMovementsFilter === "incomes" && !andreaCategoryFilter
+                        ? "bg-emerald-600 text-white"
+                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                     }`}
                   >
                     Ingresos ({memberBIncomeTransactions.length})
                   </button>
                 </div>
               </div>
-              {((andreaMovementsFilter === "expenses" ? memberBClassifiedTransactions : andreaMovementsFilter === "incomes" ? memberBIncomeTransactions : memberBPersonalMovements).length === 0) ? (
-                <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos registrados para este filtro.
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {(andreaMovementsFilter === "expenses" ? memberBClassifiedTransactions : andreaMovementsFilter === "incomes" ? memberBIncomeTransactions : memberBPersonalMovements).map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {tx.isManual ? (
-                            <button
-                              type="button"
-                              onClick={() => setEditingTransaction(tx)}
-                              className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                              title="Gasto manual: Pulsar para editar o eliminar"
-                            >
-                              <span>{tx.merchant}</span>
-                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                                Manual
-                              </span>
-                            </button>
-                          ) : (
-                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                              {tx.merchant}
-                            </span>
-                          )}
-                          {tx.isCredit ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                              💰 Ingreso {memberBName}
-                            </span>
-                          ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
-                              100% {memberBName}
-                            </span>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                        </span>
-                      </div>
-                      <div className="text-right shrink-0 mt-0.5">
-                        <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                        </span>
-                      </div>
+              {(() => {
+                const filtered = memberBPersonalMovements.filter((tx) => {
+                  if (andreaCategoryFilter) {
+                    return tx.category.toLowerCase().trim() === andreaCategoryFilter.toLowerCase().trim();
+                  }
+                  if (andreaMovementsFilter === "expenses") return !tx.isCredit;
+                  if (andreaMovementsFilter === "incomes") return tx.isCredit;
+                  return true;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="text-center text-slate-400 text-xs py-8">
+                      {andreaCategoryFilter
+                        ? `No hay movimientos registrados para la categoría "${andreaCategoryFilter}".`
+                        : "No hay movimientos registrados para este filtro."}
                     </div>
-                  ))}
-                </div>
-              )}
+                  );
+                }
+
+                return (
+                  <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
+                    {filtered.map((tx) => (
+                      <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {tx.isManual ? (
+                              <button
+                                type="button"
+                                onClick={() => setEditingTransaction(tx)}
+                                className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                                title="Gasto manual: Pulsar para editar o eliminar"
+                              >
+                                <span>{tx.merchant}</span>
+                                <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                  Manual
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                                {tx.merchant}
+                              </span>
+                            )}
+                            {tx.isCredit ? (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                                💰 Ingreso {memberBName}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                                100% {memberBName}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-slate-400 block mt-1">
+                            {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                          </span>
+                        </div>
+                        <div className="text-right shrink-0 mt-0.5">
+                          <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                            {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </section>
           </div>
         </div>
