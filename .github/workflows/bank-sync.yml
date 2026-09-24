@@ -60,10 +60,11 @@ jobs:
         run: |
           git config user.name "FitDuo Bank Sync Bot"
           git config user.email "bot@fitduo.app"
-          git add public/data/bank-feed.json data/
+          git add public/data/bank-feed.json data/ 2>/dev/null || true
           if ! git diff --staged --quiet; then
             git commit -m "chore(sync): automated bank feed update"
-            git push origin main
+            git pull --rebase origin main || true
+            git push origin main || echo "Warning: Unable to push automated bank sync feed to main (concurrent commit or branch permissions)."
           else
             echo "No bank feed changes detected."
           fi

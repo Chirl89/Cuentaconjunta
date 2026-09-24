@@ -39,7 +39,9 @@ jobs:
 
       - name: Build and export static HTML
         run: |
+          cp version.json ./public/version.json
           npm run build
+          cp version.json ./out/version.json 2>/dev/null || true
           touch ./out/.nojekyll
         env:
           GITHUB_ACTIONS: "true"
