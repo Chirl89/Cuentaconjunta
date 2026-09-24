@@ -385,5 +385,55 @@ describe("Paso 9: MonthlyEvolutionBarChart Component", () => {
     // Andrea has 0 income and 90 expense (50 joint + 40 personal) -> net -90€
     expect(screen.getAllByText("-90€").length).toBeGreaterThan(0);
   });
+
+  it("does not invent data for months without transactions and shows 'Sin datos' / '—'", () => {
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={evolutionTxs}
+        referenceMonth="2026-09"
+        activeRole="memberA"
+        memberAName="Carlos"
+        memberBName="Andrea"
+      />
+    );
+
+    // October 2025 has no transactions: card must show 'Sin datos' and '—'
+    const octCard = screen.getByTestId("evolution-card-2025-10");
+    expect(octCard).toBeInTheDocument();
+    expect(octCard).toHaveTextContent("Sin datos");
+    expect(octCard).toHaveTextContent("—");
+
+    // Must NOT invent +0€ for empty months
+    expect(octCard).not.toHaveTextContent("+0€");
+
+    // Balance header shows only months with real data (1 mes con datos)
+    expect(screen.getByText(/1 mes con datos/)).toBeInTheDocument();
+
+    // Toggle filter to only months with data
+    const onlyDataBtn = screen.getByTestId("evolution-view-only-data");
+    fireEvent.click(onlyDataBtn);
+
+    // Empty month card is no longer shown in onlyData mode
+    expect(screen.queryByTestId("evolution-card-2025-10")).not.toBeInTheDocument();
+    // September 2026 is still shown
+    expect(screen.getByTestId("evolution-card-2026-09")).toBeInTheDocument();
+  });
+
+  it("shows clean empty state when there are 0 transactions in total", () => {
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={[]}
+        referenceMonth="2026-09"
+        activeRole="memberA"
+        memberAName="Carlos"
+        memberBName="Andrea"
+      />
+    );
+
+    expect(screen.getByTestId("evolution-empty-state")).toBeInTheDocument();
+    expect(
+      screen.getByText("No hay movimientos registrados para mostrar la evolución")
+    ).toBeInTheDocument();
+  });
 });
 
