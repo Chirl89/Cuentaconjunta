@@ -32,16 +32,16 @@
 - **Paso 7 (v0.7)**: **Motor de Categorización Inteligente con IA, Aprendizaje por Feedback y Reglas de Asignación**
   - Clasificador inteligente de categorías inicial, sistema de auto-aprendizaje cuando el usuario corrige una categoría para futuros movimientos, motor de reglas por comercio/cuenta y soporte de splits 50/50 o personalizados.
 
-- **Paso 8 (v0.8)**: **Motor de Balances en Tiempo Real ("Quién debe a quién"), Liquidaciones y Traspasos**
-  - Algoritmo de cálculo de saldos entre los miembros, absorción automática de traspasos/Bizums entre miembros como abonos de deuda, historial de compensaciones y saldo inicial.
+- **Paso 8 (v0.8)**: **Resumen Mensual, Aislamiento de Perfiles (PIN Carlos/Andrea), Reparto 50% Común y Filtrado Reactivo** *(Completado)*
+  - Resumen mensual consolidado con proyección de ahorro y ritmo diario.
+  - Perfiles aislados por PIN con acceso individual estricto (Carlos: 608137, Andrea: 050994).
+  - Reconocimiento exacto del 50% de los gastos comunes y asignación automática al pagador de los gastos sin categorizar.
+  - Filtrado interactivo por clic en categorías en todas las pestañas de resumen sin selectores adicionales.
 
 - **Paso 9 (v0.9)**: **Dashboard Principal Estilo Fintonic: Nombres Reactivos, Gráfico Donut, Inbox y Feed**
   - Interfaz PWA con nombres configurados en tiempo real: Gráfico donut interactivo con total central, Inbox de triage rápido filtrado por usuario con nombres dinámicos en los botones, modal de gasto manual, bandeja de validación y balance en vivo.
 
-- **Paso 10 (v0.10)**: **Gestión de Cuentas, Monitor PSD2, Respaldo/Restauración Local y Editor de Reglas**
-  - Panel de administración: cambio de nombres de usuario con reflejo instantáneo en toda la app, reasignación de titularidad de cuentas/tarjetas, editor de reglas/patrones.
-  - **Monitor de Consentimiento Bancario (PSD2):** Contador de días de validez y botón de renovación en 1 clic que dispara reconciliación retrospectiva.
-  - **Respaldo y Restauración de Datos (Local):** Exportación e importación/restauración de copia completa en JSON/CSV estructurado para soberanía total de la información.
+- ~~**Paso 10 (v0.10)**: **Exportación de informes y backups**~~ *(Eliminado a petición del usuario: visualización directa siempre en la App)*
 
 - **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform, Cron Jobs y Respaldo Continuo en la Nube**
   - Despliegue en Vercel, configuración de Cron Jobs para sincronización periódica desatendida.
