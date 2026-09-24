@@ -330,6 +330,7 @@ export interface Transaction {
   updatedAt?: number;
   autoAssignedRuleId?: string;
   autoAssignedReason?: string;
+  rawConcept?: string;
 }
 
 export interface DebtMovementItem {
@@ -459,6 +460,194 @@ export function isFictionalTransaction(t: any): boolean {
   if (m.includes("gasolinera repsol m-30")) return true;
   if (m.includes("restaurante el corte ingles")) return true;
   if (m.includes("transferencia nomina empresa")) return true;
+  return false;
+}
+
+/**
+ * Canonical date normalizer ensuring any date format ("15/09/2026", "2026-09-15", "15 Sep", "5/9/2026")
+ * is compared strictly in ISO "YYYY-MM-DD" format.
+ */
+export function normalizeDateToCanonical(dateStr?: string, monthKey?: string): string {
+  if (!dateStr) return monthKey ? `${monthKey}-01` : "";
+  const trimmed = dateStr.trim();
+
+  // YYYY-MM-DD
+  const isoMatch = trimmed.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+  if (isoMatch) {
+    return `${isoMatch[1]}-${isoMatch[2].padStart(2, "0")}-${isoMatch[3].padStart(2, "0")}`;
+  }
+
+  // DD/MM/YYYY or DD-MM-YYYY
+  const slashMatch = trimmed.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+  if (slashMatch) {
+    let year = slashMatch[3];
+    if (year.length === 2) year = `20${year}`;
+    return `${year}-${slashMatch[2].padStart(2, "0")}-${slashMatch[1].padStart(2, "0")}`;
+  }
+
+  // DD Mes (e.g. "15 Sep", "10 Abr", "14 Sep, 11:42")
+  const dayMonthMatch = trimmed.match(/^(\d{1,2})\s+([A-Za-z]{3})/i);
+  if (dayMonthMatch) {
+    const day = dayMonthMatch[1].padStart(2, "0");
+    const MONTHS_MAP: Record<string, string> = {
+      ene: "01", feb: "02", mar: "03", abr: "04", may: "05", jun: "06",
+      jul: "07", ago: "08", sep: "09", oct: "10", nov: "11", dic: "12",
+      jan: "01", apr: "04", aug: "08", dec: "12",
+    };
+    const mKey = dayMonthMatch[2].toLowerCase().substring(0, 3);
+    const mStr = MONTHS_MAP[mKey] || "09";
+    let yStr = "2026";
+    if (monthKey && monthKey.includes("-")) {
+      yStr = monthKey.split("-")[0];
+    }
+    return `${yStr}-${mStr}-${day}`;
+  }
+
+  return trimmed;
+}
+
+/**
+ * Normalizes text concept: removes accents, lowers case, replaces non-alphanumeric chars with spaces,
+ * and collapses multiple spaces.
+ */
+export function normalizeConceptString(str?: string): string {
+  if (!str) return "";
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Strips common bank statement prefixes and suffixes to find the core merchant name
+ */
+export function stripBankNoisePrefixes(str: string): string {
+  let s = str;
+  const prefixes = [
+    "compra en ", "compra tpv ", "compra ", "pago en ", "pago con tarjeta ", "pago tarjeta ", "pago ",
+    "tpv ", "recibo de ", "recibo ", "cargo en cuenta ", "cargo ", "adeudo ",
+    "estacion de servicio ", "estacion servicio ", "e s ", "gasolinera "
+  ];
+  for (const p of prefixes) {
+    if (s.startsWith(p)) {
+      s = s.slice(p.length).trim();
+      break;
+    }
+  }
+  s = s.replace(/\s+(s\s*a|s\s*l|slu|sau)$/i, "").trim();
+  s = s.replace(/\s+\d{4,6}$/, "").trim();
+  return s;
+}
+
+/**
+ * Checks if two account labels refer to compatible or matching accounts/cards
+ */
+export function areAccountsCompatible(labelA?: string, labelB?: string): boolean {
+  if (!labelA || !labelB) return true;
+  const a = labelA.toLowerCase().trim();
+  const b = labelB.toLowerCase().trim();
+  if (a === b) return true;
+
+  // Extract last 4 digits if present
+  const digitsA = a.match(/\d{4}/)?.[0];
+  const digitsB = b.match(/\d{4}/)?.[0];
+  if (digitsA && digitsB && digitsA === digitsB) return true;
+
+  // Strip generic words "tarjeta", "cuenta", "visa", "debit", "debito", "credit", "credito"
+  const cleanA = a.replace(/tarjeta|cuenta|visa|mastercard|debito|débito|credito|crédito|\s|\(|\)|\*/gi, "");
+  const cleanB = b.replace(/tarjeta|cuenta|visa|mastercard|debito|débito|credito|crédito|\s|\(|\)|\*/gi, "");
+  if (cleanA && cleanB && (cleanA === cleanB || cleanA.includes(cleanB) || cleanB.includes(cleanA))) {
+    return true;
+  }
+
+  // If both are cards of any kind
+  const isCardA = /tarjeta|visa|mastercard|cr[eé]dito|d[eé]bito|card_/i.test(a);
+  const isCardB = /tarjeta|visa|mastercard|cr[eé]dito|d[eé]bito|card_/i.test(b);
+  if (isCardA && isCardB) return true;
+
+  return false;
+}
+
+/**
+ * Robust duplicate movement detector:
+ * Returns true if an incoming movement matches an existing transaction,
+ * REGARDLESS of whether the existing transaction is:
+ * - In triage (status === "pending")
+ * - Auto-assigned (status === "auto_assigned")
+ * - Assigned to ANY section/category (status === "classified")
+ * - Assigned to 50/50, Carlos, Andrea, or Ignored
+ * - Renamed by the user in the UI (matches against rawConcept or stripped merchant)
+ */
+export function isSameMovement(
+  existing: Transaction,
+  incoming: {
+    id?: string;
+    concept?: string;
+    merchant?: string;
+    amount: number;
+    date: string;
+    monthKey: string;
+    bankName?: string;
+    accountLabel?: string;
+    rawConcept?: string;
+    bankMovementId?: string;
+  }
+): boolean {
+  // 1. Direct ID match
+  if (incoming.id && existing.id === incoming.id) return true;
+  if (incoming.id && existing.bankMovementId === incoming.id) return true;
+  if (incoming.bankMovementId && existing.bankMovementId === incoming.bankMovementId) return true;
+
+  // 2. Strict Amount Match (within 1 cent)
+  const incomingAmount = Math.abs(incoming.amount);
+  const existingAmount = Math.abs(existing.amount);
+  if (Math.abs(existingAmount - incomingAmount) >= 0.01) {
+    return false;
+  }
+
+  // 3. Strict Normalized Date Match
+  const canonExistingDate = normalizeDateToCanonical(existing.date, existing.monthKey);
+  const canonIncomingDate = normalizeDateToCanonical(incoming.date, incoming.monthKey);
+  if (canonExistingDate && canonIncomingDate && canonExistingDate !== canonIncomingDate) {
+    return false;
+  }
+
+  // 4. Account Compatibility Check
+  if (!areAccountsCompatible(existing.accountLabel, incoming.accountLabel || incoming.bankName)) {
+    return false;
+  }
+
+  // 5. Concept / Merchant Match
+  const conceptText = incoming.concept || incoming.merchant || "";
+  const normIncoming = normalizeConceptString(conceptText);
+  const normExisting = normalizeConceptString(existing.merchant);
+  const normRawExisting = normalizeConceptString(existing.rawConcept);
+
+  if (normIncoming === normExisting) return true;
+  if (normRawExisting && normIncoming === normRawExisting) return true;
+
+  const strippedIncoming = stripBankNoisePrefixes(normIncoming);
+  const strippedExisting = stripBankNoisePrefixes(normExisting);
+  const strippedRaw = normRawExisting ? stripBankNoisePrefixes(normRawExisting) : "";
+
+  if (strippedIncoming === strippedExisting) return true;
+  if (strippedRaw && strippedIncoming === strippedRaw) return true;
+
+  if (strippedIncoming.length >= 4 && strippedExisting.length >= 4) {
+    if (strippedIncoming.includes(strippedExisting) || strippedExisting.includes(strippedIncoming)) {
+      return true;
+    }
+  }
+
+  if (strippedRaw && strippedIncoming.length >= 4 && strippedRaw.length >= 4) {
+    if (strippedIncoming.includes(strippedRaw) || strippedRaw.includes(strippedIncoming)) {
+      return true;
+    }
+  }
+
   return false;
 }
 
@@ -747,7 +936,8 @@ interface TransactionsContextType {
     bankName?: string;
     accountLabel?: string;
     ownership?: "JOINT" | "USER_A" | "USER_B";
-  }>) => void;
+    rawConcept?: string;
+  }>) => { added: number; duplicates: number; total: number };
   syncBankFeed: () => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
   // Paso 7: Rules & Continuous Category Learning
@@ -1085,27 +1275,28 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         // (b) Smart merge with Cloud transactions (cross-device source of truth)
         for (const ct of cloudTxs) {
-          const local = txMap.get(ct.id);
+          const local = txMap.get(ct.id) || Array.from(txMap.values()).find((l) => isSameMovement(l, ct));
+          const targetKey = local ? local.id : ct.id;
           if (!local) {
             txMap.set(ct.id, ct);
           } else if (local.split === "ignored") {
             // Never lose ignored state
-            txMap.set(ct.id, local);
+            txMap.set(targetKey, local);
           } else if (local.status === "classified" && ct.status === "pending") {
             // Local has already been classified; preserve local classification!
-            txMap.set(ct.id, local);
+            txMap.set(targetKey, local);
           } else if ((local.updatedAt || 0) > (ct.updatedAt || 0)) {
             // Local has a newer update than cloud; preserve local!
-            txMap.set(ct.id, local);
+            txMap.set(targetKey, local);
           } else if ((ct.updatedAt || 0) > (local.updatedAt || 0)) {
             // Cloud has a newer update; take cloud!
-            txMap.set(ct.id, ct);
+            txMap.set(targetKey, { ...ct, id: targetKey });
           } else {
             // Equal or missing timestamps: if local is classified, preserve local!
             if (local.status === "classified") {
-              txMap.set(ct.id, local);
+              txMap.set(targetKey, local);
             } else {
-              txMap.set(ct.id, ct);
+              txMap.set(targetKey, { ...ct, id: targetKey });
             }
           }
         }
@@ -1120,6 +1311,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         for (const ft of feedTxs) {
           if (!isTestEnv && isFictionalTransaction(ft)) continue;
           if (txMap.has(ft.id) || (ft.bankMovementId && existingBankIds.has(ft.bankMovementId))) {
+            continue;
+          }
+          if (Array.from(txMap.values()).some((l) => isSameMovement(l, ft))) {
             continue;
           }
           const isCredit = Boolean(ft.isCredit);
@@ -1660,71 +1854,88 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         bankName?: string;
         accountLabel?: string;
         ownership?: "JOINT" | "USER_A" | "USER_B";
+        rawConcept?: string;
       }>
-    ) => {
-      const newTxs: Transaction[] = movements.map((m, idx) => {
-        const defaultPayer: PayerType =
-          m.ownership === "USER_B"
-            ? "memberB"
-            : m.ownership === "USER_A"
-            ? "memberA"
-            : "joint";
-
-        const concept = m.concept.trim() || "Movimiento Bancario";
-        const accountLabel = m.accountLabel || m.bankName || "Bankinter";
-
-        const pipe = runCategorizationPipeline(
-          {
-            merchant: concept,
-            amount: m.amount,
-            accountLabel,
-          },
-          rulesRef.current,
-          learningsRef.current,
-          categoriesRef.current
-        );
-
-        const status = pipe.status; // "auto_assigned" | "pending"
-        const payer = pipe.payer || defaultPayer;
-        const split = pipe.split || "50/50";
-
-        return {
-          id: m.id || `bank-stmt-${Date.now()}-${idx}`,
-          merchant: concept,
-          date: m.date,
-          monthKey: m.monthKey,
-          amount: Math.abs(m.amount),
-          category: pipe.category,
-          categoryColor: pipe.categoryColor,
-          accountLabel,
-          status,
-          payer,
-          split,
-          isManual: false,
-          movementType: "expense",
-          createdAt: Date.now() - idx * 1000,
-          autoAssignedRuleId: pipe.matchedRuleId,
-          autoAssignedReason: pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale,
-        };
-      });
+    ): { added: number; duplicates: number; total: number } => {
+      let addedCount = 0;
+      let duplicatesCount = 0;
 
       persistTransactions((prev) => {
-        const existingIds = new Set(prev.map((t) => t.id));
-        const toAdd = newTxs.filter((t) => {
-          if (existingIds.has(t.id)) return false;
-          const isDuplicate = prev.some(
-            (p) =>
-              p.date === t.date &&
-              Math.abs(p.amount - t.amount) < 0.01 &&
-              p.merchant.toLowerCase().trim() === t.merchant.toLowerCase().trim() &&
-              (p.accountLabel === t.accountLabel ||
-                (Boolean(p.accountLabel?.toLowerCase().includes("tarjeta")) &&
-                  Boolean(t.accountLabel?.toLowerCase().includes("tarjeta"))))
+        const consumedExistingIds = new Set<string>();
+        const toAdd: Transaction[] = [];
+
+        movements.forEach((m, idx) => {
+          // Check against all existing transactions in prev (whether in triage/pending, auto_assigned, or classified!)
+          const matched = prev.find(
+            (p) => !consumedExistingIds.has(p.id) && isSameMovement(p, m)
           );
-          return !isDuplicate;
+
+          if (matched) {
+            consumedExistingIds.add(matched.id);
+            duplicatesCount++;
+            return; // Duplicate movement! Skip and do not duplicate.
+          }
+
+          // Genuine new movement
+          const defaultPayer: PayerType =
+            m.ownership === "USER_B"
+              ? "memberB"
+              : m.ownership === "USER_A"
+              ? "memberA"
+              : "joint";
+
+          const concept = m.concept.trim() || "Movimiento Bancario";
+          const accountLabel = m.accountLabel || m.bankName || "Bankinter";
+
+          const pipe = runCategorizationPipeline(
+            {
+              merchant: concept,
+              amount: m.amount,
+              accountLabel,
+            },
+            rulesRef.current,
+            learningsRef.current,
+            categoriesRef.current
+          );
+
+          const status = pipe.status; // "auto_assigned" | "pending"
+          const payer = pipe.payer || defaultPayer;
+          const split = pipe.split || "50/50";
+          const rawConcept = m.rawConcept || concept;
+
+          const createdTx: Transaction = {
+            id: m.id || `bank-stmt-${Date.now()}-${idx}`,
+            bankMovementId: m.id,
+            merchant: concept,
+            rawConcept,
+            date: m.date,
+            monthKey: m.monthKey,
+            amount: Math.abs(m.amount),
+            category: pipe.category,
+            categoryColor: pipe.categoryColor,
+            accountLabel,
+            status,
+            payer,
+            split,
+            isManual: false,
+            movementType: "expense",
+            createdAt: Date.now() - idx * 1000,
+            autoAssignedRuleId: pipe.matchedRuleId,
+            autoAssignedReason: pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale,
+          };
+
+          toAdd.push(createdTx);
+          addedCount++;
         });
+
+        if (toAdd.length === 0) {
+          return prev;
+        }
+
         return [...toAdd, ...prev];
       });
+
+      return { added: addedCount, duplicates: duplicatesCount, total: movements.length };
     },
     [persistTransactions]
   );

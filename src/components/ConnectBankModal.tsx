@@ -456,9 +456,9 @@ export default function ConnectBankModal({
     }
 
     // Map movements directly into this card with its ownership and account label
-    importBankMovements(
+    const importResult = importBankMovements(
       parsedMovements.map((m) => ({
-        id: m.id || `card_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: m.id,
         concept: m.concept,
         amount: m.amount,
         date: m.date,
@@ -466,6 +466,7 @@ export default function ConnectBankModal({
         bankName: targetCard.bankName,
         accountLabel: targetCard.accountName,
         ownership: targetCard.ownership,
+        rawConcept: m.rawConcept || m.concept,
       }))
     );
 
@@ -476,9 +477,19 @@ export default function ConnectBankModal({
         ? memberAName
         : memberBName;
 
-    setSuccessBanner(
-      `¡${parsedMovements.length} compras incorporadas en ${targetCard.accountName} (Titular: ${targetOwnerName})!`
-    );
+    if (importResult.added === 0) {
+      setSuccessBanner(
+        `Todos los movimientos (${importResult.duplicates}) ya estaban registrados en ${targetCard.accountName}. Cero duplicados creados.`
+      );
+    } else if (importResult.duplicates > 0) {
+      setSuccessBanner(
+        `¡${importResult.added} compras nuevas incorporadas! (${importResult.duplicates} repetidas del extracto se mantuvieron intactas sin duplicar)`
+      );
+    } else {
+      setSuccessBanner(
+        `¡${importResult.added} compras incorporadas en ${targetCard.accountName} (Titular: ${targetOwnerName})!`
+      );
+    }
 
     setTimeout(() => {
       onClose();

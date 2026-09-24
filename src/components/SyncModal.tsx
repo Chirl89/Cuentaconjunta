@@ -231,9 +231,9 @@ export const SyncModal: React.FC<SyncModalProps> = ({
   const handleImportCardMovements = () => {
     if (parsedCardMovements.length === 0) return;
 
-    importBankMovements(
+    const result = importBankMovements(
       parsedCardMovements.map((m) => ({
-        id: m.id || `card_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+        id: m.id,
         concept: m.concept,
         amount: m.amount,
         date: m.date,
@@ -241,10 +241,20 @@ export const SyncModal: React.FC<SyncModalProps> = ({
         bankName: "Bankinter",
         accountLabel: detectedCardInfo || "Tarjeta Bankinter (VISA)",
         ownership: "USER_A" as const,
+        rawConcept: m.rawConcept || m.concept,
       }))
     );
 
-    setCardSuccessMsg(`¡${parsedCardMovements.length} compras de la tarjeta incorporadas y sincronizadas con la nube!`);
+    if (result.added === 0) {
+      setCardSuccessMsg(`Todos los movimientos (${result.duplicates}) ya estaban registrados. Cero duplicados creados.`);
+    } else if (result.duplicates > 0) {
+      setCardSuccessMsg(
+        `¡${result.added} compras nuevas incorporadas! (${result.duplicates} compras repetidas del extracto se mantuvieron intactas sin duplicar)`
+      );
+    } else {
+      setCardSuccessMsg(`¡${result.added} compras de la tarjeta incorporadas y sincronizadas con la nube!`);
+    }
+
     setCardExtractText("");
     setParsedCardMovements([]);
   };

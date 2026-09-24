@@ -9,6 +9,25 @@ export interface ParsedBankMovement {
   amount: number; // positive or negative
   balance?: number;
   isCredit?: boolean;
+  rawConcept?: string;
+}
+
+export function buildDeterministicMovementId(
+  prefix: string,
+  rawDate: string,
+  amount: number,
+  concept: string,
+  occurrence: number = 0
+): string {
+  const cleanConcept =
+    concept
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "")
+      .slice(0, 16) || "mov";
+  const absAmount = Math.abs(amount).toFixed(2).replace(".", "_");
+  return `${prefix}_${rawDate}_${absAmount}_${cleanConcept}_${occurrence}`;
 }
 
 export interface CardStatementParseResult {
@@ -52,6 +71,7 @@ export function parseSpanishBankStatement(
     .filter((l) => l.length > 0);
 
   const movements: ParsedBankMovement[] = [];
+  const occurrenceMap = new Map<string, number>();
   let detectedIban: string | undefined;
 
   // Search for IBAN in headers if present
@@ -132,12 +152,19 @@ export function parseSpanishBankStatement(
     }
 
     if (amountVal !== null && concept) {
+      const absAmount = Math.abs(amountVal).toFixed(2);
+      const cleanConceptKey = concept.toLowerCase().trim();
+      const occKey = `${isoDate}_${absAmount}_${cleanConceptKey}`;
+      const occ = occurrenceMap.get(occKey) || 0;
+      occurrenceMap.set(occKey, occ + 1);
+
       movements.push({
-        id: `stmt_${Date.now()}_${i}`,
+        id: buildDeterministicMovementId("stmt", isoDate, amountVal, concept, occ),
         date: `${day}/${month}/${year}`,
         monthKey,
         rawDate: isoDate,
         concept,
+        rawConcept: concept,
         amount: amountVal,
         balance: balanceVal,
       });
@@ -202,6 +229,7 @@ export function parseBankinterExcel(
     }
 
     const movements: ParsedBankMovement[] = [];
+    const occurrenceMap = new Map<string, number>();
     for (let i = 0; i < rows.length; i++) {
       const r = rows[i];
       if (!r || r.length < 4) continue;
@@ -236,14 +264,20 @@ export function parseBankinterExcel(
         const monthKey = `${year}-${month}`;
         const conceptStr = String(conceptCell).trim();
         const isCredit = numAmount > 0 || conceptStr.toUpperCase().includes("ANUL");
+        const absVal = Math.abs(numAmount);
+
+        const occKey = `${isoDate}_${absVal.toFixed(2)}_${conceptStr.toLowerCase().trim()}`;
+        const occ = occurrenceMap.get(occKey) || 0;
+        occurrenceMap.set(occKey, occ + 1);
 
         movements.push({
-          id: `card_${isoDate}_${Math.abs(numAmount)}_${i}`,
+          id: buildDeterministicMovementId("card", isoDate, absVal, conceptStr, occ),
           date: `${day}/${month}/${year}`,
           monthKey,
           rawDate: isoDate,
           concept: conceptStr,
-          amount: Math.abs(numAmount),
+          rawConcept: conceptStr,
+          amount: absVal,
           isCredit,
         });
       }

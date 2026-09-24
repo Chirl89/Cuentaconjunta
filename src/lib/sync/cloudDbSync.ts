@@ -1,5 +1,5 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase";
-import type { Transaction, BankAccount, CategoryInfo } from "@/context/TransactionsContext";
+import { isSameMovement, type Transaction, type BankAccount, type CategoryInfo } from "@/context/TransactionsContext";
 
 export interface CloudHouseholdState {
   household_code: string;
@@ -124,14 +124,18 @@ export async function fetchStateFromCloud(inviteCode: string): Promise<CloudHous
       if (r.household_code === exactRow.household_code) continue;
       if (Array.isArray(r.transactions)) {
         for (const t of r.transactions) {
-          if (!txMap.has(t.id)) {
+          const existingKey = txMap.has(t.id)
+            ? t.id
+            : Array.from(txMap.values()).find((cur) => isSameMovement(cur, t))?.id;
+
+          if (!existingKey) {
             txMap.set(t.id, t);
           } else {
-            const current = txMap.get(t.id)!;
+            const current = txMap.get(existingKey)!;
             if (current.status === "pending" && t.status === "classified") {
-              txMap.set(t.id, t);
+              txMap.set(existingKey, { ...t, id: existingKey });
             } else if ((t.updatedAt || 0) > (current.updatedAt || 0) && t.status === "classified") {
-              txMap.set(t.id, t);
+              txMap.set(existingKey, { ...t, id: existingKey });
             }
           }
         }
