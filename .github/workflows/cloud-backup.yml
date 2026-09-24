@@ -1,0 +1,49 @@
+name: FitDuo Nightly Cloud Backup & PITR Snapshot
+
+on:
+  schedule:
+    # Run every night at 02:00 UTC (nocturno)
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: "cloud-backup"
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Database Snapshot & Integrity Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Perform Cloud Database Snapshot
+        run: node scripts/cloud-backup.js
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://egougygfqnnzfqpceggn.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "sb_publishable_hGjr4Hb-601X2np1wi1d4g_gPGdg192"
+
+      - name: Verify Snapshot Checksum Integrity
+        run: node scripts/cloud-backup.js --verify
+
+      - name: Upload Backup Artifact to GitHub Secure Storage
+        uses: actions/upload-artifact@v4
+        with:
+          name: fitduo-database-snapshot-${{ github.run_id }}
+          path: data/backups/
+          retention-days: 90

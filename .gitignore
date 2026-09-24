@@ -34,5 +34,6 @@ data/chrome-profile/
 data/*.html
 data/*.png
 *.xls
-*.xlsx
 supabase/.temp/
+data/backups/*.json
+!data/backups/.gitkeep

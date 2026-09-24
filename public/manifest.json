@@ -1,12 +1,15 @@
 {
   "name": "FitDuo - Cuenta Conjunta",
   "short_name": "FitDuo",
-  "description": "Gestión inteligente de finanzas y gastos compartidos en pareja",
+  "description": "Gestión inteligente de finanzas y gastos compartidos en pareja estilo Fintonic",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0F172A",
+  "background_color": "#F8FAFC",
   "theme_color": "#0F172A",
+  "lang": "es",
+  "categories": ["finance", "lifestyle", "productivity"],
   "icons": [
     {
       "src": "icons/icon-192.svg",
@@ -19,6 +22,29 @@
       "sizes": "512x512",
       "type": "image/svg+xml",
       "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard Principal",
+      "short_name": "Dashboard",
+      "description": "Vista general de finanzas y balance",
+      "url": "./",
+      "icons": [{ "src": "icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Resumen Mensual",
+      "short_name": "Resumen",
+      "description": "Distribución mensual de gastos por categoría",
+      "url": "./#resumen",
+      "icons": [{ "src": "icons/icon-192.svg", "sizes": "192x192" }]
+    },
+    {
+      "name": "Cuentas Bancarias",
+      "short_name": "Cuentas",
+      "description": "Cuentas conectadas y estado de sincronización",
+      "url": "./#cuentas",
+      "icons": [{ "src": "icons/icon-192.svg", "sizes": "192x192" }]
     }
   ]
 }

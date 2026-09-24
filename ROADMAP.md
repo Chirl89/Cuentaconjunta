@@ -22,14 +22,14 @@
 - **Paso 4 (v0.4)**: **Autenticación Multi-Usuario, Perfiles de Pareja y Nombres Personalizables Reactivos** *(Completado)*
   - Sistema de acceso seguro con Supabase Auth (Magic Link / Email), vinculación de perfiles de pareja y sincronización en tiempo real de nombres de usuario en todas las pestañas/ventanas.
 
-- **Paso 5 (v0.5)**: **Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y Titularidad de Cuentas)**
+- **Paso 5 (v0.5)**: **Conector Open Banking (GoCardless PSD2 - Conexión Bancaria y Titularidad de Cuentas)** *(Completado)*
   - Flujo de autenticación OAuth bancario oficial: selección de banco, registro de cuentas/tarjetas y asignación de titularidad inicial (Persona A, Persona B o Ambos).
 
-- **Paso 6 (v0.6)**: **Motor de Sincronización, Detector de Traspasos y Reconciliación de Brechas (Catch-Up Gap Sync)**
+- **Paso 6 (v0.6)**: **Motor de Sincronización, Detector de Traspasos y Reconciliación de Brechas (Catch-Up Gap Sync)** *(Completado)*
   - Endpoint de sincronización: descarga de movimientos, desduplicación por hash SHA-256, detección automática de traspasos entre cuentas propias (movimientos neutros) y transferencias entre miembros de la pareja (categorizadas como 'Traspaso/Liquidación').
   - **Reconciliación de Brechas (Catch-Up Sync):** Detección automática al abrir la app o recuperar red/credenciales; descarga retrospectiva de hasta 90 días para recuperar movimientos perdidos sin duplicidades.
 
-- **Paso 7 (v0.7)**: **Motor de Categorización Inteligente con IA, Aprendizaje por Feedback y Reglas de Asignación**
+- **Paso 7 (v0.7)**: **Motor de Categorización Inteligente con IA, Aprendizaje por Feedback y Reglas de Asignación** *(Completado)*
   - Clasificador inteligente de categorías inicial, sistema de auto-aprendizaje cuando el usuario corrige una categoría para futuros movimientos, motor de reglas por comercio/cuenta y soporte de splits 50/50 o personalizados.
 
 - **Paso 8 (v0.8)**: **Resumen Mensual, Aislamiento de Perfiles (PIN Carlos/Andrea), Reparto 50% Común y Filtrado Reactivo** *(Completado)*
@@ -43,7 +43,7 @@
 
 - ~~**Paso 10 (v0.10)**: **Exportación de informes y backups**~~ *(Eliminado a petición del usuario: visualización directa siempre en la App)*
 
-- **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform, Cron Jobs y Respaldo Continuo en la Nube**
-  - Despliegue en Vercel, configuración de Cron Jobs para sincronización periódica desatendida.
-  - **Respaldo Continuo Cloud:** Configuración de Point-in-Time Recovery (PITR) en base de datos y snapshots cifrados automatizados en almacenamiento en la nube para máxima seguridad y cero pérdida de datos.
-  - Verificación visual en iOS (Safari PWA) y PC (Chrome/Edge) y entrega final.
+- **Paso 11 (v0.11)**: **Despliegue en Producción, Verificación Cross-Platform, Cron Jobs y Respaldo Continuo en la Nube** *(Completado)*
+  - Despliegue en Vercel y GitHub Pages, configuración de Cron Jobs para sincronización periódica desatendida.
+  - **Respaldo Continuo Cloud:** Configuración de Point-in-Time Recovery (PITR) en base de datos y snapshots cifrados automatizados en almacenamiento en la nube con SHA-256 para máxima seguridad y cero pérdida de datos.
+  - Verificación visual en iOS (Safari PWA) y PC (Chrome/Edge), manual de usuario (WALKTHROUGH.md) y entrega final.
