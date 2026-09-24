@@ -11,7 +11,7 @@ export * from "./classifier";
 export * from "./learning";
 export * from "./rulesEngine";
 
-import { classifyConcept } from "./classifier";
+import { classifyConcept, isCardBillingStatement } from "./classifier";
 import { findLearnedCategory, CategoryLearningItem } from "./learning";
 import { evaluateRules, AssignmentRule } from "./rulesEngine";
 
@@ -56,6 +56,21 @@ export function runCategorizationPipeline(
 
   // 1. Evaluate User Automated Rules (highest authority for splits & assignment)
   const ruleResult = evaluateRules(rules, tx);
+
+  // Special built-in rule: Bank account debit for credit card statement (e.g. "Recibo VISA CLASICA")
+  // Automatically marked as ignored ("No contabilizado") to prevent double counting
+  if (!ruleResult && isCardBillingStatement(tx.merchant)) {
+    return {
+      category: "Liquidación / Neteo",
+      categoryColor: resolveColor("Liquidación / Neteo"),
+      status: "auto_assigned",
+      payer: "joint",
+      split: "ignored",
+      assignedBy: "rule",
+      confidence: 1.0,
+      rationale: "Recibo/cargo mensual de tarjeta en cuenta corriente. Ignorado por defecto (No contabilizado) para evitar duplicidad.",
+    };
+  }
 
   // 2. Resolve Category:
   // Priority A: Rule explicitly defined a category

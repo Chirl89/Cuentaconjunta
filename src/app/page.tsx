@@ -700,7 +700,7 @@ export default function HomePage() {
 
   const [newRulePattern, setNewRulePattern] = useState("");
   const [newRuleName, setNewRuleName] = useState("");
-  const [newRuleAssignTo, setNewRuleAssignTo] = useState<"JOINT" | "USER_A" | "USER_B">("JOINT");
+  const [newRuleAssignTo, setNewRuleAssignTo] = useState<"JOINT" | "USER_A" | "USER_B" | "IGNORED">("JOINT");
   const [newRuleCategory, setNewRuleCategory] = useState("");
 
   // Check for bank callback redirection in URL (PSD2 OAuth redirect)
@@ -4345,8 +4345,8 @@ export default function HomePage() {
                   name: newRuleName.trim() || `Regla para ${newRulePattern.trim()}`,
                   pattern: newRulePattern.trim(),
                   assignTo: newRuleAssignTo,
-                  splitRatio: newRuleAssignTo === "JOINT" ? 0.5 : 1.0,
-                  categoryName: newRuleCategory || null,
+                  splitRatio: newRuleAssignTo === "IGNORED" ? 0 : newRuleAssignTo === "JOINT" ? 0.5 : 1.0,
+                  categoryName: newRuleCategory || (newRuleAssignTo === "IGNORED" ? "Liquidación / Neteo" : null),
                   isActive: true,
                 });
                 const pat = newRulePattern.trim();
@@ -4384,6 +4384,7 @@ export default function HomePage() {
                   <option value="JOINT">Repartir al 50/50 (Ambos)</option>
                   <option value="USER_A">Asignar a {memberAName} (100%)</option>
                   <option value="USER_B">Asignar a {memberBName} (100%)</option>
+                  <option value="IGNORED">No contabilizar (N/A / Excluir)</option>
                 </select>
                 <div className="flex gap-2">
                   <select
@@ -4432,7 +4433,7 @@ export default function HomePage() {
                           {rule.name || rule.pattern}
                         </span>
                         <span className="text-[10px] text-slate-500">
-                          Patrón: &quot;{rule.pattern}&quot; • Asignación: {rule.assignTo === "JOINT" ? "50/50 Conjunta" : rule.assignTo === "USER_A" ? memberAName : memberBName}
+                          Patrón: &quot;{rule.pattern}&quot; • Asignación: {rule.assignTo === "IGNORED" ? "No contabilizar (N/A)" : rule.assignTo === "JOINT" ? "50/50 Conjunta" : rule.assignTo === "USER_A" ? memberAName : memberBName}
                           {rule.categoryName ? ` • Categoría: ${rule.categoryName}` : ""}
                         </span>
                       </div>

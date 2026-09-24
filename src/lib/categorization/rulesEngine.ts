@@ -6,7 +6,7 @@
 
 import { normalizeConcept } from "./classifier";
 
-export type RuleAssignee = "USER_A" | "USER_B" | "JOINT";
+export type RuleAssignee = "USER_A" | "USER_B" | "JOINT" | "IGNORED";
 
 export interface AssignmentRule {
   id: string;
@@ -117,7 +117,10 @@ export function resolveRuleAssignment(
   let payer: "memberA" | "memberB" | "joint" = "joint";
   let split: "50/50" | "memberA" | "memberB" | "ignored" = "50/50";
 
-  if (rule.assignTo === "JOINT") {
+  if (rule.assignTo === "IGNORED" || rule.splitRatio === 0) {
+    payer = "joint";
+    split = "ignored";
+  } else if (rule.assignTo === "JOINT") {
     payer = "joint";
     split = "50/50";
   } else if (rule.assignTo === "USER_A") {

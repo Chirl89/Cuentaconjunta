@@ -327,6 +327,14 @@ const CATEGORY_PATTERNS: CategoryRulePattern[] = [
     weight: 0.95,
     exactOrPrefix: [
       "bizum",
+      "recibo visa",
+      "recibo visa clasica",
+      "recibo tarjeta",
+      "cargo tarjeta",
+      "extracto visa",
+      "liquidacion visa",
+      "liquidacion tarjeta",
+      "pago mensual tarjeta",
     ],
     keywords: [
       "bizum",
@@ -334,6 +342,12 @@ const CATEGORY_PATTERNS: CategoryRulePattern[] = [
       "compensacion",
       "traspaso cuenta conjunta",
       "neteo cuentas",
+      "recibo visa",
+      "recibo visa clasica",
+      "recibo tarjeta",
+      "cargo tarjeta",
+      "pago tarjeta",
+      "extracto visa",
     ],
   },
 ];
@@ -351,6 +365,29 @@ export function normalizeConcept(text: string): string {
     .replace(/[^a-z0-9\s]/g, " ") // replace punctuation with space
     .replace(/\s+/g, " ")
     .trim();
+}
+
+/**
+ * Detects if a concept corresponds to a credit card lump-sum settlement or billing debit on a checking account
+ * (e.g. "Recibo VISA CLASICA", "Cargo Tarjeta Visa", "Liquidación Tarjeta").
+ */
+export function isCardBillingStatement(concept: string): boolean {
+  if (!concept) return false;
+  const norm = normalizeConcept(concept);
+  return (
+    norm.includes("recibo visa") ||
+    norm.includes("recibo visa clasica") ||
+    norm.includes("recibo tarjeta") ||
+    norm.includes("cargo tarjeta") ||
+    norm.includes("cargo visa") ||
+    norm.includes("extracto visa") ||
+    norm.includes("extracto tarjeta") ||
+    norm.includes("liquidacion visa") ||
+    norm.includes("liquidacion tarjeta") ||
+    norm.includes("pago mensual tarjeta") ||
+    norm.includes("pago tarjeta credito") ||
+    norm.includes("tarjeta credito liquidacion")
+  );
 }
 
 /**

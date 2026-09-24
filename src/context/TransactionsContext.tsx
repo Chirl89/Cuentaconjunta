@@ -23,6 +23,7 @@ import {
   resolveRuleAssignment,
   evaluateRules,
   findLearnedCategory,
+  isCardBillingStatement,
 } from "@/lib/categorization";
 
 export type { AssignmentRule, CategoryLearningItem };
@@ -34,6 +35,17 @@ const STORAGE_KEY_RULES = "cuentaconjunta_rules_v1";
 const STORAGE_KEY_LEARNINGS = "cuentaconjunta_category_learnings_v1";
 
 export const DEFAULT_RULES: AssignmentRule[] = [
+  {
+    id: "rule-def-0",
+    name: "Recibo VISA Clásica (No contabilizar)",
+    pattern: "Recibo VISA",
+    assignTo: "IGNORED",
+    splitRatio: 0,
+    categoryName: "Liquidación / Neteo",
+    isActive: true,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+  },
   {
     id: "rule-def-1",
     name: "Iberdrola / Luz Hogar (50/50)",
@@ -1048,7 +1060,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const saved = localStorage.getItem(STORAGE_KEY_RULES);
         if (saved) {
           const parsed = JSON.parse(saved);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const hasVisaRule = parsed.some((r: AssignmentRule) =>
+              (r.pattern || "").toLowerCase().includes("recibo visa")
+            );
+            if (!hasVisaRule) {
+              return [DEFAULT_RULES[0], ...parsed];
+            }
+            return parsed;
+          }
         }
       } catch {}
     }
@@ -1120,6 +1140,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
           const sanitized = filtered.map((t: any) => {
             const m = (t.merchant || "").toLowerCase();
+            const raw = (t.rawConcept || "").toLowerCase();
+            if (isCardBillingStatement(m) || isCardBillingStatement(raw)) {
+              return {
+                ...t,
+                status: "classified",
+                split: "ignored",
+                category: "Liquidación / Neteo",
+                categoryColor: "#8B5CF6",
+              };
+            }
             const isCredit = t.isCredit ?? (m.includes("nfoque") || m.includes("bizum de") || m.includes("transferencia inm"));
             if (isCredit) {
               const targetOwner = t.payer === "memberB" ? "memberB" : "memberA";
@@ -1474,7 +1504,20 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const persistTransactions = useCallback(
     (newTxs: Transaction[] | ((prev: Transaction[]) => Transaction[]), broadcast = true) => {
       const prev = transactionsRef.current;
-      const updated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
+      const rawUpdated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
+      const updated = rawUpdated.map((t) => {
+        if (isCardBillingStatement(t.merchant || t.rawConcept || "") && t.split !== "ignored") {
+          return {
+            ...t,
+            status: "classified" as const,
+            split: "ignored" as const,
+            category: "Liquidación / Neteo",
+            categoryColor: "#8B5CF6",
+            updatedAt: Date.now(),
+          };
+        }
+        return t;
+      });
       transactionsRef.current = updated;
       setTransactions(updated);
 
@@ -1891,7 +1934,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               : "joint";
 
           const concept = m.concept.trim() || "Movimiento Bancario";
+          const rawConcept = m.rawConcept || concept;
           const accountLabel = m.accountLabel || m.bankName || "Bankinter";
+          const isCardBill = isCardBillingStatement(concept) || isCardBillingStatement(rawConcept);
 
           const pipe = runCategorizationPipeline(
             {
@@ -1904,10 +1949,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             categoriesRef.current
           );
 
-          const status = pipe.status; // "auto_assigned" | "pending"
-          const payer = pipe.payer || defaultPayer;
-          const split = pipe.split || "50/50";
-          const rawConcept = m.rawConcept || concept;
+          const status = isCardBill ? "classified" : pipe.status; // "auto_assigned" | "pending"
+          const payer = isCardBill ? "joint" : (pipe.payer || defaultPayer);
+          const split = isCardBill ? "ignored" : (pipe.split || "50/50");
+          const category = isCardBill ? "Liquidación / Neteo" : pipe.category;
+          const categoryColor = isCardBill ? "#8B5CF6" : pipe.categoryColor;
 
           const createdTx: Transaction = {
             id: m.id || `bank-stmt-${Date.now()}-${idx}`,
@@ -1917,8 +1963,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             date: m.date,
             monthKey: m.monthKey,
             amount: Math.abs(m.amount),
-            category: pipe.category,
-            categoryColor: pipe.categoryColor,
+            category,
+            categoryColor,
             accountLabel,
             status,
             payer,
@@ -2435,6 +2481,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // 1. Try to find matched account by accountLabel or id
         const targetLabel = (t.accountLabel || "").toLowerCase().trim();
         const rawConcept = (t.rawConcept || t.merchant || "").toLowerCase();
+
+        // If it's a card billing statement (e.g. "Recibo VISA CLASICA"), always mark as ignored ("No contabilizado")
+        if (isCardBillingStatement(rawConcept) || isCardBillingStatement(targetLabel)) {
+          return {
+            ...t,
+            status: "classified" as const,
+            split: "ignored" as const,
+            payer: "joint" as const,
+            category: "Liquidación / Neteo",
+            categoryColor: "#8B5CF6",
+            updatedAt: now,
+          };
+        }
 
         let targetOwnership: "USER_A" | "USER_B" | "JOINT" | null = null;
 
