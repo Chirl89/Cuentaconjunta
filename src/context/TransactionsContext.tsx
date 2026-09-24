@@ -349,6 +349,12 @@ export interface DebtMovementItem {
   rawTransaction?: Transaction;
 }
 
+export interface RecognizedMovementItem {
+  transaction: Transaction;
+  recognizedAmount: number;
+  isSharedHalf: boolean;
+}
+
 export interface BankAccount {
   id: string;
   bankName: string;
@@ -673,6 +679,10 @@ interface TransactionsContextType {
   totalJointSpent: number;
   totalMemberASpent: number;
   totalMemberBSpent: number;
+  totalMemberASpentWithJoint: number;
+  totalMemberBSpentWithJoint: number;
+  memberARecognizedMovements: RecognizedMovementItem[];
+  memberBRecognizedMovements: RecognizedMovementItem[];
   totalHouseholdSpent: number;
   totalHouseholdIncome: number;
   totalJointIncome: number;
@@ -2292,11 +2302,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [memberBClassifiedTransactions]
   );
 
-  // Category breakdown builders helper
-  const buildCategoryBreakdown = useCallback(
-    (list: Transaction[]) => {
+  // Total expenditure recognized for each person: individual expenses (100%) + joint expenses (50%)
+  const totalMemberASpentWithJoint = useMemo(
+    () => Math.round((totalMemberASpent + totalJointSpent / 2) * 100) / 100,
+    [totalMemberASpent, totalJointSpent]
+  );
+
+  const totalMemberBSpentWithJoint = useMemo(
+    () => Math.round((totalMemberBSpent + totalJointSpent / 2) * 100) / 100,
+    [totalMemberBSpent, totalJointSpent]
+  );
+
+  // Category breakdown builders helper with custom factor per item
+  const buildWeightedCategoryBreakdown = useCallback(
+    (items: Array<{ transaction: Transaction; factor: number }>) => {
       const map = new Map<string, { value: number; color: string; count: number }>();
-      for (const t of list) {
+      for (const { transaction: t, factor } of items) {
         if (t.isCredit || t.movementType === "transfer_to_joint") continue;
 
         const catObj =
@@ -2305,7 +2326,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         const catName = catObj ? catObj.name : (t.category || "Otros");
         const catColor = catObj ? catObj.color : (t.categoryColor || "#64748B");
-        const amt = Math.abs(t.amount);
+        const amt = Math.abs(t.amount) * factor;
 
         const existing = map.get(catName);
         if (existing) {
@@ -2328,20 +2349,87 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [categories]
   );
 
+  const buildCategoryBreakdown = useCallback(
+    (list: Transaction[]) => {
+      return buildWeightedCategoryBreakdown(list.map((t) => ({ transaction: t, factor: 1.0 })));
+    },
+    [buildWeightedCategoryBreakdown]
+  );
+
   const jointCategoriesBreakdown = useMemo(
     () => buildCategoryBreakdown(jointClassifiedTransactions),
     [jointClassifiedTransactions, buildCategoryBreakdown]
   );
 
+  // Carlos recognized category breakdown: 100% individual + 50% joint
   const memberACategoriesBreakdown = useMemo(
-    () => buildCategoryBreakdown(memberAClassifiedTransactions),
-    [memberAClassifiedTransactions, buildCategoryBreakdown]
+    () =>
+      buildWeightedCategoryBreakdown([
+        ...memberAClassifiedTransactions.map((t) => ({ transaction: t, factor: 1.0 })),
+        ...jointClassifiedTransactions.map((t) => ({ transaction: t, factor: 0.5 })),
+      ]),
+    [memberAClassifiedTransactions, jointClassifiedTransactions, buildWeightedCategoryBreakdown]
   );
 
+  // Andrea recognized category breakdown: 100% individual + 50% joint
   const memberBCategoriesBreakdown = useMemo(
-    () => buildCategoryBreakdown(memberBClassifiedTransactions),
-    [memberBClassifiedTransactions, buildCategoryBreakdown]
+    () =>
+      buildWeightedCategoryBreakdown([
+        ...memberBClassifiedTransactions.map((t) => ({ transaction: t, factor: 1.0 })),
+        ...jointClassifiedTransactions.map((t) => ({ transaction: t, factor: 0.5 })),
+      ]),
+    [memberBClassifiedTransactions, jointClassifiedTransactions, buildWeightedCategoryBreakdown]
   );
+
+  // Detailed recognized movements list for Carlos (individual + 50% joint)
+  const memberARecognizedMovements = useMemo((): RecognizedMovementItem[] => {
+    const list: RecognizedMovementItem[] = [];
+    for (const t of memberAClassifiedTransactions) {
+      if (t.isCredit || t.movementType === "transfer_to_joint") continue;
+      list.push({
+        transaction: t,
+        recognizedAmount: Math.abs(t.amount),
+        isSharedHalf: false,
+      });
+    }
+    for (const t of jointClassifiedTransactions) {
+      if (t.isCredit || t.movementType === "transfer_to_joint") continue;
+      list.push({
+        transaction: t,
+        recognizedAmount: Math.round((Math.abs(t.amount) / 2) * 100) / 100,
+        isSharedHalf: true,
+      });
+    }
+    return list.sort(
+      (a, b) =>
+        getTransactionSortTimestamp(b.transaction) - getTransactionSortTimestamp(a.transaction)
+    );
+  }, [memberAClassifiedTransactions, jointClassifiedTransactions]);
+
+  // Detailed recognized movements list for Andrea (individual + 50% joint)
+  const memberBRecognizedMovements = useMemo((): RecognizedMovementItem[] => {
+    const list: RecognizedMovementItem[] = [];
+    for (const t of memberBClassifiedTransactions) {
+      if (t.isCredit || t.movementType === "transfer_to_joint") continue;
+      list.push({
+        transaction: t,
+        recognizedAmount: Math.abs(t.amount),
+        isSharedHalf: false,
+      });
+    }
+    for (const t of jointClassifiedTransactions) {
+      if (t.isCredit || t.movementType === "transfer_to_joint") continue;
+      list.push({
+        transaction: t,
+        recognizedAmount: Math.round((Math.abs(t.amount) / 2) * 100) / 100,
+        isSharedHalf: true,
+      });
+    }
+    return list.sort(
+      (a, b) =>
+        getTransactionSortTimestamp(b.transaction) - getTransactionSortTimestamp(a.transaction)
+    );
+  }, [memberBClassifiedTransactions, jointClassifiedTransactions]);
 
   const totalJointIncome = useMemo(
     () =>
@@ -2765,6 +2853,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         totalJointSpent,
         totalMemberASpent,
         totalMemberBSpent,
+        totalMemberASpentWithJoint,
+        totalMemberBSpentWithJoint,
+        memberARecognizedMovements,
+        memberBRecognizedMovements,
         totalHouseholdSpent,
         totalHouseholdIncome,
         totalJointIncome,

@@ -164,6 +164,10 @@ export default function HomePage() {
     totalJointSpent,
     totalMemberASpent,
     totalMemberBSpent,
+    totalMemberASpentWithJoint,
+    totalMemberBSpentWithJoint,
+    memberARecognizedMovements,
+    memberBRecognizedMovements,
     totalHouseholdSpent,
     totalHouseholdIncome,
     totalJointIncome,
@@ -377,10 +381,10 @@ export default function HomePage() {
 
   const monthlyScopeTotal = useMemo(() => {
     if (monthlyScope === "joint") return totalJointSpent;
-    if (monthlyScope === "memberA") return totalMemberASpent;
-    if (monthlyScope === "memberB") return totalMemberBSpent;
+    if (monthlyScope === "memberA") return totalMemberASpentWithJoint;
+    if (monthlyScope === "memberB") return totalMemberBSpentWithJoint;
     return visibleHouseholdSpent;
-  }, [monthlyScope, totalJointSpent, totalMemberASpent, totalMemberBSpent, visibleHouseholdSpent]);
+  }, [monthlyScope, totalJointSpent, totalMemberASpentWithJoint, totalMemberBSpentWithJoint, visibleHouseholdSpent]);
 
   const checkingTotalBalance = useMemo(() => {
     return checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
@@ -883,8 +887,8 @@ export default function HomePage() {
                 : monthlyScope === "joint"
                 ? totalJointSpent
                 : monthlyScope === "memberA"
-                ? totalMemberASpent
-                : totalMemberBSpent
+                ? totalMemberASpentWithJoint
+                : totalMemberBSpentWithJoint
             }
             title={`Diferencia de Ingresos vs Gastos (${
               monthlyScope === "household"
@@ -1337,7 +1341,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* GRÁFICA 2: GASTOS DE CARLOS (EXCLUSIVOS, SIN DUPLICAR 1/2)   */}
+      {/* GRÁFICA 2: GASTOS DE CARLOS (INDIVIDUAL + 50% COMUNES)       */}
       {/* ============================================================ */}
       {activeTab === "resumen_carlos" && (
         <div className="space-y-6">
@@ -1349,7 +1353,7 @@ export default function HomePage() {
                   <span>Gastos de {memberAName}</span>
                 </h1>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold whitespace-nowrap">
-                  Individual
+                  Individual + 50% Comunes
                 </span>
                 <MonthSelector />
               </div>
@@ -1357,14 +1361,14 @@ export default function HomePage() {
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
                 <div className="text-right">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total {memberAName}
+                    Total Imputado ({memberAName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberAClassifiedTransactions.length} individuales
+                    {totalMemberASpent.toFixed(2)} € propios + {(totalJointSpent / 2).toFixed(2)} € (50% común)
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight whitespace-nowrap">
-                  {totalMemberASpent.toFixed(2)} €
+                  {totalMemberASpentWithJoint.toFixed(2)} €
                 </div>
               </div>
             </div>
@@ -1373,9 +1377,9 @@ export default function HomePage() {
           {/* Income vs Expenses Horizontal Bars */}
           <IncomeExpenseBars
             totalIncome={totalMemberAIncome}
-            totalExpenses={totalMemberASpent}
+            totalExpenses={totalMemberASpentWithJoint}
             title={`Diferencia de Ingresos vs Gastos (${memberAName})`}
-            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos individuales`}
+            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos (individuales + 50% comunes)`}
             incomeLabel="Total Ingresos"
             expenseLabel="Total Gastos"
           />
@@ -1388,7 +1392,7 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   Categorías de {memberAName}
                 </h2>
-                <span className="text-xs font-bold text-red-600">100% Individual</span>
+                <span className="text-xs font-bold text-red-600">Individual + 50% Común</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
@@ -1417,16 +1421,16 @@ export default function HomePage() {
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Total {memberAName}
+                        Total Imputado
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight">
-                        {totalMemberASpent.toFixed(0)} €
+                        {totalMemberASpentWithJoint.toFixed(0)} €
                       </span>
                     </div>
                   </>
                 ) : (
                   <div className="text-center text-slate-400 text-xs py-8">
-                    {memberAName} no tiene gastos individuales propios este mes.
+                    {memberAName} no tiene gastos imputados este mes.
                   </div>
                 )}
               </div>
@@ -1441,50 +1445,69 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* List of Carlos's personal expenses */}
+            {/* List of Carlos's personal and 50% joint expenses */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  Movimientos de {memberAName}
+                  Movimientos Imputados ({memberAName})
                 </h2>
                 <span className="text-xs font-bold text-red-600">
-                  {memberAClassifiedTransactions.length}
+                  {memberARecognizedMovements.length}
                 </span>
               </div>
-              {memberAClassifiedTransactions.length === 0 ? (
+              {memberARecognizedMovements.length === 0 ? (
                 <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos personales asignados a {memberAName}.
+                  No hay movimientos imputados a {memberAName}.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {memberAClassifiedTransactions.map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                  {memberARecognizedMovements.map(({ transaction: tx, recognizedAmount, isSharedHalf }) => (
+                    <div key={`${tx.id}-${isSharedHalf ? "half" : "full"}`} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        {tx.isManual ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditingTransaction(tx)}
-                            className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                            title="Gasto manual: Pulsar para editar o eliminar"
-                          >
-                            <span>{tx.merchant}</span>
-                            <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                              Manual
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tx.isManual ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingTransaction(tx)}
+                              className="text-left text-xs font-bold text-slate-900 hover:text-red-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                              title="Gasto manual: Pulsar para editar o eliminar"
+                            >
+                              <span>{tx.merchant}</span>
+                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Manual
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                              {tx.merchant}
                             </span>
-                          </button>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                            {tx.merchant}
-                          </span>
-                        )}
+                          )}
+                          {isSharedHalf ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                              50% Común
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
+                              100% {memberAName}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                          {isSharedHalf && ` • Ticket total: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Fondo Común"})`}
                         </span>
                       </div>
-                      <span className={`text-sm font-black whitespace-nowrap shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                        {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                      </span>
+                      <div className="text-right shrink-0 mt-0.5">
+                        <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                          {tx.isCredit ? `+ ${recognizedAmount.toFixed(2)} €` : `${recognizedAmount.toFixed(2)} €`}
+                        </span>
+                        {isSharedHalf && (
+                          <span className="text-[9px] text-slate-400 block">
+                            de {tx.amount.toFixed(2)} €
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1495,7 +1518,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* GRÁFICA 3: GASTOS DE ANDREA (EXCLUSIVOS, SIN DUPLICAR 1/2)   */}
+      {/* GRÁFICA 3: GASTOS DE ANDREA (INDIVIDUAL + 50% COMUNES)       */}
       {/* ============================================================ */}
       {activeTab === "resumen_andrea" && (
         <div className="space-y-6">
@@ -1507,7 +1530,7 @@ export default function HomePage() {
                   <span>Gastos de {memberBName}</span>
                 </h1>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold whitespace-nowrap">
-                  Individual
+                  Individual + 50% Comunes
                 </span>
                 <MonthSelector />
               </div>
@@ -1515,14 +1538,14 @@ export default function HomePage() {
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
                 <div className="text-right">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total {memberBName}
+                    Total Imputado ({memberBName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {memberBClassifiedTransactions.length} individuales
+                    {totalMemberBSpent.toFixed(2)} € propios + {(totalJointSpent / 2).toFixed(2)} € (50% común)
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight whitespace-nowrap">
-                  {totalMemberBSpent.toFixed(2)} €
+                  {totalMemberBSpentWithJoint.toFixed(2)} €
                 </div>
               </div>
             </div>
@@ -1531,9 +1554,9 @@ export default function HomePage() {
           {/* Income vs Expenses Horizontal Bars */}
           <IncomeExpenseBars
             totalIncome={totalMemberBIncome}
-            totalExpenses={totalMemberBSpent}
+            totalExpenses={totalMemberBSpentWithJoint}
             title={`Diferencia de Ingresos vs Gastos (${memberBName})`}
-            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos individuales`}
+            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos (individuales + 50% comunes)`}
             incomeLabel="Total Ingresos"
             expenseLabel="Total Gastos"
           />
@@ -1546,7 +1569,7 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                   Distribución Personal de {memberBName}
                 </h2>
-                <span className="text-xs font-bold text-blue-600">100% Individual</span>
+                <span className="text-xs font-bold text-blue-600">Individual + 50% Común</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
@@ -1575,16 +1598,16 @@ export default function HomePage() {
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Total {memberBName}
+                        Total Imputado
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight">
-                        {totalMemberBSpent.toFixed(0)} €
+                        {totalMemberBSpentWithJoint.toFixed(0)} €
                       </span>
                     </div>
                   </>
                 ) : (
                   <div className="text-center text-slate-400 text-xs py-8">
-                    {memberBName} no tiene gastos individuales propios este mes.
+                    {memberBName} no tiene gastos imputados este mes.
                   </div>
                 )}
               </div>
@@ -1599,50 +1622,69 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* List of Andrea's personal expenses */}
+            {/* List of Andrea's personal and 50% joint expenses */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  Movimientos Propios de {memberBName}
+                  Movimientos Imputados ({memberBName})
                 </h2>
                 <span className="text-xs font-bold text-blue-600">
-                  {memberBClassifiedTransactions.length}
+                  {memberBRecognizedMovements.length}
                 </span>
               </div>
-              {memberBClassifiedTransactions.length === 0 ? (
+              {memberBRecognizedMovements.length === 0 ? (
                 <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos personales asignados a {memberBName}.
+                  No hay movimientos imputados a {memberBName}.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {memberBClassifiedTransactions.map((tx) => (
-                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                  {memberBRecognizedMovements.map(({ transaction: tx, recognizedAmount, isSharedHalf }) => (
+                    <div key={`${tx.id}-${isSharedHalf ? "half" : "full"}`} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        {tx.isManual ? (
-                          <button
-                            type="button"
-                            onClick={() => setEditingTransaction(tx)}
-                            className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                            title="Gasto manual: Pulsar para editar o eliminar"
-                          >
-                            <span>{tx.merchant}</span>
-                            <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                              Manual
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tx.isManual ? (
+                            <button
+                              type="button"
+                              onClick={() => setEditingTransaction(tx)}
+                              className="text-left text-xs font-bold text-slate-900 hover:text-blue-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                              title="Gasto manual: Pulsar para editar o eliminar"
+                            >
+                              <span>{tx.merchant}</span>
+                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Manual
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                              {tx.merchant}
                             </span>
-                          </button>
-                        ) : (
-                          <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                            {tx.merchant}
-                          </span>
-                        )}
+                          )}
+                          {isSharedHalf ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
+                              50% Común
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                              100% {memberBName}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                          {isSharedHalf && ` • Ticket total: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Fondo Común"})`}
                         </span>
                       </div>
-                      <span className={`text-sm font-black whitespace-nowrap shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                        {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                      </span>
+                      <div className="text-right shrink-0 mt-0.5">
+                        <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                          {tx.isCredit ? `+ ${recognizedAmount.toFixed(2)} €` : `${recognizedAmount.toFixed(2)} €`}
+                        </span>
+                        {isSharedHalf && (
+                          <span className="text-[9px] text-slate-400 block">
+                            de {tx.amount.toFixed(2)} €
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

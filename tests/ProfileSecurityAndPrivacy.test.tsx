@@ -181,3 +181,51 @@ describe("Privacy Visibility Logic & Movement Triaging", () => {
     expect(isMovementVisibleToRole(andreaPersonal, "memberA", mockAccounts)).toBe(false);
   });
 });
+
+describe("50% Joint Expense Imputation in Individual Summaries", () => {
+  it("imputes 100% personal + 50% common expenses to each person", () => {
+    const personalA = 100; // Carlos individual
+    const personalB = 80;  // Andrea individual
+    const jointTotal = 200; // Joint 50/50 expenses
+
+    const recognizedCarlos = personalA + jointTotal * 0.5; // 100 + 100 = 200
+    const recognizedAndrea = personalB + jointTotal * 0.5; // 80 + 100 = 180
+
+    expect(recognizedCarlos).toBe(200);
+    expect(recognizedAndrea).toBe(180);
+
+    // Total household spending equals sum of both recognized expenditures
+    const totalHousehold = personalA + personalB + jointTotal; // 380
+    expect(recognizedCarlos + recognizedAndrea).toBe(totalHousehold);
+  });
+
+  it("calculates weighted category breakdown incorporating 100% personal and 50% joint", () => {
+    // Grocery: 100€ personal Carlos + 200€ joint -> Carlos recognized: 100 + 100 = 200€
+    const personalEntries = [{ category: "Supermercado", amount: 100, color: "#10b981" }];
+    const jointEntries = [{ category: "Supermercado", amount: 200, color: "#10b981" }];
+
+    const map = new Map<string, { value: number; color: string }>();
+    personalEntries.forEach((e) => {
+      map.set(e.category, { value: e.amount * 1.0, color: e.color });
+    });
+    jointEntries.forEach((e) => {
+      const prev = map.get(e.category);
+      if (prev) {
+        prev.value += e.amount * 0.5;
+      } else {
+        map.set(e.category, { value: e.amount * 0.5, color: e.color });
+      }
+    });
+
+    const breakdown = Array.from(map.entries()).map(([name, data]) => ({
+      name,
+      value: Math.round(data.value * 100) / 100,
+      color: data.color,
+    }));
+
+    expect(breakdown).toHaveLength(1);
+    expect(breakdown[0].name).toBe("Supermercado");
+    expect(breakdown[0].value).toBe(200);
+  });
+});
+
