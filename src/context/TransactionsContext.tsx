@@ -950,6 +950,12 @@ interface TransactionsContextType {
   learnCategory: (merchant: string, categoryName: string) => void;
   confirmAutoAssigned: (id: string) => void;
   confirmAllAutoAssigned: () => void;
+  assignAllPendingToCardHolder: () => {
+    count: number;
+    memberACount: number;
+    memberBCount: number;
+    jointCount: number;
+  };
   autoAssignedTransactions: Transaction[];
 }
 
@@ -2400,6 +2406,108 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
   }, [persistTransactions]);
 
+  const assignAllPendingToCardHolder = useCallback((): {
+    count: number;
+    memberACount: number;
+    memberBCount: number;
+    jointCount: number;
+  } => {
+    const currentAccounts = accountsRef.current || accounts;
+    const defaultCardAcc = currentAccounts.find(
+      (a) =>
+        a.accountName.toLowerCase().includes("tarjeta") ||
+        a.id.startsWith("card_") ||
+        a.id === "acc_card_bankinter"
+    );
+
+    let memberACount = 0;
+    let memberBCount = 0;
+    let jointCount = 0;
+    let count = 0;
+    const now = Date.now();
+
+    persistTransactions((prev) => {
+      return prev.map((t) => {
+        if (t.status !== "pending") return t;
+
+        count++;
+
+        // 1. Try to find matched account by accountLabel or id
+        const targetLabel = (t.accountLabel || "").toLowerCase().trim();
+        const rawConcept = (t.rawConcept || t.merchant || "").toLowerCase();
+
+        let targetOwnership: "USER_A" | "USER_B" | "JOINT" | null = null;
+
+        const matchedAcc = currentAccounts.find((a) => {
+          const aId = (a.id || "").toLowerCase();
+          const aName = (a.accountName || "").toLowerCase();
+          if (targetLabel && (aId === targetLabel || aName === targetLabel)) return true;
+          if (targetLabel && aName.includes(targetLabel)) return true;
+          if (targetLabel && targetLabel.includes(aName)) return true;
+          return false;
+        });
+
+        if (matchedAcc) {
+          targetOwnership = matchedAcc.ownership;
+        } else if (
+          t.id.startsWith("card_") ||
+          /tarjeta|visa|mastercard|card/i.test(targetLabel) ||
+          /tarjeta|visa|mastercard/i.test(rawConcept)
+        ) {
+          if (defaultCardAcc) {
+            targetOwnership = defaultCardAcc.ownership;
+          }
+        }
+
+        // If not resolved from accounts, use payer if set
+        if (!targetOwnership) {
+          if (t.payer === "memberB") targetOwnership = "USER_B";
+          else if (t.payer === "joint") targetOwnership = "JOINT";
+          else if (t.payer === "memberA") targetOwnership = "USER_A";
+        }
+
+        // If still not resolved, check text
+        if (!targetOwnership) {
+          if (targetLabel.includes("andrea") || rawConcept.includes("andrea")) {
+            targetOwnership = "USER_B";
+          } else if (targetLabel.includes("conjunt") || targetLabel.includes("compartid") || targetLabel.includes("50/50")) {
+            targetOwnership = "JOINT";
+          } else {
+            targetOwnership = defaultCardAcc?.ownership || "USER_A";
+          }
+        }
+
+        let split: SplitType = "50/50";
+        let payer: PayerType = "joint";
+
+        if (targetOwnership === "USER_B") {
+          split = "memberB";
+          payer = "memberB";
+          memberBCount++;
+        } else if (targetOwnership === "JOINT") {
+          split = "50/50";
+          payer = "joint";
+          jointCount++;
+        } else {
+          split = "memberA";
+          payer = "memberA";
+          memberACount++;
+        }
+
+        return {
+          ...t,
+          status: "classified" as const,
+          split,
+          payer,
+          updatedAt: now,
+        };
+      });
+    });
+
+    return { count, memberACount, memberBCount, jointCount };
+  }, [accounts, persistTransactions]);
+
+
   const getAccountDisplay = (tx: Transaction): string => {
     const raw = (tx.accountLabel || "").trim();
     // Si es un movimiento de tarjeta (compras importadas por XLS o marcadas como Visa)
@@ -3194,6 +3302,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         learnCategory,
         confirmAutoAssigned,
         confirmAllAutoAssigned,
+        assignAllPendingToCardHolder,
         autoAssignedTransactions,
       }}
     >

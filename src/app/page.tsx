@@ -224,6 +224,7 @@ export default function HomePage() {
     toggleRule,
     confirmAutoAssigned,
     confirmAllAutoAssigned,
+    assignAllPendingToCardHolder,
     autoAssignedTransactions,
   } = useTransactions();
 
@@ -926,6 +927,18 @@ export default function HomePage() {
   const handleCategoryChange = (id: string, newCategory: string) => {
     updateTransactionCategory(id, newCategory);
   };
+
+  const handleAssignAllPendingToCardHolder = () => {
+    if (allPendingTransactions.length === 0) {
+      showToast("La bandeja de triaje ya está vacía.");
+      return;
+    }
+    const result = assignAllPendingToCardHolder();
+    showToast(
+      `✓ ${result.count} movimiento(s) de triaje asignados al titular (${result.memberACount} a ${memberAName}, ${result.memberBCount} a ${memberBName}, ${result.jointCount} a Conjunta 50/50).`
+    );
+  };
+
 
   const handleSaveNames = (e: React.FormEvent) => {
     e.preventDefault();
@@ -4521,6 +4534,56 @@ export default function HomePage() {
               </div>
               <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full self-start sm:self-auto">
                 ✓ PIN activo y protegido
+              </span>
+            </div>
+          </div>
+
+          {/* SECCIÓN 4: ASIGNAR BANDEJA DE TRIAJE AL TITULAR */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 shrink-0 border border-indigo-100 shadow-sm">
+                  <CreditCard className="w-5 h-5 text-indigo-600" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">
+                    Asignación Masiva de Triaje al Titular
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Asigna automáticamente todos los movimientos pendientes de la bandeja de triaje al titular de la tarjeta o cuenta ({memberAName}, {memberBName} o 50/50 Conjunta).
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAssignAllPendingToCardHolder}
+                disabled={allPendingTransactions.length === 0}
+                className="px-5 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs sm:text-sm font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto shrink-0"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-300" />
+                <span>Asignar bandeja de triaje al titular</span>
+                {allPendingTransactions.length > 0 && (
+                  <span className="ml-1 px-2 py-0.5 rounded-full bg-white/20 text-white text-xs font-black">
+                    {allPendingTransactions.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`w-2.5 h-2.5 rounded-full ${
+                    allPendingTransactions.length > 0 ? "bg-amber-500 animate-pulse" : "bg-emerald-500"
+                  }`}
+                />
+                <span className="text-slate-600">
+                  Movimientos pendientes en triaje: <strong className="text-slate-900">{allPendingTransactions.length}</strong>
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-400">
+                Ideal para migración de datos o importaciones masivas por titular.
               </span>
             </div>
           </div>
