@@ -66,6 +66,9 @@ describe("Sidebar Component", () => {
       </TestWrapper>
     );
 
+    expect(screen.getByTestId("active-tab-indicator").textContent).toBe("dashboard");
+
+    fireEvent.click(screen.getByText(/Gastos Conjuntos/i));
     expect(screen.getByTestId("active-tab-indicator").textContent).toBe("resumen_conjunta");
 
     fireEvent.click(screen.getByText(/Gastos de Persona A/i));

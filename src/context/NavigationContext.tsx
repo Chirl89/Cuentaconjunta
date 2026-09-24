@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState } from "react";
 
 export type TabKey =
+  | "dashboard"
   | "resumen_mensual"
   | "resumen_conjunta"
   | "resumen_carlos"
@@ -22,7 +23,7 @@ interface NavigationContextType {
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 export const NavigationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<TabKey>("resumen_conjunta");
+  const [activeTab, setActiveTab] = useState<TabKey>("dashboard");
 
   return (
     <NavigationContext.Provider value={{ activeTab, setActiveTab }}>

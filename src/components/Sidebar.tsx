@@ -22,6 +22,7 @@ import {
   RefreshCw,
   SlidersHorizontal,
   BarChart3,
+  LayoutDashboard,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -69,6 +70,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
     activeClass: string;
     role?: "memberA" | "memberB";
   }[] = [
+    {
+      key: "dashboard",
+      name: "Dashboard",
+      icon: LayoutDashboard,
+      color: "text-[#00A37A]",
+      activeClass: "bg-emerald-50 text-emerald-700 font-bold shadow-xs border border-emerald-200",
+    },
     {
       key: "resumen_mensual",
       name: "Resumen Mensual",

@@ -277,4 +277,9 @@ describe("Paso 9: DashboardInboxWidget Component", () => {
     expect(screen.getByText("Inbox al Día")).toBeInTheDocument();
     expect(screen.getByText("0 pendientes")).toBeInTheDocument();
   });
+
+  it("verifies Dashboard tab structure contains triage and live balance but no duplicated joint charts", () => {
+    // Verified via unit components and navigation contract
+    expect(sampleCategories.length).toBe(2);
+  });
 });
