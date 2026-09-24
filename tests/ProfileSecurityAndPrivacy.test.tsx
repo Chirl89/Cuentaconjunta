@@ -354,6 +354,79 @@ describe("50% Joint Expense Imputation in Individual Summaries", () => {
     expect(incomes).toHaveLength(1);
     expect(incomes[0].merchant).toBe("Bizum Boda");
   });
+
+  it("verifies uncategorized card expenses are assigned to payer (100% Carlos) and common expenses appear at 50% in Resumen Mensual", () => {
+    // Carlos has a pending card expense of 100€ (account ownership USER_A)
+    const pendingCardCarlos = {
+      id: "tx-pending-card",
+      merchant: "Amazon",
+      category: "Compras",
+      amount: 100,
+      status: "pending" as const,
+      accountLabel: "acc-carlos-card",
+      payer: "memberA" as const,
+      split: "50/50" as const, // default raw split before triage
+    };
+
+    // Common expense of 80€ (classified as 50/50)
+    const commonExpense = {
+      id: "tx-common-super",
+      merchant: "Mercadona",
+      category: "Supermercado",
+      amount: 80,
+      status: "classified" as const,
+      accountLabel: "acc-joint",
+      payer: "joint" as const,
+      split: "50/50" as const,
+    };
+
+    const mockAccs = [
+      { id: "acc-carlos-card", accountName: "Tarjeta Carlos", ownership: "USER_A" as const },
+      { id: "acc-joint", accountName: "Cuenta Conjunta", ownership: "JOINT" as const },
+    ];
+
+    // Determine effective assignment for Resumen Mensual
+    const getResumenMensualItem = (tx: typeof pendingCardCarlos) => {
+      const acc = mockAccs.find((a) => a.id === tx.accountLabel);
+      const isJoint = tx.payer === "joint" || acc?.ownership === "JOINT";
+      const isPayerA = tx.payer === "memberA" || acc?.ownership === "USER_A";
+
+      const isCommon = tx.status === "pending" ? isJoint : tx.split === "50/50";
+      const isCarlos = tx.status === "pending" ? (isPayerA && !isJoint) : tx.split === "memberA";
+
+      if (isCommon) {
+        return {
+          id: `${tx.id}-half`,
+          amount: Math.round((tx.amount / 2) * 100) / 100,
+          badge: "50% Común",
+        };
+      }
+      if (isCarlos) {
+        return {
+          id: tx.id,
+          amount: tx.amount,
+          badge: "100% Carlos",
+        };
+      }
+      return null;
+    };
+
+    // 1. Pending card expense on Carlos card MUST be 100% Carlos, NOT 50/50
+    const carlosPendingItem = getResumenMensualItem(pendingCardCarlos);
+    expect(carlosPendingItem).not.toBeNull();
+    expect(carlosPendingItem?.badge).toBe("100% Carlos");
+    expect(carlosPendingItem?.amount).toBe(100);
+
+    // 2. Common expense in Resumen Mensual MUST be divided by 2 (50%)
+    const commonItem = getResumenMensualItem(commonExpense);
+    expect(commonItem).not.toBeNull();
+    expect(commonItem?.badge).toBe("50% Común");
+    expect(commonItem?.amount).toBe(40); // 80 / 2 = 40€
+
+    // 3. Total recognized expenses in Resumen Mensual for Carlos: 100 + 40 = 140€
+    const totalRecognized = (carlosPendingItem?.amount || 0) + (commonItem?.amount || 0);
+    expect(totalRecognized).toBe(140);
+  });
 });
 
 

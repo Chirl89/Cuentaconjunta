@@ -307,16 +307,19 @@ export default function HomePage() {
     const isJointAcc = acc?.ownership === "JOINT";
     const isUserAAcc = acc?.ownership === "USER_A";
     const isUserBAcc = acc?.ownership === "USER_B";
+    const isClassified = tx.status === "classified" || tx.status === "auto_assigned";
 
     if (activeRole === "memberA") {
-      if (isJointAcc || tx.payer === "joint" || tx.split === "50/50") return true;
+      if (isJointAcc || tx.payer === "joint") return true;
+      if (isClassified && tx.split === "50/50") return true;
       if (tx.payer === "memberA" || isUserAAcc) return true;
-      if (tx.split === "memberA") return true;
+      if (isClassified && tx.split === "memberA") return true;
       return false;
     } else {
-      if (isJointAcc || tx.payer === "joint" || tx.split === "50/50") return true;
+      if (isJointAcc || tx.payer === "joint") return true;
+      if (isClassified && tx.split === "50/50") return true;
       if (tx.payer === "memberB" || isUserBAcc) return true;
-      if (tx.split === "memberB") return true;
+      if (isClassified && tx.split === "memberB") return true;
       return false;
     }
   };
@@ -336,17 +339,17 @@ export default function HomePage() {
   const selectedMonthObj = AVAILABLE_MONTHS.find((m) => m.key === selectedMonth);
   const selectedMonthLabel = selectedMonthObj?.label || selectedMonth;
 
-  // Totales visibles del hogar para este usuario (su parte personal + gastos conjuntos)
+  // Totales visibles del hogar para este usuario (su parte personal + 50% de gastos comunes)
   const visibleHouseholdSpent = useMemo(() => {
     return activeRole === "memberA"
-      ? totalJointSpent + totalMemberASpent
-      : totalJointSpent + totalMemberBSpent;
-  }, [activeRole, totalJointSpent, totalMemberASpent, totalMemberBSpent]);
+      ? totalMemberASpentWithJoint
+      : totalMemberBSpentWithJoint;
+  }, [activeRole, totalMemberASpentWithJoint, totalMemberBSpentWithJoint]);
 
   const visibleHouseholdIncome = useMemo(() => {
     return activeRole === "memberA"
-      ? totalJointIncome + totalMemberAIncome
-      : totalJointIncome + totalMemberBIncome;
+      ? totalMemberAIncome + Math.round((totalJointIncome / 2) * 100) / 100
+      : totalMemberBIncome + Math.round((totalJointIncome / 2) * 100) / 100;
   }, [activeRole, totalJointIncome, totalMemberAIncome, totalMemberBIncome]);
 
   // Proyección y Análisis de Previsiones del Mes Seleccionado
@@ -427,44 +430,108 @@ export default function HomePage() {
     const list: MonthlyScopedMovementItem[] = [];
 
     if (monthlyScope === "household") {
-      for (const tx of householdMovementsWithIncome) {
-        if (!isMovementVisible(tx)) continue;
+      const activeIncome = activeRole === "memberA" ? memberAIncomeTransactions : memberBIncomeTransactions;
+      const activeExpenses = activeRole === "memberA" ? memberAClassifiedTransactions : memberBClassifiedTransactions;
+      const activeName = activeRole === "memberA" ? memberAName : memberBName;
+      const activeBadgeColor = activeRole === "memberA" ? ("red" as const) : ("blue" as const);
+
+      // 1. Personal Incomes (100%)
+      for (const tx of activeIncome) {
         list.push({
           id: tx.id,
           merchant: tx.merchant,
           category: tx.category,
           date: tx.date,
           amount: tx.amount,
-          isCredit: !!tx.isCredit,
-          badge: tx.isCredit
-            ? "💰 Ingreso Hogar"
-            : tx.split === "50/50"
-            ? "50/50 Común"
-            : tx.split === "memberA"
-            ? `100% ${memberAName}`
-            : tx.split === "memberB"
-            ? `100% ${memberBName}`
-            : "Hogar",
-          badgeColor: tx.isCredit ? "green" : tx.split === "50/50" ? "purple" : tx.split === "memberA" ? "red" : "blue",
+          isCredit: true,
+          badge: `💰 Ingreso ${activeName}`,
+          badgeColor: "green",
           isManual: tx.isManual,
           rawTx: tx,
-          subtext: tx.isCredit
-            ? `Abono / Ingreso (${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`
-            : `Pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`,
+          subtext: `Ingreso propio de ${activeName}`,
+        });
+      }
+
+      // 2. Joint Incomes (50% share)
+      for (const tx of jointIncomeTransactions) {
+        list.push({
+          id: `${tx.id}-half-inc`,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: Math.round((tx.amount / 2) * 100) / 100,
+          isCredit: true,
+          badge: "💰 Ingreso 50/50",
+          badgeColor: "green",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Abono común total: ${tx.amount.toFixed(2)} € (50% imputado)`,
+        });
+      }
+
+      // 3. Personal Expenses (100% Carlos / 100% Andrea, including uncategorized pending on their cards)
+      for (const tx of activeExpenses) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: false,
+          badge: `100% ${activeName}`,
+          badgeColor: activeBadgeColor,
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: tx.status === "pending"
+            ? `Gasto individual de ${activeName} (pendiente de triaje)`
+            : `Gasto individual de ${activeName}`,
+        });
+      }
+
+      // 4. Joint Common Expenses: EXACTLY 50% of the ticket recognized
+      for (const tx of jointClassifiedTransactions) {
+        list.push({
+          id: `${tx.id}-half`,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: Math.round((tx.amount / 2) * 100) / 100,
+          isCredit: false,
+          badge: "50% Común",
+          badgeColor: "purple",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Ticket: ${tx.amount.toFixed(2)} € (pagado por ${
+            tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"
+          })`,
         });
       }
     } else if (monthlyScope === "joint") {
-      for (const tx of jointMovementsWithIncome) {
-        if (!isMovementVisible(tx)) continue;
+      for (const tx of jointIncomeTransactions) {
         list.push({
           id: tx.id,
           merchant: tx.merchant,
           category: tx.category,
           date: tx.date,
           amount: tx.amount,
-          isCredit: !!tx.isCredit,
-          badge: tx.isCredit ? "💰 Ingreso Conjunto" : "50/50 Común",
-          badgeColor: tx.isCredit ? "green" : "purple",
+          isCredit: true,
+          badge: "💰 Ingreso Conjunto",
+          badgeColor: "green",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: "Ingreso conjunto 50/50",
+        });
+      }
+      for (const tx of jointClassifiedTransactions) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: false,
+          badge: "50/50 Común",
+          badgeColor: "purple",
           isManual: tx.isManual,
           rawTx: tx,
           subtext: `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`,
@@ -498,22 +565,9 @@ export default function HomePage() {
           badgeColor: "red",
           isManual: tx.isManual,
           rawTx: tx,
-          subtext: `Gasto individual de ${memberAName}`,
-        });
-      }
-      for (const tx of jointClassifiedTransactions) {
-        list.push({
-          id: `${tx.id}-half`,
-          merchant: tx.merchant,
-          category: tx.category,
-          date: tx.date,
-          amount: Math.round((tx.amount / 2) * 100) / 100,
-          isCredit: false,
-          badge: "50% Común",
-          badgeColor: "purple",
-          isManual: tx.isManual,
-          rawTx: tx,
-          subtext: `Ticket: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`,
+          subtext: tx.status === "pending"
+            ? `Gasto individual de ${memberAName} (pendiente de triaje)`
+            : `Gasto individual de ${memberAName}`,
         });
       }
     } else if (monthlyScope === "memberB") {
@@ -544,22 +598,9 @@ export default function HomePage() {
           badgeColor: "blue",
           isManual: tx.isManual,
           rawTx: tx,
-          subtext: `Gasto individual de ${memberBName}`,
-        });
-      }
-      for (const tx of jointClassifiedTransactions) {
-        list.push({
-          id: `${tx.id}-half`,
-          merchant: tx.merchant,
-          category: tx.category,
-          date: tx.date,
-          amount: Math.round((tx.amount / 2) * 100) / 100,
-          isCredit: false,
-          badge: "50% Común",
-          badgeColor: "purple",
-          isManual: tx.isManual,
-          rawTx: tx,
-          subtext: `Ticket: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`,
+          subtext: tx.status === "pending"
+            ? `Gasto individual de ${memberBName} (pendiente de triaje)`
+            : `Gasto individual de ${memberBName}`,
         });
       }
     }
@@ -571,17 +612,15 @@ export default function HomePage() {
     });
   }, [
     monthlyScope,
-    householdMovementsWithIncome,
-    jointMovementsWithIncome,
+    activeRole,
     memberAIncomeTransactions,
-    memberAClassifiedTransactions,
     memberBIncomeTransactions,
+    jointIncomeTransactions,
+    memberAClassifiedTransactions,
     memberBClassifiedTransactions,
     jointClassifiedTransactions,
     memberAName,
     memberBName,
-    accounts,
-    activeRole,
   ]);
 
   const checkingTotalBalance = useMemo(() => {
@@ -1085,19 +1124,25 @@ export default function HomePage() {
                 : monthlyScope === "joint"
                 ? totalJointSpent
                 : monthlyScope === "memberA"
-                ? totalMemberASpentWithJoint
-                : totalMemberBSpentWithJoint
+                ? totalMemberASpent
+                : totalMemberBSpent
             }
             title={`Diferencia de Ingresos vs Gastos (${
               monthlyScope === "household"
-                ? "Hogar"
+                ? `Hogar de ${activeRole === "memberA" ? memberAName : memberBName}`
                 : monthlyScope === "joint"
-                ? "Conjuntos 50/50"
+                ? "Conjuntos (100%)"
                 : monthlyScope === "memberA"
-                ? memberAName
-                : memberBName
+                ? `Individual ${memberAName}`
+                : `Individual ${memberBName}`
             })`}
-            subtitle="El tamaño máximo lo determina el número mayor entre total_gastos y total_ingresos"
+            subtitle={
+              monthlyScope === "household"
+                ? `Gastos individuales más el 50% de los gastos comunes reconocidos a ${activeRole === "memberA" ? memberAName : memberBName}`
+                : monthlyScope === "joint"
+                ? "Total de gastos conjuntos al 100% del fondo común"
+                : `Solo gastos 100% propios de ${monthlyScope === "memberA" ? memberAName : memberBName}`
+            }
             incomeLabel="Total Ingresos"
             expenseLabel="Total Gastos"
           />
@@ -1108,10 +1153,10 @@ export default function HomePage() {
               Ámbito:
             </span>
             {[
-              { id: "household", label: "🏠 Todo el Hogar" },
-              { id: "joint", label: "👥 Gastos Conjuntos (50/50)" },
-              ...(activeRole === "memberA" ? [{ id: "memberA", label: `👤 Solo ${memberAName}` }] : []),
-              ...(activeRole === "memberB" ? [{ id: "memberB", label: `👤 Solo ${memberBName}` }] : []),
+              { id: "household", label: `🏠 Resumen ${activeRole === "memberA" ? memberAName : memberBName} (Personal + 50% Común)` },
+              { id: "joint", label: "👥 Gastos Conjuntos (100% Común)" },
+              ...(activeRole === "memberA" ? [{ id: "memberA", label: `👤 Solo Individual ${memberAName}` }] : []),
+              ...(activeRole === "memberB" ? [{ id: "memberB", label: `👤 Solo Individual ${memberBName}` }] : []),
             ].map((scope) => (
               <button
                 key={scope.id}
@@ -1180,9 +1225,9 @@ export default function HomePage() {
                       </span>
                       <span className="text-[11px] text-indigo-600 font-bold mt-0.5">
                         {monthlyScope === "household"
-                          ? "Hogar Global"
+                          ? "Personal + 50% Común"
                           : monthlyScope === "joint"
-                          ? "50/50"
+                          ? "100% Común"
                           : `Solo ${monthlyScope === "memberA" ? memberAName : memberBName}`}
                       </span>
                     </div>
@@ -1380,10 +1425,10 @@ export default function HomePage() {
                 </h2>
                 <span className="text-[11px] text-slate-400 font-medium">
                   {monthlyScope === "household"
-                    ? "Todos los ingresos y gastos del hogar en este mes"
+                    ? `Gastos individuales de ${activeRole === "memberA" ? memberAName : memberBName} y 50% de los gastos comunes reconocidos`
                     : monthlyScope === "joint"
-                    ? "Ingresos y gastos conjuntos 50/50"
-                    : `Ingresos, nómina y gastos imputados a ${monthlyScope === "memberA" ? memberAName : memberBName}`}
+                    ? "Gastos conjuntos al 100% e ingresos compartidos"
+                    : `Ingresos y gastos 100% individuales de ${monthlyScope === "memberA" ? memberAName : memberBName}`}
                 </span>
               </div>
 

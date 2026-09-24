@@ -2586,13 +2586,21 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   const memberAHouseholdCategoriesBreakdown = useMemo(
-    () => buildCategoryBreakdown([...jointClassifiedTransactions, ...memberAClassifiedTransactions]),
-    [jointClassifiedTransactions, memberAClassifiedTransactions, buildCategoryBreakdown]
+    () =>
+      buildWeightedCategoryBreakdown([
+        ...memberAClassifiedTransactions.map((t) => ({ transaction: t, factor: 1.0 })),
+        ...jointClassifiedTransactions.map((t) => ({ transaction: t, factor: 0.5 })),
+      ]),
+    [memberAClassifiedTransactions, jointClassifiedTransactions, buildWeightedCategoryBreakdown]
   );
 
   const memberBHouseholdCategoriesBreakdown = useMemo(
-    () => buildCategoryBreakdown([...jointClassifiedTransactions, ...memberBClassifiedTransactions]),
-    [jointClassifiedTransactions, memberBClassifiedTransactions, buildCategoryBreakdown]
+    () =>
+      buildWeightedCategoryBreakdown([
+        ...memberBClassifiedTransactions.map((t) => ({ transaction: t, factor: 1.0 })),
+        ...jointClassifiedTransactions.map((t) => ({ transaction: t, factor: 0.5 })),
+      ]),
+    [memberBClassifiedTransactions, jointClassifiedTransactions, buildWeightedCategoryBreakdown]
   );
 
   const activeSettlement = settlementCutoffs[selectedMonth] || null;
