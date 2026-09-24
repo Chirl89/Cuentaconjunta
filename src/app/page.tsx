@@ -3929,7 +3929,7 @@ export default function HomePage() {
               <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
                 <div>
                   <span className="font-bold text-slate-800 block">Versión del Sistema</span>
-                  <span className="text-slate-500">FitDuo Protocol • Versión v{versionData.version}</span>
+                  <span className="text-slate-500">Sygis Protocol • Versión v{versionData.version}</span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 bg-[#E6FAF4] text-[#008761] rounded-full">
                   Paso 5 (v0.5.0)

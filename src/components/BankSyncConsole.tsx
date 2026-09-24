@@ -48,7 +48,7 @@ export const BankSyncConsole: React.FC = () => {
         timestamp: timeStr,
         level: "INFO",
         source: "CLIENT",
-        message: `Iniciando monitor de diagnóstico FitDuo (v${versionData.version || "0.6.30"})`,
+        message: `Iniciando monitor de diagnóstico Sygis (v${versionData.version || "0.6.30"})`,
       },
       {
         id: "log_init_2",

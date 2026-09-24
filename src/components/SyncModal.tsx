@@ -701,7 +701,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
                     className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
                   >
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Incorporar {parsedCardMovements.length} Compras a Cuenta Conjunta</span>
+                    <span>Incorporar {parsedCardMovements.length} Compras a Sygis</span>
                   </button>
                 </div>
               )}

@@ -7,13 +7,13 @@ import AppShell from "@/components/AppShell";
 const basePath = process.env.GITHUB_ACTIONS === "true" ? "/Cuentaconjunta" : (process.env.NEXT_PUBLIC_BASE_PATH || "");
 
 export const metadata: Metadata = {
-  title: "Cuenta Conjunta - Finanzas en Pareja",
-  description: "Gestión financiera compartida en pareja estilo Fintonic con sincronización bancaria PSD2",
+  title: "Sygis - Finanzas Compartidas",
+  description: "Sygis: App de finanzas compartidas y economía en pareja con sincronización bancaria PSD2",
   manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Cuenta Conjunta",
+    title: "Sygis",
   },
   formatDetection: {
     telephone: false,

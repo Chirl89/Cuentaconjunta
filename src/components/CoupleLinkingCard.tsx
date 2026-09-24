@@ -229,7 +229,7 @@ export const CoupleLinkingCard: React.FC<CoupleLinkingCardProps> = ({ onToast })
               type="text"
               value={inputCode}
               onChange={(e) => setInputCode(e.target.value.toUpperCase())}
-              placeholder="ej. FITDUO"
+              placeholder="ej. SYGIS"
               maxLength={8}
               className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-900 text-xs font-bold uppercase tracking-wider focus:outline-none focus:border-[#00D09C] focus:bg-white"
             />

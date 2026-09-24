@@ -1,17 +1,56 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="192" height="192">
   <defs>
-    <linearGradient id="mintGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#00D09C" />
-      <stop offset="100%" stop-color="#00A37A" />
+    <linearGradient id="sygisCosmosGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0D1B2A" />
+      <stop offset="100%" stop-color="#121E2E" />
     </linearGradient>
-    <linearGradient id="bgGrad192" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0F172A" />
-      <stop offset="100%" stop-color="#1E293B" />
+
+    <linearGradient id="sygisOrbitGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#E0E1DD" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="1" />
+      <stop offset="100%" stop-color="#E0E1DD" stop-opacity="0.8" />
     </linearGradient>
+
+    <radialGradient id="sygisEclipseGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="1" />
+      <stop offset="35%" stop-color="#00F5D4" stop-opacity="0.95" />
+      <stop offset="70%" stop-color="#00F5D4" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#00F5D4" stop-opacity="0" />
+    </radialGradient>
+
+    <linearGradient id="sygisTurquoiseGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00F5D4" />
+      <stop offset="100%" stop-color="#00BFA5" />
+    </linearGradient>
+
+    <filter id="sygisNeonGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="12" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="128" fill="url(#bgGrad192)" />
-  <circle cx="210" cy="256" r="110" fill="none" stroke="url(#mintGrad192)" stroke-width="36" />
-  <circle cx="302" cy="256" r="110" fill="none" stroke="#FF6B6B" stroke-width="36" opacity="0.9" />
-  <path d="M 256 182 A 110 110 0 0 1 256 330 A 110 110 0 0 1 256 182" fill="#00D09C" fill-opacity="0.35" />
-  <circle cx="256" cy="256" r="18" fill="#FFFFFF" />
+
+  <!-- Cosmos Deep Night / Slate Graphite Background -->
+  <rect width="512" height="512" rx="128" fill="url(#sygisCosmosGrad)" />
+
+  <!-- Outer ambient glow of the financial eclipse -->
+  <circle cx="256" cy="256" r="130" fill="url(#sygisEclipseGlow)" opacity="0.65" />
+
+  <!-- 1. Left celestial orbit (Person A) -->
+  <circle cx="176" cy="256" r="105" fill="none" stroke="url(#sygisOrbitGrad)" stroke-width="18" stroke-linecap="round" opacity="0.88" />
+
+  <!-- 2. Right celestial orbit (Person B) -->
+  <circle cx="336" cy="256" r="105" fill="none" stroke="url(#sygisOrbitGrad)" stroke-width="18" stroke-linecap="round" opacity="0.88" />
+
+  <!-- 3. Center orbit: The Syzygy alignment & shared union (∞) -->
+  <circle cx="256" cy="256" r="105" fill="none" stroke="url(#sygisTurquoiseGrad)" stroke-width="20" stroke-linecap="round" filter="url(#sygisNeonGlow)" />
+
+  <!-- Central Intersection: Abstract Cutout Coin Silhouette -->
+  <circle cx="256" cy="256" r="54" fill="none" stroke="#00F5D4" stroke-width="8" opacity="0.95" />
+
+  <!-- Central burst of light (The Eclipse Flare) -->
+  <circle cx="256" cy="256" r="32" fill="url(#sygisEclipseGlow)" />
+
+  <!-- 4-point radiant stellar flare of financial alignment -->
+  <path d="M 256 218 Q 256 256 218 256 Q 256 256 256 294 Q 256 256 294 256 Q 256 256 256 218 Z" fill="#FFFFFF" />
+  <circle cx="256" cy="256" r="8" fill="#00F5D4" />
 </svg>

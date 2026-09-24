@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import VersionBadge from "./VersionBadge";
+import SygisLogo from "./SygisLogo";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useOptionalAuth } from "@/context/AuthContext";
 import { useNavigation, TabKey } from "@/context/NavigationContext";
@@ -156,16 +157,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
         {/* Brand Header without "estilo fintonic" */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-slate-100">
           <div className="flex items-center gap-3 overflow-hidden">
-            <div className="h-10 w-10 min-w-[40px] rounded-2xl bg-[#00D09C] flex items-center justify-center shadow-md shadow-[#00D09C]/25">
-              <HeartHandshake className="w-5 h-5 text-white" />
-            </div>
+            <SygisLogo size={38} variant="dark" />
             {(!isCollapsed || isMobileOpen) && (
               <div className="flex flex-col">
                 <span className="font-extrabold text-base tracking-tight text-slate-900 leading-tight">
-                  Cuenta Conjunta
+                  Sygis
                 </span>
-                <span className="text-[10px] font-bold text-slate-400 tracking-wider uppercase">
-                  Finanzas en Pareja
+                <span className="text-[10px] font-bold text-[#00A37A] tracking-wider uppercase">
+                  Finanzas Compartidas
                 </span>
               </div>
             )}

@@ -33,7 +33,7 @@ describe("Sidebar Component", () => {
       </TestWrapper>
     );
 
-    expect(screen.getAllByText(/Cuenta Conjunta/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Sygis/i).length).toBeGreaterThan(0);
     // User requested that 'estilo fintonic' disappears
     expect(screen.queryByText(/estilo fintonic/i)).not.toBeInTheDocument();
 

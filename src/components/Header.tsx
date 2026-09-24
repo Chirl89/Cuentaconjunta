@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import VersionBadge from "./VersionBadge";
+import SygisLogo from "./SygisLogo";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useOptionalAuth } from "@/context/AuthContext";
 import { useTransactions } from "@/context/TransactionsContext";
@@ -62,10 +63,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
         </button>
 
         <div className="flex items-center gap-1.5">
-          <div className="h-7 w-7 rounded-xl bg-[#00D09C] flex items-center justify-center shadow-xs">
-            <HeartHandshake className="w-3.5 h-3.5 text-white" />
-          </div>
-          <span className="font-extrabold text-xs tracking-tight text-slate-900">Cuenta Conjunta</span>
+          <SygisLogo size={28} variant="dark" />
+          <span className="font-extrabold text-sm tracking-tight text-slate-900">Sygis</span>
         </div>
       </div>
 

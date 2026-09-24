@@ -1,13 +1,13 @@
 {
-  "name": "FitDuo - Cuenta Conjunta",
-  "short_name": "FitDuo",
-  "description": "Gestión inteligente de finanzas y gastos compartidos en pareja estilo Fintonic",
+  "name": "Sygis - Finanzas Compartidas",
+  "short_name": "Sygis",
+  "description": "Sygis: App de finanzas compartidas y economía en pareja con sincronización bancaria PSD2",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#F8FAFC",
-  "theme_color": "#0F172A",
+  "background_color": "#0D1B2A",
+  "theme_color": "#0D1B2A",
   "lang": "es",
   "categories": ["finance", "lifestyle", "productivity"],
   "icons": [
@@ -40,10 +40,10 @@
       "icons": [{ "src": "icons/icon-192.svg", "sizes": "192x192" }]
     },
     {
-      "name": "Cuentas Bancarias",
-      "short_name": "Cuentas",
-      "description": "Cuentas conectadas y estado de sincronización",
-      "url": "./#cuentas",
+      "name": "Añadir Gasto",
+      "short_name": "Nuevo Gasto",
+      "description": "Registrar un gasto manual",
+      "url": "./#nuevo-gasto",
       "icons": [{ "src": "icons/icon-192.svg", "sizes": "192x192" }]
     }
   ]
