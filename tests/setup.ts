@@ -77,4 +77,15 @@ if (typeof window !== "undefined") {
       dispatchEvent: vi.fn(),
     })),
   });
+
+  // Mock ResizeObserver for Recharts ResponsiveContainer
+  class MockResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  // @ts-expect-error Mocking global ResizeObserver
+  window.ResizeObserver = MockResizeObserver;
+  // @ts-expect-error Mocking global ResizeObserver
+  globalThis.ResizeObserver = MockResizeObserver;
 }

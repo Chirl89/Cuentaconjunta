@@ -21,11 +21,15 @@ import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
 import IncomeExpenseBars from "@/components/IncomeExpenseBars";
 import CategoryPieTooltip from "@/components/CategoryPieTooltip";
+import CumulativeExpenseAreaChart from "@/components/CumulativeExpenseAreaChart";
+import LiveBalanceCard from "@/components/LiveBalanceCard";
+import DashboardInboxWidget from "@/components/DashboardInboxWidget";
 import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
 import versionData from "../../version.json";
 import {
+  Search,
   BarChart3,
   TrendingDown,
   TrendingUp,
@@ -235,6 +239,10 @@ export default function HomePage() {
   const [andreaCategoryFilter, setAndreaCategoryFilter] = useState<string | null>(null);
   const [monthlyCategoryFilter, setMonthlyCategoryFilter] = useState<string | null>(null);
   const [jointCategoryFilter, setJointCategoryFilter] = useState<string | null>(null);
+
+  // Buscadores reactivos de movimientos en Dashboard y Pestaña de Movimientos
+  const [dashboardSearchTerm, setDashboardSearchTerm] = useState("");
+  const [movimientosSearchTerm, setMovimientosSearchTerm] = useState("");
 
   // Tab & scope redirection for privacy isolation
   useEffect(() => {
@@ -1573,9 +1581,12 @@ export default function HomePage() {
       {/* ============================================================ */}
       {/* GRÁFICA 1: GASTOS CONJUNTOS (1/2)                            */}
       {/* ============================================================ */}
+      {/* ============================================================ */}
+      {/* TAB 1: DASHBOARD PRINCIPAL ESTILO FINTONIC (GASTOS CONJUNTOS) */}
+      {/* ============================================================ */}
       {activeTab === "resumen_conjunta" && (
         <div className="space-y-6">
-          {/* Header Banner */}
+          {/* Header Banner with MonthSelector, "+ Gasto Manual" and Total Conjunto */}
           <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex flex-wrap items-center gap-3">
@@ -1589,22 +1600,100 @@ export default function HomePage() {
                 <MonthSelector />
               </div>
 
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
-                <div className="text-right">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Conjunto
-                  </span>
-                  <span className="text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
-                    <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
-                  </span>
-                </div>
-                <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight whitespace-nowrap">
-                  {totalJointSpent.toFixed(2)}
-                  <span className="text-lg text-[#00A37A] ml-1 font-bold">€</span>
+              <div className="flex items-center gap-3 shrink-0 ml-auto sm:ml-0 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setIsManualModalOpen(true)}
+                  className="px-3.5 py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+                  title="Añadir gasto en efectivo o manual"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>+ Gasto Manual</span>
+                </button>
+
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                      Total Conjunto
+                    </span>
+                    <span className="text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
+                      <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
+                    </span>
+                  </div>
+                  <div className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                    {totalJointSpent.toFixed(2)}
+                    <span className="text-lg text-[#00A37A] ml-1 font-bold">€</span>
+                  </div>
                 </div>
               </div>
             </div>
           </section>
+
+          {/* Inbox / Backlog Prioritario al abrir la app con reactividad inmediata */}
+          <DashboardInboxWidget
+            pendingTransactions={visiblePendingTransactions}
+            memberAName={memberAName}
+            memberBName={memberBName}
+            categories={categories || CATEGORIES_LIST}
+            onTriage={handleTriage}
+            onCategoryChange={handleCategoryChange}
+            getAccountDisplay={getAccountDisplay}
+            onViewAllMovements={() => setActiveTab("movimientos")}
+          />
+
+          {/* Bandeja de Validación de Auto-Asignados si existen */}
+          {visibleAutoAssigned.length > 0 && (
+            <div className="border border-indigo-200 bg-indigo-50/70 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in fade-in">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                    <span>Bandeja de Validación: {visibleAutoAssigned.length} movimiento(s) auto-asignados</span>
+                    <span className="text-[9px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">
+                      IA & Reglas
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Movimientos clasificados automáticamente. Puedes validarlos todos en bloque o revisarlos.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    confirmAllAutoAssigned();
+                    showToast(`✓ ${visibleAutoAssigned.length} movimiento(s) auto-asignados validados.`);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Validar todo</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("movimientos")}
+                  className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold cursor-pointer"
+                >
+                  Revisar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tarjeta de Balance Neto en vivo con los nombres reales de la pareja + botón rápido Saldar cuentas */}
+          <LiveBalanceCard
+            balanceData={balanceData}
+            memberAName={memberAName}
+            memberBName={memberBName}
+            hasActiveSettlement={hasActiveSettlement}
+            lastSettlementInfo={lastSettlementInfo}
+            onSettleDebt={settleDebt}
+            onResetSettlement={resetSettlement}
+            onOpenManualModal={() => setIsManualModalOpen(true)}
+          />
 
           {/* Income vs Expenses Horizontal Bars */}
           <IncomeExpenseBars
@@ -1616,10 +1705,10 @@ export default function HomePage() {
             expenseLabel="Total Gastos"
           />
 
-          {/* Grid: Donut Chart & Latest Joint Movements */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Grid de Gráficos: Donut Central Interactivo & Curva de Área Suave de Gasto Acumulado */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Joint Donut Chart */}
-            <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
+            <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
@@ -1671,7 +1760,7 @@ export default function HomePage() {
                 )}
               </div>
 
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
+              <div className="space-y-1.5 pt-2 border-t border-slate-100 max-h-48 overflow-y-auto pr-1">
                 {jointCategoriesBreakdown.map((cat) => {
                   const isSelected = jointCategoryFilter?.toLowerCase().trim() === cat.name.toLowerCase().trim();
                   return (
@@ -1714,155 +1803,253 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* Latest Joint Movements (igual que en las otras vistas) */}
-            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
-              <div>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Movimientos Conjuntos
-                  </h2>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {jointCategoryFilter && (
-                      <button
-                        type="button"
-                        onClick={() => setJointCategoryFilter(null)}
-                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#00A37A] hover:bg-[#008761] text-white shadow-xs flex items-center gap-1 cursor-pointer transition-all"
-                        title="Pulsar para quitar filtro de categoría"
-                      >
-                        <span>🏷️ {jointCategoryFilter}</span>
-                        <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
-                      </button>
-                    )}
+            {/* Smooth Area Chart: Evolución del gasto conjunto acumulado del mes */}
+            <div>
+              <CumulativeExpenseAreaChart
+                transactions={jointClassifiedTransactions}
+                selectedMonth={selectedMonth}
+                title="Evolución del Gasto Acumulado"
+                subtitle="Curva del ritmo de gasto conjunto acumulado durante el mes"
+              />
+            </div>
+          </div>
+
+          {/* Feed Histórico de Movimientos con Buscador, Filtros y Reasignación Rápida */}
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 gap-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
+                  Feed de Movimientos Conjuntos
+                </h2>
+              </div>
+
+              {/* Buscador + Filtros */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Buscar movimiento..."
+                    value={dashboardSearchTerm}
+                    onChange={(e) => setDashboardSearchTerm(e.target.value)}
+                    className="pl-8 pr-7 py-1 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all w-36 sm:w-48"
+                  />
+                  {dashboardSearchTerm && (
                     <button
                       type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("all");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "all" && !jointCategoryFilter
-                          ? "bg-slate-900 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                      }`}
+                      onClick={() => setDashboardSearchTerm("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                     >
-                      Todos ({jointMovementsWithIncome.length})
+                      ✕
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("expenses");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "expenses" && !jointCategoryFilter
-                          ? "bg-emerald-600 text-white"
-                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      }`}
-                    >
-                      Gastos ({jointClassifiedTransactions.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setJointMovementsFilter("incomes");
-                        setJointCategoryFilter(null);
-                      }}
-                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
-                        jointMovementsFilter === "incomes" && !jointCategoryFilter
-                          ? "bg-[#00A37A] text-white"
-                          : "bg-[#00D09C]/15 text-[#008761] hover:bg-[#00D09C]/25"
-                      }`}
-                    >
-                      Ingresos ({jointIncomeTransactions.length})
-                    </button>
-                  </div>
+                  )}
                 </div>
 
-                {(() => {
-                  const filtered = jointMovementsWithIncome.filter((tx) => {
-                    if (jointCategoryFilter) {
-                      return tx.category.toLowerCase().trim() === jointCategoryFilter.toLowerCase().trim();
-                    }
-                    if (jointMovementsFilter === "expenses") return !tx.isCredit;
-                    if (jointMovementsFilter === "incomes") return tx.isCredit;
-                    return true;
-                  });
+                {/* Filter chips */}
+                {jointCategoryFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setJointCategoryFilter(null)}
+                    className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#00A37A] hover:bg-[#008761] text-white shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                    title="Pulsar para quitar filtro de categoría"
+                  >
+                    <span>🏷️ {jointCategoryFilter}</span>
+                    <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
+                  </button>
+                )}
 
-                  if (filtered.length === 0) {
-                    return (
-                      <div className="text-center text-slate-400 text-xs py-8">
-                        {jointCategoryFilter
-                          ? `No hay movimientos conjuntos registrados para la categoría "${jointCategoryFilter}".`
-                          : "No hay movimientos conjuntos registrados para este filtro."}
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                      {filtered.map((tx) => (
-                        <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            {tx.isManual ? (
-                              <button
-                                type="button"
-                                onClick={() => setEditingTransaction(tx)}
-                                className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                                title="Gasto manual: Pulsar para editar o eliminar"
-                              >
-                                <span>{tx.merchant}</span>
-                                <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                                  Manual
-                                </span>
-                              </button>
-                            ) : (
-                              <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                                {tx.merchant}
-                              </span>
-                            )}
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-[10px] text-slate-400">
-                                {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                              </span>
-                              <span
-                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
-                                  tx.isCredit
-                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                    : tx.payer === "memberA"
-                                    ? "bg-red-50 text-red-600 border-red-200"
-                                    : tx.payer === "memberB"
-                                    ? "bg-blue-50 text-blue-600 border-blue-200"
-                                    : "bg-emerald-50 text-[#008761] border-emerald-200"
-                                }`}
-                              >
-                                {tx.isCredit
-                                  ? "Ingreso 50/50"
-                                  : `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`}
-                              </span>
-                            </div>
-                          </div>
-                          <span className={`text-sm font-black shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                            {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <div className="pt-2 border-t border-slate-100">
                 <button
-                  onClick={() => setActiveTab("movimientos")}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5"
+                  type="button"
+                  onClick={() => {
+                    setJointMovementsFilter("all");
+                    setJointCategoryFilter(null);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                    jointMovementsFilter === "all" && !jointCategoryFilter
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
                 >
-                  <span>Ver todos los movimientos</span>
-                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                  Todos ({jointMovementsWithIncome.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJointMovementsFilter("expenses");
+                    setJointCategoryFilter(null);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                    jointMovementsFilter === "expenses" && !jointCategoryFilter
+                      ? "bg-emerald-600 text-white"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  Gastos ({jointClassifiedTransactions.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setJointMovementsFilter("incomes");
+                    setJointCategoryFilter(null);
+                  }}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                    jointMovementsFilter === "incomes" && !jointCategoryFilter
+                      ? "bg-[#00A37A] text-white"
+                      : "bg-[#00D09C]/15 text-[#008761] hover:bg-[#00D09C]/25"
+                  }`}
+                >
+                  Ingresos ({jointIncomeTransactions.length})
                 </button>
               </div>
-            </section>
-          </div>
+            </div>
+
+            {(() => {
+              const filtered = jointMovementsWithIncome.filter((tx) => {
+                if (dashboardSearchTerm.trim()) {
+                  const term = dashboardSearchTerm.toLowerCase().trim();
+                  const matchMerchant = tx.merchant.toLowerCase().includes(term);
+                  const matchCategory = tx.category.toLowerCase().includes(term);
+                  const matchAmount = tx.amount.toString().includes(term);
+                  if (!matchMerchant && !matchCategory && !matchAmount) return false;
+                }
+                if (jointCategoryFilter) {
+                  return tx.category.toLowerCase().trim() === jointCategoryFilter.toLowerCase().trim();
+                }
+                if (jointMovementsFilter === "expenses") return !tx.isCredit;
+                if (jointMovementsFilter === "incomes") return tx.isCredit;
+                return true;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    {dashboardSearchTerm
+                      ? `No se encontraron movimientos que coincidan con "${dashboardSearchTerm}".`
+                      : jointCategoryFilter
+                      ? `No hay movimientos conjuntos registrados para la categoría "${jointCategoryFilter}".`
+                      : "No hay movimientos conjuntos registrados para este filtro."}
+                  </div>
+                );
+              }
+
+              return (
+                <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto pr-1">
+                  {filtered.map((tx) => (
+                    <div key={tx.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/50 p-2 rounded-2xl transition-colors">
+                      <div className="flex-1 min-w-0">
+                        {tx.isManual ? (
+                          <button
+                            type="button"
+                            onClick={() => setEditingTransaction(tx)}
+                            className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                            title="Gasto manual: Pulsar para editar o eliminar"
+                          >
+                            <span>{tx.merchant}</span>
+                            <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                              Manual
+                            </span>
+                          </button>
+                        ) : (
+                          <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                            {tx.merchant}
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          <span className="text-[10px] text-slate-400">
+                            {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                          </span>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+                              tx.isCredit
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : tx.payer === "memberA"
+                                ? "bg-red-50 text-red-600 border-red-200"
+                                : tx.payer === "memberB"
+                                ? "bg-blue-50 text-blue-600 border-blue-200"
+                                : "bg-emerald-50 text-[#008761] border-emerald-200"
+                            }`}
+                          >
+                            {tx.isCredit
+                              ? "Ingreso 50/50"
+                              : `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right: Amount & Quick Reclassification */}
+                      <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                        {/* Quick Reclassification Buttons */}
+                        <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-xl border border-slate-200/80">
+                          <span className="text-[9px] text-slate-400 font-bold px-1">Reparto:</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              reclassifyTransaction(tx.id, "50/50");
+                              showToast(`✓ "${tx.merchant}" reasignado a Ambos (50/50)`);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              tx.split === "50/50"
+                                ? "bg-slate-900 text-white shadow-xs"
+                                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                            }`}
+                            title="Reasignar a gasto común 50/50"
+                          >
+                            1/2
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              reclassifyTransaction(tx.id, "memberA");
+                              showToast(`✓ "${tx.merchant}" reasignado a ${memberAName}`);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              tx.split === "memberA"
+                                ? "bg-red-500 text-white shadow-xs"
+                                : "bg-white text-red-600 hover:bg-red-50 border border-slate-200"
+                            }`}
+                            title={`Reasignar solo a ${memberAName}`}
+                          >
+                            {memberAName}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              reclassifyTransaction(tx.id, "memberB");
+                              showToast(`✓ "${tx.merchant}" reasignado a ${memberBName}`);
+                            }}
+                            className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                              tx.split === "memberB"
+                                ? "bg-blue-500 text-white shadow-xs"
+                                : "bg-white text-blue-600 hover:bg-blue-50 border border-slate-200"
+                            }`}
+                            title={`Reasignar solo a ${memberBName}`}
+                          >
+                            {memberBName}
+                          </button>
+                        </div>
+
+                        <span className={`text-sm font-black shrink-0 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
+            <div className="pt-2 border-t border-slate-100">
+              <button
+                onClick={() => setActiveTab("movimientos")}
+                className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Ver todos los movimientos en detalle</span>
+                <ArrowRight className="w-3 h-3 text-slate-400" />
+              </button>
+            </div>
+          </section>
         </div>
       )}
 
@@ -2430,7 +2617,27 @@ export default function HomePage() {
               <span>Movimientos</span>
             </h1>
 
-            <div className="flex items-center gap-2 justify-between sm:justify-end">
+            <div className="flex items-center gap-2 justify-between sm:justify-end flex-wrap">
+              {/* Buscador reactivo de movimientos */}
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Buscar en movimientos..."
+                  value={movimientosSearchTerm}
+                  onChange={(e) => setMovimientosSearchTerm(e.target.value)}
+                  className="pl-8 pr-7 py-1.5 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all w-40 sm:w-56"
+                />
+                {movimientosSearchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setMovimientosSearchTerm("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <MonthSelector />
               <button
                 onClick={() => setIsManualModalOpen(true)}
@@ -2765,15 +2972,38 @@ export default function HomePage() {
               </div>
             </div>
 
-            {visibleClassifiedTransactions.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
-                <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-2" />
-                <span className="font-semibold text-slate-700 block">No hay movimientos en este mes</span>
-                <span className="text-slate-400 block mt-0.5">Usa el selector para ver otros meses del histórico.</span>
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100">
-                {visibleClassifiedTransactions.map((tx) => (
+            {(() => {
+              const searchedMovements = visibleClassifiedTransactions.filter((tx) => {
+                if (!movimientosSearchTerm.trim()) return true;
+                const term = movimientosSearchTerm.toLowerCase().trim();
+                return (
+                  tx.merchant.toLowerCase().includes(term) ||
+                  tx.category.toLowerCase().includes(term) ||
+                  tx.amount.toString().includes(term)
+                );
+              });
+
+              if (searchedMovements.length === 0) {
+                return (
+                  <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
+                    <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                    <span className="font-semibold text-slate-700 block">
+                      {movimientosSearchTerm
+                        ? `No se encontraron movimientos que coincidan con "${movimientosSearchTerm}".`
+                        : "No hay movimientos en este mes"}
+                    </span>
+                    <span className="text-slate-400 block mt-0.5">
+                      {movimientosSearchTerm
+                        ? "Prueba con otro término de búsqueda."
+                        : "Usa el selector para ver otros meses del histórico."}
+                    </span>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="divide-y divide-slate-100">
+                  {searchedMovements.map((tx) => (
                 <div
                   key={tx.id}
                   className="py-3.5 px-2 flex items-start justify-between gap-2.5 hover:bg-slate-50/80 rounded-2xl transition-colors"
@@ -2979,7 +3209,8 @@ export default function HomePage() {
                 </div>
               ))}
             </div>
-            )}
+              );
+            })()}
           </div>
         </div>
       )}

@@ -78,6 +78,8 @@ export interface CategoryInfo {
   isSystem?: boolean;
 }
 
+export type Category = CategoryInfo;
+
 export const CATEGORY_COLOR_PALETTE: string[] = [
   "#00D09C", // 1. Verde Menta (Brand)
   "#0EA5E9", // 2. Azul Cielo

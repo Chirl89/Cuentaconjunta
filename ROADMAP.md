@@ -38,7 +38,7 @@
   - Reconocimiento exacto del 50% de los gastos comunes y asignación automática al pagador de los gastos sin categorizar.
   - Filtrado interactivo por clic en categorías en todas las pestañas de resumen sin selectores adicionales.
 
-- **Paso 9 (v0.9)**: **Dashboard Principal Estilo Fintonic: Nombres Reactivos, Gráfico Donut, Inbox y Feed**
+- **Paso 9 (v0.9)**: **Dashboard Principal Estilo Fintonic: Nombres Reactivos, Gráfico Donut, Inbox y Feed** *(Completado)*
   - Interfaz PWA con nombres configurados en tiempo real: Gráfico donut interactivo con total central, Inbox de triage rápido filtrado por usuario con nombres dinámicos en los botones, modal de gasto manual, bandeja de validación y balance en vivo.
 
 - ~~**Paso 10 (v0.10)**: **Exportación de informes y backups**~~ *(Eliminado a petición del usuario: visualización directa siempre en la App)*
