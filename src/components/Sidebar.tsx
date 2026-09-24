@@ -102,7 +102,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
   ];
 
   const graphItems = allGraphItems.filter(
-    (item) => !item.role || item.role === auth?.activeRole
+    (item) => !item.role || !auth?.activeRole || item.role === auth?.activeRole
   );
 
   const managementItems: {

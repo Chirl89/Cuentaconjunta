@@ -121,10 +121,15 @@ export function ProfileSecurityProvider({ children }: { children: React.ReactNod
   );
 }
 
+const DEFAULT_PROFILE_SECURITY: ProfileSecurityContextType = {
+  unlockedRole: "memberA",
+  isUnlocked: true,
+  requestSwitchProfile: () => {},
+  openChangePinModal: () => {},
+  lockProfile: () => {},
+};
+
 export function useProfileSecurity() {
   const context = useContext(ProfileSecurityContext);
-  if (!context) {
-    throw new Error("useProfileSecurity must be used within a ProfileSecurityProvider");
-  }
-  return context;
+  return context || DEFAULT_PROFILE_SECURITY;
 }
