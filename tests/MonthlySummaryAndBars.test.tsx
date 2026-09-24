@@ -26,8 +26,8 @@ describe("IncomeExpenseBars Component", () => {
     const incomeBar = screen.getByTestId("bar-income");
     const expenseBar = screen.getByTestId("bar-expense");
 
-    expect(incomeBar).toHaveTextContent("Total Ingresos: 2500.00 €");
-    expect(expenseBar).toHaveTextContent("Total Gastos: 1200.00 €");
+    expect(incomeBar).toHaveTextContent("2500.00 €");
+    expect(expenseBar).toHaveTextContent("1200.00 €");
 
     // Income is larger, so income bar width is 100%
     expect(incomeBar.style.width).toBe("100%");
@@ -50,8 +50,8 @@ describe("IncomeExpenseBars Component", () => {
     const incomeBar = screen.getByTestId("bar-income");
     const expenseBar = screen.getByTestId("bar-expense");
 
-    expect(incomeBar).toHaveTextContent("Total Ingresos: 1000.00 €");
-    expect(expenseBar).toHaveTextContent("Total Gastos: 2000.00 €");
+    expect(incomeBar).toHaveTextContent("1000.00 €");
+    expect(expenseBar).toHaveTextContent("2000.00 €");
 
     // Expenses is larger, so expense bar width is 100%
     expect(expenseBar.style.width).toBe("100%");
@@ -69,8 +69,9 @@ describe("IncomeExpenseBars Component", () => {
       />
     );
 
-    expect(screen.getByText("Total Ingresos: 0,00 €")).toBeInTheDocument();
-    expect(screen.getByText("Total Gastos: 0,00 €")).toBeInTheDocument();
+    expect(screen.getByText("Total Ingresos")).toBeInTheDocument();
+    expect(screen.getByText("Total Gastos")).toBeInTheDocument();
+    expect(screen.getAllByText("0.00 €")).toHaveLength(2);
   });
 });
 

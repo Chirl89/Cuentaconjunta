@@ -992,12 +992,12 @@ export default function HomePage() {
               </div>
 
               {/* Controls Toolbar: MonthSelector + Gasto Manual */}
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
                 <button
                   type="button"
                   onClick={() => setIsManualModalOpen(true)}
-                  className="px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
+                  className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 whitespace-nowrap"
                   title="Añadir gasto en efectivo o manual"
                 >
                   <Plus className="w-4 h-4" />
@@ -1117,15 +1117,15 @@ export default function HomePage() {
               </div>
 
               {/* Controls Toolbar: MonthSelector + Savings Pill */}
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
-                  <div className="text-right">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-2.5 flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
+                  <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                       Ahorro Neto
                     </span>
                     <span
-                      className={`text-[10px] sm:text-[11px] font-bold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap ${
+                      className={`text-[10px] sm:text-[11px] font-bold flex items-center gap-1 mt-0.5 whitespace-nowrap ${
                         monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
                       }`}
                     >
@@ -1723,14 +1723,14 @@ export default function HomePage() {
               </div>
 
               {/* Controls Toolbar: MonthSelector + Total Pill */}
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
-                  <div className="text-right">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-2.5 flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
+                  <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                       Total Conjunto
                     </span>
-                    <span className="text-[10px] sm:text-[11px] text-[#008761] font-semibold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap">
+                    <span className="text-[10px] sm:text-[11px] text-[#008761] font-semibold flex items-center gap-1 mt-0.5 whitespace-nowrap">
                       <TrendingDown className="w-3.5 h-3.5" /> {jointClassifiedTransactions.length} comunes
                     </span>
                   </div>
@@ -1976,10 +1976,10 @@ export default function HomePage() {
               </div>
 
               {/* Controls Toolbar: MonthSelector + Total Pill */}
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
-                  <div className="text-right">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-2.5 flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
+                  <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                       Total Gastos ({memberAName})
                     </span>
@@ -2210,10 +2210,10 @@ export default function HomePage() {
               </div>
 
               {/* Controls Toolbar: MonthSelector + Total Pill */}
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2 sm:px-5 sm:py-2.5 flex items-center gap-3 sm:gap-4 shrink-0">
-                  <div className="text-right">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-2.5 flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
+                  <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
                       Total Gastos ({memberBName})
                     </span>
@@ -2435,22 +2435,22 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-3 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 {/* Buscador reactivo de movimientos */}
-                <div className="relative flex-1 sm:flex-initial min-w-[130px]">
+                <div className="relative w-full sm:w-44">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     placeholder="Buscar movimientos..."
                     value={movimientosSearchTerm}
                     onChange={(e) => setMovimientosSearchTerm(e.target.value)}
-                    className="w-full sm:w-44 pl-8 pr-7 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all"
+                    className="w-full pl-8 pr-7 py-2.5 sm:py-2 rounded-2xl sm:rounded-xl text-xs bg-slate-50 border border-slate-200 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-[#00D09C] focus:bg-white transition-all"
                   />
                   {movimientosSearchTerm && (
                     <button
                       type="button"
                       onClick={() => setMovimientosSearchTerm("")}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
                     >
                       ✕
                     </button>
@@ -2460,7 +2460,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setIsManualModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                  className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-2xl sm:rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Gasto Manual</span>
@@ -3352,37 +3352,39 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-2.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0 flex-wrap sm:flex-nowrap">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between sm:justify-end gap-2.5 sm:gap-2.5 w-full sm:w-auto pt-2.5 sm:pt-0 border-t border-slate-100 sm:border-0">
                 <MonthSelector />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToastMsg(null);
-                    setBankModalInitialMode("catalog");
-                    setBankModalInitialCardId(undefined);
-                    setIsBankModalOpen(true);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  title="Conectar cuenta bancaria mediante pasarela oficial Open Banking (PSD2)"
-                >
-                  <Landmark className="w-4 h-4" />
-                  <span>Conectar PSD2</span>
-                </button>
+                <div className="grid grid-cols-1 sm:flex items-center gap-2 sm:gap-2.5 w-full sm:w-auto">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToastMsg(null);
+                      setBankModalInitialMode("catalog");
+                      setBankModalInitialCardId(undefined);
+                      setIsBankModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto justify-center px-3.5 py-2.5 sm:py-2 rounded-2xl sm:rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    title="Conectar cuenta bancaria mediante pasarela oficial Open Banking (PSD2)"
+                  >
+                    <Landmark className="w-4 h-4" />
+                    <span>Conectar PSD2</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToastMsg(null);
-                    setBankModalInitialMode("card");
-                    setBankModalInitialCardId(undefined);
-                    setIsBankModalOpen(true);
-                  }}
-                  className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
-                  title="Añadir tarjeta o cargar extracto CSV/Excel"
-                >
-                  <CreditCard className="w-4 h-4 text-purple-400" />
-                  <span>Tarjeta / Extracto</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setToastMsg(null);
+                      setBankModalInitialMode("card");
+                      setBankModalInitialCardId(undefined);
+                      setIsBankModalOpen(true);
+                    }}
+                    className="w-full sm:w-auto justify-center px-3.5 py-2.5 sm:py-2 rounded-2xl sm:rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    title="Añadir tarjeta o cargar extracto CSV/Excel"
+                  >
+                    <CreditCard className="w-4 h-4 text-purple-400" />
+                    <span>Tarjeta / Extracto</span>
+                  </button>
+                </div>
               </div>
             </div>
 

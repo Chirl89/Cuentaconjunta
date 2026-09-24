@@ -83,95 +83,75 @@ export const IncomeExpenseBars: React.FC<IncomeExpenseBarsProps> = ({
       {/* Two Horizontal Bars, one above the other */}
       <div className="space-y-3.5 pt-1">
         {/* Barra 1: Total Ingresos */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-600 px-1">
-            <span className="flex items-center gap-1.5 text-slate-700 font-bold">
+        <div className="space-y-1.5">
+          {/* Label only above the bar */}
+          <div className="flex items-center text-xs font-bold text-slate-700 px-1">
+            <span className="flex items-center gap-1.5">
               <ArrowDownRight className="w-3.5 h-3.5 text-emerald-600" />
               <span>{incomeLabel}</span>
-            </span>
-            <span className="font-mono text-xs font-black text-emerald-600">
-              {safeIncome.toFixed(2)} €
             </span>
           </div>
 
           <div
             className="w-full bg-slate-100 rounded-2xl h-10 sm:h-11 overflow-hidden relative border border-slate-200/60 p-1 flex items-center"
-            title={`${incomeLabel}: ${safeIncome.toFixed(2)} € (${Math.round(incomePct)}%)`}
+            title={`${incomeLabel}: ${safeIncome.toFixed(2)} €`}
           >
             {safeIncome > 0 ? (
               <div
                 data-testid="bar-income"
-                className="h-full rounded-xl bg-gradient-to-r from-[#00B887] via-[#00D09C] to-emerald-400 transition-all duration-700 ease-out flex items-center justify-between px-3 text-white shadow-xs min-w-[140px] max-w-full"
-                style={{ width: `${Math.max(incomePct, 15)}%` }}
+                className="h-full rounded-xl bg-gradient-to-r from-[#00B887] via-[#00D09C] to-emerald-400 transition-all duration-700 ease-out flex items-center px-3.5 text-white shadow-xs min-w-[90px] max-w-full"
+                style={{ width: `${Math.max(incomePct, 12)}%` }}
               >
-                <span className="text-xs sm:text-sm font-black tracking-tight truncate drop-shadow-xs">
-                  {incomeLabel}: {safeIncome.toFixed(2)} €
+                <span className="text-xs sm:text-sm font-black tracking-tight whitespace-nowrap drop-shadow-xs">
+                  {safeIncome.toFixed(2)} €
                 </span>
-                {incomePct >= 80 && (
-                  <span className="text-[10px] font-bold text-white/90 bg-black/10 px-1.5 py-0.5 rounded ml-2 shrink-0 hidden sm:inline-block">
-                    {Math.round(incomePct)}%
-                  </span>
-                )}
               </div>
             ) : (
-              <div className="px-3 text-xs font-bold text-slate-400 flex items-center">
-                <span>{incomeLabel}: 0,00 €</span>
+              <div className="px-3.5 text-xs font-bold text-slate-400 flex items-center">
+                <span>0.00 €</span>
               </div>
             )}
           </div>
         </div>
 
         {/* Barra 2: Total Gastos */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-600 px-1">
-            <span className="flex items-center gap-1.5 text-slate-700 font-bold">
+        <div className="space-y-1.5">
+          {/* Label only above the bar */}
+          <div className="flex items-center text-xs font-bold text-slate-700 px-1">
+            <span className="flex items-center gap-1.5">
               <ArrowUpRight className="w-3.5 h-3.5 text-rose-500" />
               <span>{expenseLabel}</span>
-            </span>
-            <span className="font-mono text-xs font-black text-rose-600">
-              {safeExpenses.toFixed(2)} €
             </span>
           </div>
 
           <div
             className="w-full bg-slate-100 rounded-2xl h-10 sm:h-11 overflow-hidden relative border border-slate-200/60 p-1 flex items-center"
-            title={`${expenseLabel}: ${safeExpenses.toFixed(2)} € (${Math.round(expensePct)}%)`}
+            title={`${expenseLabel}: ${safeExpenses.toFixed(2)} €`}
           >
             {safeExpenses > 0 ? (
               <div
                 data-testid="bar-expense"
-                className="h-full rounded-xl bg-gradient-to-r from-rose-500 via-rose-400 to-red-500 transition-all duration-700 ease-out flex items-center justify-between px-3 text-white shadow-xs min-w-[140px] max-w-full"
-                style={{ width: `${Math.max(expensePct, 15)}%` }}
+                className="h-full rounded-xl bg-gradient-to-r from-rose-500 via-rose-400 to-red-500 transition-all duration-700 ease-out flex items-center px-3.5 text-white shadow-xs min-w-[90px] max-w-full"
+                style={{ width: `${Math.max(expensePct, 12)}%` }}
               >
-                <span className="text-xs sm:text-sm font-black tracking-tight truncate drop-shadow-xs">
-                  {expenseLabel}: {safeExpenses.toFixed(2)} €
+                <span className="text-xs sm:text-sm font-black tracking-tight whitespace-nowrap drop-shadow-xs">
+                  {safeExpenses.toFixed(2)} €
                 </span>
-                {expensePct >= 80 && (
-                  <span className="text-[10px] font-bold text-white/90 bg-black/10 px-1.5 py-0.5 rounded ml-2 shrink-0 hidden sm:inline-block">
-                    {Math.round(expensePct)}%
-                  </span>
-                )}
               </div>
             ) : (
-              <div className="px-3 text-xs font-bold text-slate-400 flex items-center">
-                <span>{expenseLabel}: 0,00 €</span>
+              <div className="px-3.5 text-xs font-bold text-slate-400 flex items-center">
+                <span>0.00 €</span>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Mini legend / stats summary */}
-      <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
-        <span>
-          Mayor:{" "}
-          <strong className="text-slate-700 font-semibold">
-            {safeIncome >= safeExpenses ? incomeLabel : expenseLabel} (100%)
-          </strong>
-        </span>
-        <span className="font-medium">
-          Ratio Gastos/Ingresos:{" "}
-          <strong className={safeExpenses > safeIncome ? "text-rose-600" : "text-[#008761]"}>
+      {/* Mini stats summary: Only Ratio Gastos/Ingresos */}
+      <div className="pt-2 border-t border-slate-100 flex items-center justify-end text-[11px] text-slate-500">
+        <span className="font-medium flex items-center gap-1.5">
+          <span>Ratio Gastos/Ingresos:</span>
+          <strong className={`font-black ${safeExpenses > safeIncome ? "text-rose-600" : "text-[#008761]"}`}>
             {safeIncome > 0 ? Math.round((safeExpenses / safeIncome) * 100) : 0}%
           </strong>
         </span>

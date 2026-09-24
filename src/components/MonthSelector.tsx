@@ -23,18 +23,21 @@ export const MonthSelector: React.FC<{ className?: string }> = ({ className = ""
   };
 
   return (
-    <div className={`flex items-center gap-1 bg-white border border-slate-200/80 rounded-2xl p-1 shadow-2xs shrink-0 ${className}`}>
+    <div
+      className={`flex items-center justify-between gap-1 bg-white border border-slate-200/80 rounded-2xl p-1.5 sm:p-1 shadow-2xs w-full sm:w-auto ${className}`}
+    >
       <button
+        type="button"
         onClick={handlePrev}
         disabled={currentIndex >= AVAILABLE_MONTHS.length - 1}
-        className="p-1 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+        className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors shrink-0 cursor-pointer"
         title="Mes anterior"
       >
-        <ChevronLeft className="w-3.5 h-3.5" />
+        <ChevronLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
       </button>
 
-      <div className="relative flex items-center gap-1.5 px-2 py-0.5 text-xs font-bold text-slate-800 cursor-pointer select-none whitespace-nowrap group">
-        <Calendar className="w-3 h-3 text-[#00A37A] shrink-0" />
+      <div className="relative flex-1 flex items-center justify-center gap-2 px-2 py-1 text-xs font-bold text-slate-800 cursor-pointer select-none whitespace-nowrap group">
+        <Calendar className="w-3.5 h-3.5 text-[#00A37A] shrink-0" />
         <span className="whitespace-nowrap group-hover:text-[#00A37A] transition-colors">{currentLabel}</span>
         <select
           value={selectedMonth}
@@ -51,12 +54,13 @@ export const MonthSelector: React.FC<{ className?: string }> = ({ className = ""
       </div>
 
       <button
+        type="button"
         onClick={handleNext}
         disabled={currentIndex <= 0}
-        className="p-1 rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors"
+        className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors shrink-0 cursor-pointer"
         title="Mes siguiente"
       >
-        <ChevronRight className="w-3.5 h-3.5" />
+        <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
       </button>
     </div>
   );
