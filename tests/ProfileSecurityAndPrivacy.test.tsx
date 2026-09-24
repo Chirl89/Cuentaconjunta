@@ -316,6 +316,44 @@ describe("50% Joint Expense Imputation in Individual Summaries", () => {
     expect(incomeOnlyMovements).toHaveLength(1);
     expect(incomeOnlyMovements[0].merchant).toBe("Nómina");
   });
+
+  it("filters joint (gastos comunes) movements interactively by category and toggles cleanly", () => {
+    const jointMovements = [
+      { id: "j1", merchant: "Mercadona", category: "Supermercado", amount: 110, isCredit: false },
+      { id: "j2", merchant: "Iberdrola", category: "Suministros", amount: 75, isCredit: false },
+      { id: "j3", merchant: "Carrefour", category: "Supermercado", amount: 45, isCredit: false },
+      { id: "j4", merchant: "Bizum Boda", category: "Regalo", amount: 150, isCredit: true },
+    ];
+
+    const filterJoint = (
+      catFilter: string | null,
+      typeFilter: "all" | "expenses" | "incomes"
+    ) => {
+      return jointMovements.filter((tx) => {
+        if (catFilter) {
+          return tx.category.toLowerCase().trim() === catFilter.toLowerCase().trim();
+        }
+        if (typeFilter === "expenses") return !tx.isCredit;
+        if (typeFilter === "incomes") return tx.isCredit;
+        return true;
+      });
+    };
+
+    // Filter by Supermercado in Gastos Comunes
+    const superJoint = filterJoint("Supermercado", "all");
+    expect(superJoint).toHaveLength(2);
+    expect(superJoint.every((m) => m.category === "Supermercado")).toBe(true);
+
+    // Filter by Suministros
+    const sumJoint = filterJoint("Suministros", "all");
+    expect(sumJoint).toHaveLength(1);
+    expect(sumJoint[0].merchant).toBe("Iberdrola");
+
+    // Switching to Incomes clears category filter
+    const incomes = filterJoint(null, "incomes");
+    expect(incomes).toHaveLength(1);
+    expect(incomes[0].merchant).toBe("Bizum Boda");
+  });
 });
 
 

@@ -228,11 +228,13 @@ export default function HomePage() {
   const [carlosMovementsFilter, setCarlosMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
   const [andreaMovementsFilter, setAndreaMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
   const [monthlyMovementsFilter, setMonthlyMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
+  const [jointMovementsFilter, setJointMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
 
   // Filtros interactivos por clic en categoría (null = sin filtrar por categoría)
   const [carlosCategoryFilter, setCarlosCategoryFilter] = useState<string | null>(null);
   const [andreaCategoryFilter, setAndreaCategoryFilter] = useState<string | null>(null);
   const [monthlyCategoryFilter, setMonthlyCategoryFilter] = useState<string | null>(null);
+  const [jointCategoryFilter, setJointCategoryFilter] = useState<string | null>(null);
 
   // Tab & scope redirection for privacy isolation
   useEffect(() => {
@@ -1625,85 +1627,184 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {jointCategoriesBreakdown.map((cat) => (
-                  <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
-                      <span className="text-xs font-bold text-slate-800">{cat.name}</span>
-                    </div>
-                    <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
-                  </div>
-                ))}
+                {jointCategoriesBreakdown.map((cat) => {
+                  const isSelected = jointCategoryFilter?.toLowerCase().trim() === cat.name.toLowerCase().trim();
+                  return (
+                    <button
+                      key={cat.name}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setJointCategoryFilter(null);
+                        } else {
+                          setJointCategoryFilter(cat.name);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between p-2 rounded-xl transition-all cursor-pointer text-left ${
+                        isSelected
+                          ? "bg-emerald-50 border border-emerald-300 shadow-xs ring-1 ring-emerald-200"
+                          : "hover:bg-slate-50 border border-transparent"
+                      }`}
+                      title={isSelected ? "Pulsar para quitar filtro" : `Filtrar movimientos por ${cat.name}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold ${isSelected ? "text-[#008761]" : "text-slate-800"}`}>
+                            {cat.name}
+                          </span>
+                          {isSelected && (
+                            <span className="text-[9px] font-black px-1.5 py-0.2 rounded bg-[#00A37A] text-white">
+                              Filtrando
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <span className={`text-xs font-black ${isSelected ? "text-[#008761]" : "text-slate-900"}`}>
+                        {cat.value.toFixed(2)} €
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
             {/* Latest Joint Movements (igual que en las otras vistas) */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4 flex flex-col justify-between">
               <div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
-                    Últimos Movimientos Conjuntos
+                    Movimientos Conjuntos
                   </h2>
-                  <span className="text-xs font-bold text-[#008761]">
-                    {jointMovementsWithIncome.length} movimientos
-                  </span>
+                  <div className="flex items-center gap-1 flex-wrap">
+                    {jointCategoryFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setJointCategoryFilter(null)}
+                        className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-[#00A37A] hover:bg-[#008761] text-white shadow-xs flex items-center gap-1 cursor-pointer transition-all"
+                        title="Pulsar para quitar filtro de categoría"
+                      >
+                        <span>🏷️ {jointCategoryFilter}</span>
+                        <span className="text-[8px] bg-white/25 px-1 rounded-full">✕</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJointMovementsFilter("all");
+                        setJointCategoryFilter(null);
+                      }}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        jointMovementsFilter === "all" && !jointCategoryFilter
+                          ? "bg-slate-900 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      Todos ({jointMovementsWithIncome.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJointMovementsFilter("expenses");
+                        setJointCategoryFilter(null);
+                      }}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        jointMovementsFilter === "expenses" && !jointCategoryFilter
+                          ? "bg-emerald-600 text-white"
+                          : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                      }`}
+                    >
+                      Gastos ({jointClassifiedTransactions.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setJointMovementsFilter("incomes");
+                        setJointCategoryFilter(null);
+                      }}
+                      className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                        jointMovementsFilter === "incomes" && !jointCategoryFilter
+                          ? "bg-[#00A37A] text-white"
+                          : "bg-[#00D09C]/15 text-[#008761] hover:bg-[#00D09C]/25"
+                      }`}
+                    >
+                      Ingresos ({jointIncomeTransactions.length})
+                    </button>
+                  </div>
                 </div>
 
-                {jointMovementsWithIncome.length === 0 ? (
-                  <div className="text-center text-slate-400 text-xs py-8">
-                    No hay movimientos conjuntos registrados en este mes.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                    {jointMovementsWithIncome.map((tx) => (
-                      <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                          {tx.isManual ? (
-                            <button
-                              type="button"
-                              onClick={() => setEditingTransaction(tx)}
-                              className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
-                              title="Gasto manual: Pulsar para editar o eliminar"
-                            >
-                              <span>{tx.merchant}</span>
-                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
-                                Manual
-                              </span>
-                            </button>
-                          ) : (
-                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
-                              {tx.merchant}
-                            </span>
-                          )}
-                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span className="text-[10px] text-slate-400">
-                              {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                            </span>
-                            <span
-                              className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
-                                tx.isCredit
-                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                  : tx.payer === "memberA"
-                                  ? "bg-red-50 text-red-600 border-red-200"
-                                  : tx.payer === "memberB"
-                                  ? "bg-blue-50 text-blue-600 border-blue-200"
-                                  : "bg-emerald-50 text-[#008761] border-emerald-200"
-                              }`}
-                            >
-                              {tx.isCredit
-                                ? "Ingreso 50/50"
-                                : `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`text-sm font-black shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
-                        </span>
+                {(() => {
+                  const filtered = jointMovementsWithIncome.filter((tx) => {
+                    if (jointCategoryFilter) {
+                      return tx.category.toLowerCase().trim() === jointCategoryFilter.toLowerCase().trim();
+                    }
+                    if (jointMovementsFilter === "expenses") return !tx.isCredit;
+                    if (jointMovementsFilter === "incomes") return tx.isCredit;
+                    return true;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center text-slate-400 text-xs py-8">
+                        {jointCategoryFilter
+                          ? `No hay movimientos conjuntos registrados para la categoría "${jointCategoryFilter}".`
+                          : "No hay movimientos conjuntos registrados para este filtro."}
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  }
+
+                  return (
+                    <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
+                      {filtered.map((tx) => (
+                        <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            {tx.isManual ? (
+                              <button
+                                type="button"
+                                onClick={() => setEditingTransaction(tx)}
+                                className="text-left text-xs font-bold text-slate-900 hover:text-[#00A37A] hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                                title="Gasto manual: Pulsar para editar o eliminar"
+                              >
+                                <span>{tx.merchant}</span>
+                                <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                  Manual
+                                </span>
+                              </button>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                                {tx.merchant}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <span className="text-[10px] text-slate-400">
+                                {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                              </span>
+                              <span
+                                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+                                  tx.isCredit
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : tx.payer === "memberA"
+                                    ? "bg-red-50 text-red-600 border-red-200"
+                                    : tx.payer === "memberB"
+                                    ? "bg-blue-50 text-blue-600 border-blue-200"
+                                    : "bg-emerald-50 text-[#008761] border-emerald-200"
+                                }`}
+                              >
+                                {tx.isCredit
+                                  ? "Ingreso 50/50"
+                                  : `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`}
+                              </span>
+                            </div>
+                          </div>
+                          <span className={`text-sm font-black shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                            {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="pt-2 border-t border-slate-100">
