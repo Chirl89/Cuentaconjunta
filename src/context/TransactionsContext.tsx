@@ -2240,56 +2240,39 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   );
 
   // 1. Joint Shared 50/50 expenses for graphs & summaries:
-  // - Classified as 50/50
-  // - PLUS Uncategorized/pending expenses from joint accounts or joint payer
+  // - ONLY Classified / auto_assigned as 50/50
+  // - Pending transactions waiting in inbox are NEVER counted as assigned expenses!
   const jointClassifiedTransactions = useMemo(
     () =>
       filteredTransactions.filter((t) => {
         if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
-        if (t.status === "classified" || t.status === "auto_assigned") {
-          return t.split === "50/50";
-        }
-        // Pending: if joint account or payer joint
-        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
-        return t.payer === "joint" || acc?.ownership === "JOINT";
+        return (t.status === "classified" || t.status === "auto_assigned") && t.split === "50/50";
       }),
-    [filteredTransactions, accounts]
+    [filteredTransactions]
   );
 
   // 2. Personal Member A movements for graphs & summaries:
-  // - Classified as memberA (regardless of payer, e.g. paid by B or Joint but assigned to A)
-  // - PLUS Uncategorized/pending expenses where payer is memberA (or card is USER_A)
+  // - ONLY Classified / auto_assigned as memberA
+  // - Pending transactions waiting in inbox are NEVER counted as assigned expenses!
   const memberAClassifiedTransactions = useMemo(
     () =>
       filteredTransactions.filter((t) => {
         if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
-        if (t.status === "classified" || t.status === "auto_assigned") {
-          return t.split === "memberA";
-        }
-        // Pending: assigned provisionally to payer so it doesn't stay in limbo
-        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
-        const isPayerA = t.payer === "memberA" || acc?.ownership === "USER_A";
-        return isPayerA && t.payer !== "joint" && acc?.ownership !== "JOINT";
+        return (t.status === "classified" || t.status === "auto_assigned") && t.split === "memberA";
       }),
-    [filteredTransactions, accounts]
+    [filteredTransactions]
   );
 
   // 3. Personal Member B movements for graphs & summaries:
-  // - Classified as memberB (regardless of payer, e.g. paid by Carlos but assigned to Andrea)
-  // - PLUS Uncategorized/pending expenses where payer is memberB (or card is USER_B)
+  // - ONLY Classified / auto_assigned as memberB
+  // - Pending transactions waiting in inbox are NEVER counted as assigned expenses!
   const memberBClassifiedTransactions = useMemo(
     () =>
       filteredTransactions.filter((t) => {
         if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
-        if (t.status === "classified" || t.status === "auto_assigned") {
-          return t.split === "memberB";
-        }
-        // Pending: assigned provisionally to payer so it doesn't stay in limbo
-        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
-        const isPayerB = t.payer === "memberB" || acc?.ownership === "USER_B";
-        return isPayerB && t.payer !== "joint" && acc?.ownership !== "JOINT";
+        return (t.status === "classified" || t.status === "auto_assigned") && t.split === "memberB";
       }),
-    [filteredTransactions, accounts]
+    [filteredTransactions]
   );
 
   // Totals
@@ -2581,7 +2564,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           (t) =>
             !t.isCredit &&
             t.movementType !== "transfer_to_joint" &&
-            t.movementType !== "settlement"
+            t.movementType !== "settlement" &&
+            (t.status === "classified" || t.status === "auto_assigned")
         )
       ),
     [filteredTransactions, buildCategoryBreakdown]

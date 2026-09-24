@@ -363,7 +363,7 @@ describe("Paso 9: MonthlyEvolutionBarChart Component", () => {
   ];
 
   it("renders 12-month evolution bar chart for viewing user with personal expenses + 50% joint expenses", () => {
-    render(
+    const { unmount } = render(
       <MonthlyEvolutionBarChart
         transactions={evolutionTxs}
         referenceMonth="2026-09"
@@ -378,12 +378,84 @@ describe("Paso 9: MonthlyEvolutionBarChart Component", () => {
     // Carlos has income +2000 and total expense -100 (-50 personal + -50 half joint) -> net +1900€
     expect(screen.getAllByText("+1900€").length).toBeGreaterThan(0);
 
-    // Toggle button to switch to Andrea
-    const andreaToggle = screen.getByTestId("evolution-user-memberB");
-    fireEvent.click(andreaToggle);
+    // User badge shows Carlos
+    expect(screen.getByTestId("evolution-user-badge")).toHaveTextContent("Carlos");
+    // Switcher buttons to peek at other partner's personal expenses do NOT exist
+    expect(screen.queryByTestId("evolution-user-memberB")).not.toBeInTheDocument();
 
-    // Andrea has 0 income and 90 expense (50 joint + 40 personal) -> net -90€
+    unmount();
+
+    // Now render as Andrea: Andrea has 0 income and 90 expense (50 joint + 40 personal) -> net -90€
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={evolutionTxs}
+        referenceMonth="2026-09"
+        activeRole="memberB"
+        memberAName="Carlos"
+        memberBName="Andrea"
+      />
+    );
+    expect(screen.getByTestId("evolution-user-badge")).toHaveTextContent("Andrea");
     expect(screen.getAllByText("-90€").length).toBeGreaterThan(0);
+  });
+
+  it("strictly ignores unclassified/pending transactions from assigned expenses", () => {
+    const mixedTxs: Transaction[] = [
+      {
+        id: "tx-classified-aug",
+        date: "2026-08-10",
+        amount: 100,
+        merchant: "Nómina Agosto",
+        category: "Ingresos",
+        categoryColor: "#10B981",
+        payer: "memberA",
+        split: "memberA",
+        status: "classified",
+        monthKey: "2026-08",
+        isCredit: true,
+      },
+      {
+        id: "tx-pending-joint",
+        date: "2026-09-10",
+        amount: 80,
+        merchant: "Restaurante Pendiente",
+        category: "Restaurantes",
+        categoryColor: "#FFBB28",
+        payer: "joint",
+        split: "pending",
+        status: "pending",
+        monthKey: "2026-09",
+      },
+      {
+        id: "tx-pending-andrea",
+        date: "2026-09-15",
+        amount: 50,
+        merchant: "Zara Pendiente",
+        category: "Ropa",
+        categoryColor: "#EC4899",
+        payer: "memberB",
+        split: "pending",
+        status: "pending",
+        monthKey: "2026-09",
+      },
+    ];
+
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={mixedTxs}
+        referenceMonth="2026-09"
+        activeRole="memberA"
+        memberAName="Carlos"
+        memberBName="Andrea"
+      />
+    );
+
+    // Since transactions are unclassified (pending), they are NOT assigned to Andrea, Carlos, or 50/50
+    // So 2026-09 must NOT invent or count assigned expenses
+    const sepCard = screen.getByTestId("evolution-card-2026-09");
+    expect(sepCard).toHaveTextContent("Sin datos");
+    expect(sepCard).toHaveTextContent("—");
+    expect(sepCard).not.toHaveTextContent("40€");
   });
 
   it("does not invent data for months without transactions and shows 'Sin datos' / '—'", () => {

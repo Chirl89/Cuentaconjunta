@@ -104,24 +104,12 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
   activeRole = "memberA",
   memberAName = "Carlos",
   memberBName = "Andrea",
-  onUserChange,
 }) => {
-  const [selectedUser, setSelectedUser] = useState<"memberA" | "memberB">(activeRole);
   const [viewMode, setViewMode] = useState<"all12" | "onlyData">("all12");
 
-  // Sync when activeRole prop changes if not manually switched
-  React.useEffect(() => {
-    setSelectedUser(activeRole);
-  }, [activeRole]);
+  const currentPersonName = activeRole === "memberA" ? memberAName : memberBName;
 
-  const handleUserToggle = (role: "memberA" | "memberB") => {
-    setSelectedUser(role);
-    if (onUserChange) onUserChange(role);
-  };
-
-  const currentPersonName = selectedUser === "memberA" ? memberAName : memberBName;
-
-  // Pre-calculate 12 rolling months data for selected viewing person
+  // Pre-calculate 12 rolling months data for active viewing person
   const { allMonthsData, chartData, total12mIncome, total12mExpense, total12mNet, monthsWithDataCount } =
     useMemo(() => {
       const rollingMonths = getRolling12Months(referenceMonth);
@@ -151,8 +139,95 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
             t.movementType !== "settlement"
         );
 
-        // If there are no real transactions recorded for this month, DO NOT invent data
-        if (monthTxs.length === 0) {
+        let personalExpense = 0;
+        let jointExpenseHalf = 0;
+        let personalIncome = 0;
+        let jointIncomeHalf = 0;
+        let countedTx = 0;
+
+        for (const tx of monthTxs) {
+          const isIncome =
+            tx.isCredit ||
+            tx.category === "Ingreso / Nómina" ||
+            tx.category === "Ingresos";
+
+          const isExpense = !isIncome;
+          const ownership = getAccountOwnership(tx);
+          const amt = Math.abs(tx.amount);
+
+          if (isExpense) {
+            // Strictly exclude unclassified / pending expenses!
+            // Pending transactions are waiting in inbox and NOT assigned to anyone yet!
+            if (tx.status === "pending") continue;
+
+            if (activeRole === "memberA") {
+              if (tx.split === "memberA") {
+                personalExpense += amt;
+                countedTx++;
+              } else if (tx.split === "50/50") {
+                jointExpenseHalf += amt * 0.5;
+                countedTx++;
+              }
+              // tx.split === "memberB" is Andrea's private expense - never included for Carlos!
+            } else {
+              // memberB
+              if (tx.split === "memberB") {
+                personalExpense += amt;
+                countedTx++;
+              } else if (tx.split === "50/50") {
+                jointExpenseHalf += amt * 0.5;
+                countedTx++;
+              }
+              // tx.split === "memberA" is Carlos's private expense - never included for Andrea!
+            }
+          } else {
+            // Income
+            if (activeRole === "memberA") {
+              const isPersonalA =
+                (tx.payer === "memberA" || ownership === "USER_A" || tx.split === "memberA") &&
+                tx.payer !== "joint" &&
+                ownership !== "JOINT" &&
+                tx.split !== "memberB" &&
+                tx.split !== "50/50";
+
+              const isJoint =
+                tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
+
+              if (isPersonalA) {
+                personalIncome += amt;
+                countedTx++;
+              } else if (isJoint) {
+                jointIncomeHalf += amt * 0.5;
+                countedTx++;
+              }
+            } else {
+              // memberB
+              const isPersonalB =
+                (tx.payer === "memberB" || ownership === "USER_B" || tx.split === "memberB") &&
+                tx.payer !== "joint" &&
+                ownership !== "JOINT" &&
+                tx.split !== "memberA" &&
+                tx.split !== "50/50";
+
+              const isJoint =
+                tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
+
+              if (isPersonalB) {
+                personalIncome += amt;
+                countedTx++;
+              } else if (isJoint) {
+                jointIncomeHalf += amt * 0.5;
+                countedTx++;
+              }
+            }
+          }
+        }
+
+        const totalExpense = Math.round((personalExpense + jointExpenseHalf) * 100) / 100;
+        const totalIncome = Math.round((personalIncome + jointIncomeHalf) * 100) / 100;
+        const hasData = countedTx > 0 && (totalIncome > 0 || totalExpense > 0);
+
+        if (!hasData) {
           return {
             monthKey: mKey,
             shortLabel,
@@ -169,97 +244,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
           };
         }
 
-        let personalExpense = 0;
-        let jointExpenseHalf = 0;
-        let personalIncome = 0;
-        let jointIncomeHalf = 0;
-
-        for (const tx of monthTxs) {
-          const isIncome =
-            tx.isCredit ||
-            tx.category === "Ingreso / Nómina" ||
-            tx.category === "Ingresos";
-
-          const isExpense = !isIncome;
-          const ownership = getAccountOwnership(tx);
-          const amt = Math.abs(tx.amount);
-
-          if (isExpense) {
-            if (selectedUser === "memberA") {
-              const isPersonalA =
-                tx.split === "memberA" ||
-                (tx.status === "pending" &&
-                  (tx.payer === "memberA" || ownership === "USER_A") &&
-                  tx.payer !== "joint" &&
-                  ownership !== "JOINT");
-
-              const isJoint =
-                tx.split === "50/50" ||
-                (tx.status === "pending" && (tx.payer === "joint" || ownership === "JOINT"));
-
-              if (isPersonalA) {
-                personalExpense += amt;
-              } else if (isJoint) {
-                jointExpenseHalf += amt * 0.5;
-              }
-            } else {
-              // memberB
-              const isPersonalB =
-                tx.split === "memberB" ||
-                (tx.status === "pending" &&
-                  (tx.payer === "memberB" || ownership === "USER_B") &&
-                  tx.payer !== "joint" &&
-                  ownership !== "JOINT");
-
-              const isJoint =
-                tx.split === "50/50" ||
-                (tx.status === "pending" && (tx.payer === "joint" || ownership === "JOINT"));
-
-              if (isPersonalB) {
-                personalExpense += amt;
-              } else if (isJoint) {
-                jointExpenseHalf += amt * 0.5;
-              }
-            }
-          } else {
-            // Income
-            if (selectedUser === "memberA") {
-              const isPersonalA =
-                (tx.payer === "memberA" || ownership === "USER_A" || tx.split === "memberA") &&
-                tx.payer !== "joint" &&
-                ownership !== "JOINT";
-
-              const isJoint =
-                tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
-
-              if (isPersonalA) {
-                personalIncome += amt;
-              } else if (isJoint) {
-                jointIncomeHalf += amt * 0.5;
-              }
-            } else {
-              // memberB
-              const isPersonalB =
-                (tx.payer === "memberB" || ownership === "USER_B" || tx.split === "memberB") &&
-                tx.payer !== "joint" &&
-                ownership !== "JOINT";
-
-              const isJoint =
-                tx.payer === "joint" || ownership === "JOINT" || tx.split === "50/50";
-
-              if (isPersonalB) {
-                personalIncome += amt;
-              } else if (isJoint) {
-                jointIncomeHalf += amt * 0.5;
-              }
-            }
-          }
-        }
-
-        const totalExpense = Math.round((personalExpense + jointExpenseHalf) * 100) / 100;
-        const totalIncome = Math.round((personalIncome + jointIncomeHalf) * 100) / 100;
         const net = Math.round((totalIncome - totalExpense) * 100) / 100;
-
         sumIncome += totalIncome;
         sumExpense += totalExpense;
         countWithData += 1;
@@ -276,7 +261,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
           jointExpenseHalf: Math.round(jointExpenseHalf * 100) / 100,
           personalIncome: Math.round(personalIncome * 100) / 100,
           jointIncomeHalf: Math.round(jointIncomeHalf * 100) / 100,
-          txCount: monthTxs.length,
+          txCount: countedTx,
         };
       });
 
@@ -290,7 +275,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
         total12mNet: Math.round((sumIncome - sumExpense) * 100) / 100,
         monthsWithDataCount: countWithData,
       };
-    }, [transactions, accounts, referenceMonth, selectedUser, viewMode]);
+    }, [transactions, accounts, referenceMonth, activeRole, viewMode]);
 
   // Tooltip personalizado
   const CustomBarTooltip = ({ active, payload }: any) => {
@@ -391,36 +376,15 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
           </div>
         </div>
 
-        {/* Controls: Persona switcher & View Mode */}
+        {/* Controls: Active User Badge & View Mode */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Persona selector toggle */}
-          <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200/70">
-            <button
-              type="button"
-              data-testid="evolution-user-memberA"
-              onClick={() => handleUserToggle("memberA")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedUser === "memberA"
-                  ? "bg-white text-slate-900 shadow-xs font-extrabold"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <User className="w-3.5 h-3.5 text-indigo-500" />
-              <span>{memberAName}</span>
-            </button>
-            <button
-              type="button"
-              data-testid="evolution-user-memberB"
-              onClick={() => handleUserToggle("memberB")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                selectedUser === "memberB"
-                  ? "bg-white text-slate-900 shadow-xs font-extrabold"
-                  : "text-slate-500 hover:text-slate-900"
-              }`}
-            >
-              <User className="w-3.5 h-3.5 text-blue-500" />
-              <span>{memberBName}</span>
-            </button>
+          {/* Active User Badge (Privacy isolation: no switching between partners' personal finances) */}
+          <div
+            data-testid="evolution-user-badge"
+            className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 flex items-center gap-1.5 text-xs font-bold text-slate-700"
+          >
+            <User className={`w-3.5 h-3.5 ${activeRole === "memberA" ? "text-indigo-500" : "text-blue-500"}`} />
+            <span>{currentPersonName}</span>
           </div>
 
           {/* View mode toggle: 12 meses vs Solo con datos */}

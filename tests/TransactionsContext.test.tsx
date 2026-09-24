@@ -653,6 +653,74 @@ describe("TransactionsContext Dynamic Engine", () => {
     expect(Number(screen.getByTestId("total-joint-spent").textContent)).toBe(initialJointSpent);
     expect(Number(screen.getByTestId("debt-movements-count").textContent)).toBe(initialDebtCount);
   });
+
+  it("ensures unclassified pending transactions never count towards joint or memberB assigned expenses", () => {
+    const PendingTestComponent = () => {
+      const {
+        jointClassifiedTransactions,
+        memberBClassifiedTransactions,
+        totalJointSpent,
+        totalMemberBSpent,
+        pendingTransactions,
+      } = useTransactions();
+
+      return (
+        <div>
+          <span data-testid="pending-count">{pendingTransactions.length}</span>
+          <span data-testid="joint-classified-count">{jointClassifiedTransactions.length}</span>
+          <span data-testid="memberB-classified-count">{memberBClassifiedTransactions.length}</span>
+          <span data-testid="total-joint-spent">{totalJointSpent}</span>
+          <span data-testid="total-memberB-spent">{totalMemberBSpent}</span>
+        </div>
+      );
+    };
+
+    // Prepopulate storage with only pending transactions
+    const initialTxs: Transaction[] = [
+      {
+        id: "tx-p1",
+        merchant: "Bar Conjunto",
+        amount: 50,
+        date: "2026-09-01",
+        category: "Restaurantes",
+        categoryColor: "#FFBB28",
+        payer: "joint",
+        split: "pending",
+        status: "pending",
+        monthKey: "2026-09",
+      },
+      {
+        id: "tx-p2",
+        merchant: "Tienda Andrea",
+        amount: 30,
+        date: "2026-09-02",
+        category: "Ropa",
+        categoryColor: "#EC4899",
+        payer: "memberB",
+        split: "pending",
+        status: "pending",
+        monthKey: "2026-09",
+      },
+    ];
+    localStorage.setItem("cuentaconjunta_transactions_v2", JSON.stringify(initialTxs));
+
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <PendingTestComponent />
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    // There are 2 pending transactions in inbox
+    expect(Number(screen.getByTestId("pending-count").textContent)).toBe(2);
+    // Neither 50/50 nor Andrea has ANY classified transactions!
+    expect(Number(screen.getByTestId("joint-classified-count").textContent)).toBe(0);
+    expect(Number(screen.getByTestId("memberB-classified-count").textContent)).toBe(0);
+    // Totals spent MUST be 0!
+    expect(Number(screen.getByTestId("total-joint-spent").textContent)).toBe(0);
+    expect(Number(screen.getByTestId("total-memberB-spent").textContent)).toBe(0);
+  });
 });
 
 
