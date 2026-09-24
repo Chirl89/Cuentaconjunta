@@ -683,6 +683,8 @@ interface TransactionsContextType {
   memberACategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   memberBCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   householdCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberAHouseholdCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberBHouseholdCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   balanceData: {
     paidByA: number;
     paidByB: number;
@@ -2215,25 +2217,57 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [filteredTransactions]
   );
 
-  // 1. Joint Shared 50/50 expenses (excluding internal fund transfers and credit/incomes)
+  // 1. Joint Shared 50/50 expenses for graphs & summaries:
+  // - Classified as 50/50
+  // - PLUS Uncategorized/pending expenses from joint accounts or joint payer
   const jointClassifiedTransactions = useMemo(
     () =>
-      classifiedTransactions.filter(
-        (t) => t.split === "50/50" && t.movementType !== "transfer_to_joint" && !t.isCredit
-      ),
-    [classifiedTransactions]
+      filteredTransactions.filter((t) => {
+        if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.status === "classified" || t.status === "auto_assigned") {
+          return t.split === "50/50";
+        }
+        // Pending: if joint account or payer joint
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        return t.payer === "joint" || acc?.ownership === "JOINT";
+      }),
+    [filteredTransactions, accounts]
   );
 
-  // 2. Personal Member A movements (exclusive to A, NOT 50/50 to avoid duplication)
+  // 2. Personal Member A movements for graphs & summaries:
+  // - Classified as memberA (regardless of payer, e.g. paid by B or Joint but assigned to A)
+  // - PLUS Uncategorized/pending expenses where payer is memberA (or card is USER_A)
   const memberAClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberA"),
-    [classifiedTransactions]
+    () =>
+      filteredTransactions.filter((t) => {
+        if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.status === "classified" || t.status === "auto_assigned") {
+          return t.split === "memberA";
+        }
+        // Pending: assigned provisionally to payer so it doesn't stay in limbo
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        const isPayerA = t.payer === "memberA" || acc?.ownership === "USER_A";
+        return isPayerA && t.payer !== "joint" && acc?.ownership !== "JOINT";
+      }),
+    [filteredTransactions, accounts]
   );
 
-  // 3. Personal Member B movements (exclusive to B, NOT 50/50 to avoid duplication)
+  // 3. Personal Member B movements for graphs & summaries:
+  // - Classified as memberB (regardless of payer, e.g. paid by Carlos but assigned to Andrea)
+  // - PLUS Uncategorized/pending expenses where payer is memberB (or card is USER_B)
   const memberBClassifiedTransactions = useMemo(
-    () => classifiedTransactions.filter((t) => t.split === "memberB"),
-    [classifiedTransactions]
+    () =>
+      filteredTransactions.filter((t) => {
+        if (t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.status === "classified" || t.status === "auto_assigned") {
+          return t.split === "memberB";
+        }
+        // Pending: assigned provisionally to payer so it doesn't stay in limbo
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        const isPayerB = t.payer === "memberB" || acc?.ownership === "USER_B";
+        return isPayerB && t.payer !== "joint" && acc?.ownership !== "JOINT";
+      }),
+    [filteredTransactions, accounts]
   );
 
   // Totals
@@ -2315,7 +2349,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .filter(
           (t) =>
             t.isCredit &&
-            t.split === "50/50" &&
+            (t.split === "50/50" || (!t.split && t.payer === "joint")) &&
             t.movementType !== "transfer_to_joint" &&
             t.movementType !== "settlement"
         )
@@ -2329,7 +2363,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .filter(
           (t) =>
             t.isCredit &&
-            t.split === "memberA" &&
+            (t.split === "memberA" || (!t.split && t.payer === "memberA")) &&
             t.movementType !== "transfer_to_joint" &&
             t.movementType !== "settlement"
         )
@@ -2343,7 +2377,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         .filter(
           (t) =>
             t.isCredit &&
-            t.split === "memberB" &&
+            (t.split === "memberB" || (!t.split && t.payer === "memberB")) &&
             t.movementType !== "transfer_to_joint" &&
             t.movementType !== "settlement"
         )
@@ -2372,14 +2406,24 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const householdCategoriesBreakdown = useMemo(
     () =>
       buildCategoryBreakdown(
-        classifiedTransactions.filter(
+        filteredTransactions.filter(
           (t) =>
             !t.isCredit &&
             t.movementType !== "transfer_to_joint" &&
             t.movementType !== "settlement"
         )
       ),
-    [classifiedTransactions, buildCategoryBreakdown]
+    [filteredTransactions, buildCategoryBreakdown]
+  );
+
+  const memberAHouseholdCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown([...jointClassifiedTransactions, ...memberAClassifiedTransactions]),
+    [jointClassifiedTransactions, memberAClassifiedTransactions, buildCategoryBreakdown]
+  );
+
+  const memberBHouseholdCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown([...jointClassifiedTransactions, ...memberBClassifiedTransactions]),
+    [jointClassifiedTransactions, memberBClassifiedTransactions, buildCategoryBreakdown]
   );
 
   const activeSettlement = settlementCutoffs[selectedMonth] || null;
@@ -2731,6 +2775,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         memberACategoriesBreakdown,
         memberBCategoriesBreakdown,
         householdCategoriesBreakdown,
+        memberAHouseholdCategoriesBreakdown,
+        memberBHouseholdCategoriesBreakdown,
         balanceData,
         debtContributingMovements,
         settleDebt,

@@ -5,6 +5,7 @@ import VersionBadge from "./VersionBadge";
 import { useUserNames } from "@/context/UserNamesContext";
 import { useOptionalAuth } from "@/context/AuthContext";
 import { useTransactions } from "@/context/TransactionsContext";
+import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import { Menu, HeartHandshake, User, RefreshCw, SlidersHorizontal } from "lucide-react";
 
 interface HeaderProps {
@@ -15,6 +16,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModal }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
+  const profileSecurity = useProfileSecurity();
   const { syncBankFeed } = useTransactions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
 
   const handleToggleRole = () => {
     if (auth) {
-      auth.switchActiveRole(isB ? "memberA" : "memberB");
+      profileSecurity.requestSwitchProfile(isB ? "memberA" : "memberB");
     }
   };
 

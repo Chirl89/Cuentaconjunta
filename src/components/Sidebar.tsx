@@ -6,6 +6,7 @@ import { useUserNames } from "@/context/UserNamesContext";
 import { useOptionalAuth } from "@/context/AuthContext";
 import { useNavigation, TabKey } from "@/context/NavigationContext";
 import { useTransactions } from "@/context/TransactionsContext";
+import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import {
   Users,
   User,
@@ -32,6 +33,7 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen, onOpenSyncModal }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
+  const profileSecurity = useProfileSecurity();
   const { activeTab, setActiveTab } = useNavigation();
   const { allPendingTransactions, syncBankFeed } = useTransactions();
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -59,12 +61,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
 
   const pendingCount = allPendingTransactions.length;
 
-  const graphItems: {
+  const allGraphItems: {
     key: TabKey;
     name: string;
     icon: React.ComponentType<{ className?: string }>;
     color: string;
     activeClass: string;
+    role?: "memberA" | "memberB";
   }[] = [
     {
       key: "resumen_mensual",
@@ -86,6 +89,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
       icon: User,
       color: "text-red-500",
       activeClass: "bg-red-50 text-red-700 font-bold shadow-xs border border-red-200",
+      role: "memberA",
     },
     {
       key: "resumen_andrea",
@@ -93,8 +97,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
       icon: User,
       color: "text-blue-500",
       activeClass: "bg-blue-50 text-blue-700 font-bold shadow-xs border border-blue-200",
+      role: "memberB",
     },
   ];
+
+  const graphItems = allGraphItems.filter(
+    (item) => !item.role || item.role === auth?.activeRole
+  );
 
   const managementItems: {
     key: TabKey;
@@ -187,14 +196,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
                 <button
                   type="button"
                   onClick={() =>
-                    auth.switchActiveRole(auth.activeRole === "memberA" ? "memberB" : "memberA")
+                    profileSecurity.requestSwitchProfile(
+                      auth.activeRole === "memberA" ? "memberB" : "memberA"
+                    )
                   }
                   className={`font-bold px-2 py-0.5 rounded-lg border transition-all cursor-pointer flex items-center gap-1 ${
                     auth.activeRole === "memberB"
                       ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
                       : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
                   }`}
-                  title="Cambiar perfil activo en este dispositivo"
+                  title="Cambiar perfil activo (requiere PIN)"
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full ${

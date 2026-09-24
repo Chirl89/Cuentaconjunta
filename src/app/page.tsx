@@ -20,6 +20,7 @@ import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
 import IncomeExpenseBars from "@/components/IncomeExpenseBars";
 import CategoryPieTooltip from "@/components/CategoryPieTooltip";
+import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
 import versionData from "../../version.json";
@@ -64,6 +65,8 @@ import {
   Pencil,
   FileSpreadsheet,
   Ban,
+  Lock,
+  KeyRound,
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -142,6 +145,7 @@ function ColorPickerPopover({
 export default function HomePage() {
   const { memberAName, memberBName, setMemberAName, setMemberBName } = useUserNames();
   const auth = useOptionalAuth();
+  const profileSecurity = useProfileSecurity();
   const activeRole = auth?.activeRole || "memberA";
   const defaultOwner: "USER_A" | "USER_B" | "JOINT" = activeRole === "memberB" ? "USER_B" : "USER_A";
   const { activeTab, setActiveTab } = useNavigation();
@@ -169,6 +173,8 @@ export default function HomePage() {
     memberACategoriesBreakdown,
     memberBCategoriesBreakdown,
     householdCategoriesBreakdown,
+    memberAHouseholdCategoriesBreakdown,
+    memberBHouseholdCategoriesBreakdown,
     balanceData,
     debtContributingMovements,
     settleDebt,
@@ -200,7 +206,48 @@ export default function HomePage() {
     autoAssignedTransactions,
   } = useTransactions();
 
-  // Gasto acumulado en tarjeta en el mes seleccionado
+  // Ámbito de visualización en el Resumen Mensual
+  const [monthlyScope, setMonthlyScope] = useState<"household" | "joint" | "memberA" | "memberB">("household");
+
+  // Tab & scope redirection for privacy isolation
+  useEffect(() => {
+    if (activeRole === "memberA" && activeTab === "resumen_andrea") {
+      setActiveTab("resumen_carlos");
+    } else if (activeRole === "memberB" && activeTab === "resumen_carlos") {
+      setActiveTab("resumen_andrea");
+    }
+  }, [activeRole, activeTab, setActiveTab]);
+
+  useEffect(() => {
+    if (activeRole === "memberA" && monthlyScope === "memberB") {
+      setMonthlyScope("memberA");
+    } else if (activeRole === "memberB" && monthlyScope === "memberA") {
+      setMonthlyScope("memberB");
+    }
+  }, [activeRole, monthlyScope]);
+
+  // Cuentas visibles según perfil activo (Carlos: USER_A + JOINT; Andrea: USER_B + JOINT)
+  const visibleAccounts = useMemo(() => {
+    return accounts.filter((a) => {
+      if (activeRole === "memberA") {
+        return a.ownership !== "USER_B";
+      } else {
+        return a.ownership !== "USER_A";
+      }
+    });
+  }, [accounts, activeRole]);
+
+  // Cuentas corrientes bancarias visibles (excluyendo tarjetas)
+  const checkingAccounts = useMemo(() => {
+    return visibleAccounts.filter(
+      (a) =>
+        !a.accountName.toLowerCase().includes("tarjeta") &&
+        !a.id.startsWith("card_") &&
+        a.id !== "acc_card_bankinter"
+    );
+  }, [visibleAccounts]);
+
+  // Gasto acumulado en tarjeta en el mes seleccionado (filtrado por perfil activo)
   const cardTxsInMonth = useMemo(() => {
     return transactions.filter((t) => {
       const isCard =
@@ -208,9 +255,16 @@ export default function HomePage() {
         (t.accountLabel &&
           (t.accountLabel.toLowerCase().includes("tarjeta") ||
             t.accountLabel.toLowerCase().includes("visa")));
-      return isCard && t.monthKey === selectedMonth && t.split !== "ignored";
+      if (!isCard || t.monthKey !== selectedMonth || t.split === "ignored") return false;
+      const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+      if (activeRole === "memberA") {
+        if (acc?.ownership === "USER_B" || (t.payer === "memberB" && t.split === "memberB")) return false;
+      } else {
+        if (acc?.ownership === "USER_A" || (t.payer === "memberA" && t.split === "memberA")) return false;
+      }
+      return true;
     });
-  }, [transactions, selectedMonth]);
+  }, [transactions, selectedMonth, accounts, activeRole]);
 
   const cardSpentThisMonth = useMemo(() => {
     return cardTxsInMonth.reduce((sum, t) => sum + (t.isCredit ? -t.amount : t.amount), 0);
@@ -220,21 +274,53 @@ export default function HomePage() {
     return cardTxsInMonth.filter((t) => !t.isCredit).length;
   }, [cardTxsInMonth]);
 
+  // Movimientos visibles en movimientos y triage según rol activo:
+  const isMovementVisible = (tx: Transaction) => {
+    const acc = accounts.find((a) => a.id === tx.accountLabel || a.accountName === tx.accountLabel);
+    const isJointAcc = acc?.ownership === "JOINT";
+    const isUserAAcc = acc?.ownership === "USER_A";
+    const isUserBAcc = acc?.ownership === "USER_B";
+
+    if (activeRole === "memberA") {
+      if (isJointAcc || tx.payer === "joint" || tx.split === "50/50") return true;
+      if (tx.payer === "memberA" || isUserAAcc) return true;
+      if (tx.split === "memberA") return true;
+      return false;
+    } else {
+      if (isJointAcc || tx.payer === "joint" || tx.split === "50/50") return true;
+      if (tx.payer === "memberB" || isUserBAcc) return true;
+      if (tx.split === "memberB") return true;
+      return false;
+    }
+  };
+
+  const visibleAutoAssigned = useMemo(() => {
+    return autoAssignedTransactions.filter(isMovementVisible);
+  }, [autoAssignedTransactions, activeRole, accounts]);
+
+  const visiblePendingTransactions = useMemo(() => {
+    return allPendingTransactions.filter(isMovementVisible);
+  }, [allPendingTransactions, activeRole, accounts]);
+
+  const visibleClassifiedTransactions = useMemo(() => {
+    return classifiedTransactions.filter(isMovementVisible);
+  }, [classifiedTransactions, activeRole, accounts]);
+
   const selectedMonthObj = AVAILABLE_MONTHS.find((m) => m.key === selectedMonth);
   const selectedMonthLabel = selectedMonthObj?.label || selectedMonth;
 
-  // Cuentas corrientes bancarias (excluyendo tarjetas)
-  const checkingAccounts = useMemo(() => {
-    return accounts.filter(
-      (a) =>
-        !a.accountName.toLowerCase().includes("tarjeta") &&
-        !a.id.startsWith("card_") &&
-        a.id !== "acc_card_bankinter"
-    );
-  }, [accounts]);
+  // Totales visibles del hogar para este usuario (su parte personal + gastos conjuntos)
+  const visibleHouseholdSpent = useMemo(() => {
+    return activeRole === "memberA"
+      ? totalJointSpent + totalMemberASpent
+      : totalJointSpent + totalMemberBSpent;
+  }, [activeRole, totalJointSpent, totalMemberASpent, totalMemberBSpent]);
 
-  // Ámbito de visualización en el Resumen Mensual
-  const [monthlyScope, setMonthlyScope] = useState<"household" | "joint" | "memberA" | "memberB">("household");
+  const visibleHouseholdIncome = useMemo(() => {
+    return activeRole === "memberA"
+      ? totalJointIncome + totalMemberAIncome
+      : totalJointIncome + totalMemberBIncome;
+  }, [activeRole, totalJointIncome, totalMemberAIncome, totalMemberBIncome]);
 
   // Proyección y Análisis de Previsiones del Mes Seleccionado
   const monthlyForecast = useMemo(() => {
@@ -252,12 +338,12 @@ export default function HomePage() {
     const elapsedDays = isCurrentMonth ? Math.min(Math.max(now.getDate(), 1), totalDaysInMonth) : totalDaysInMonth;
     const remainingDays = isCurrentMonth ? Math.max(0, totalDaysInMonth - elapsedDays) : 0;
 
-    const dailyBurnRate = elapsedDays > 0 ? totalHouseholdSpent / elapsedDays : 0;
+    const dailyBurnRate = elapsedDays > 0 ? visibleHouseholdSpent / elapsedDays : 0;
     const projectedExpenses = isCurrentMonth
       ? Math.round(dailyBurnRate * totalDaysInMonth * 100) / 100
-      : totalHouseholdSpent;
-    const projectedSavings = Math.round((totalHouseholdIncome - projectedExpenses) * 100) / 100;
-    const currentSavings = Math.round((totalHouseholdIncome - totalHouseholdSpent) * 100) / 100;
+      : visibleHouseholdSpent;
+    const projectedSavings = Math.round((visibleHouseholdIncome - projectedExpenses) * 100) / 100;
+    const currentSavings = Math.round((visibleHouseholdIncome - visibleHouseholdSpent) * 100) / 100;
 
     return {
       isCurrentMonth,
@@ -270,27 +356,31 @@ export default function HomePage() {
       projectedSavings,
       currentSavings,
     };
-  }, [selectedMonth, totalHouseholdSpent, totalHouseholdIncome]);
+  }, [selectedMonth, visibleHouseholdSpent, visibleHouseholdIncome]);
 
   const monthlyScopeBreakdown = useMemo(() => {
     if (monthlyScope === "joint") return jointCategoriesBreakdown;
     if (monthlyScope === "memberA") return memberACategoriesBreakdown;
     if (monthlyScope === "memberB") return memberBCategoriesBreakdown;
-    return householdCategoriesBreakdown;
+    return activeRole === "memberA"
+      ? memberAHouseholdCategoriesBreakdown
+      : memberBHouseholdCategoriesBreakdown;
   }, [
     monthlyScope,
+    activeRole,
     jointCategoriesBreakdown,
     memberACategoriesBreakdown,
     memberBCategoriesBreakdown,
-    householdCategoriesBreakdown,
+    memberAHouseholdCategoriesBreakdown,
+    memberBHouseholdCategoriesBreakdown,
   ]);
 
   const monthlyScopeTotal = useMemo(() => {
     if (monthlyScope === "joint") return totalJointSpent;
     if (monthlyScope === "memberA") return totalMemberASpent;
     if (monthlyScope === "memberB") return totalMemberBSpent;
-    return totalHouseholdSpent;
-  }, [monthlyScope, totalJointSpent, totalMemberASpent, totalMemberBSpent, totalHouseholdSpent]);
+    return visibleHouseholdSpent;
+  }, [monthlyScope, totalJointSpent, totalMemberASpent, totalMemberBSpent, visibleHouseholdSpent]);
 
   const checkingTotalBalance = useMemo(() => {
     return checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
@@ -780,7 +870,7 @@ export default function HomePage() {
           <IncomeExpenseBars
             totalIncome={
               monthlyScope === "household"
-                ? totalHouseholdIncome
+                ? visibleHouseholdIncome
                 : monthlyScope === "joint"
                 ? totalJointIncome
                 : monthlyScope === "memberA"
@@ -789,7 +879,7 @@ export default function HomePage() {
             }
             totalExpenses={
               monthlyScope === "household"
-                ? totalHouseholdSpent
+                ? visibleHouseholdSpent
                 : monthlyScope === "joint"
                 ? totalJointSpent
                 : monthlyScope === "memberA"
@@ -818,8 +908,8 @@ export default function HomePage() {
             {[
               { id: "household", label: "🏠 Todo el Hogar" },
               { id: "joint", label: "👥 Gastos Conjuntos (50/50)" },
-              { id: "memberA", label: `👤 Solo ${memberAName}` },
-              { id: "memberB", label: `👤 Solo ${memberBName}` },
+              ...(activeRole === "memberA" ? [{ id: "memberA", label: `👤 Solo ${memberAName}` }] : []),
+              ...(activeRole === "memberB" ? [{ id: "memberB", label: `👤 Solo ${memberBName}` }] : []),
             ].map((scope) => (
               <button
                 key={scope.id}
@@ -988,9 +1078,9 @@ export default function HomePage() {
                             )} €, superando los ingresos actuales por ~${Math.abs(
                               monthlyForecast.projectedSavings
                             ).toFixed(0)} €.`
-                        : `El mes finalizó con un gasto consolidado de ${totalHouseholdSpent.toFixed(
+                        : `El mes finalizó con un gasto consolidado de ${visibleHouseholdSpent.toFixed(
                             2
-                          )} € frente a ${totalHouseholdIncome.toFixed(2)} € de ingresos (${
+                          )} € frente a ${visibleHouseholdIncome.toFixed(2)} € de ingresos (${
                             monthlyForecast.currentSavings >= 0 ? "superávit" : "déficit"
                           } de ${Math.abs(monthlyForecast.currentSavings).toFixed(2)} €).`}
                     </p>
@@ -1008,18 +1098,21 @@ export default function HomePage() {
                           {totalJointSpent.toFixed(2)} €
                         </span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-red-600">Personales {memberAName}:</span>
-                        <span className="font-bold text-red-600">
-                          {totalMemberASpent.toFixed(2)} €
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-blue-600">Personales {memberBName}:</span>
-                        <span className="font-bold text-blue-600">
-                          {totalMemberBSpent.toFixed(2)} €
-                        </span>
-                      </div>
+                      {activeRole === "memberA" ? (
+                        <div className="flex justify-between items-center">
+                          <span className="text-red-600">Personales {memberAName}:</span>
+                          <span className="font-bold text-red-600">
+                            {totalMemberASpent.toFixed(2)} €
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between items-center">
+                          <span className="text-blue-600">Personales {memberBName}:</span>
+                          <span className="font-bold text-blue-600">
+                            {totalMemberBSpent.toFixed(2)} €
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
@@ -1584,13 +1677,13 @@ export default function HomePage() {
           </div>
 
           {/* SECTION 0: AUTO-ASIGNADOS POR REGLA / IA (Bandeja de Validación Reversible) */}
-          {autoAssignedTransactions.length > 0 && (
+          {visibleAutoAssigned.length > 0 && (
             <div className="border border-indigo-200 bg-indigo-50/50 rounded-3xl p-4 sm:p-5 shadow-sm space-y-3">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-indigo-200/70 pb-3 gap-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-indigo-600" />
                   <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    Auto-Asignados por Regla ({autoAssignedTransactions.length})
+                    Auto-Asignados por Regla ({visibleAutoAssigned.length})
                   </h2>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1601,7 +1694,7 @@ export default function HomePage() {
                     type="button"
                     onClick={() => {
                       confirmAllAutoAssigned();
-                      showToast(`¡${autoAssignedTransactions.length} movimiento(s) confirmados con éxito!`);
+                      showToast(`¡${visibleAutoAssigned.length} movimiento(s) confirmados con éxito!`);
                     }}
                     className="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all flex items-center gap-1 cursor-pointer"
                   >
@@ -1612,7 +1705,7 @@ export default function HomePage() {
               </div>
 
               <div className="divide-y divide-indigo-100">
-                {autoAssignedTransactions.map((tx) => (
+                {visibleAutoAssigned.map((tx) => (
                   <div
                     key={tx.id}
                     className="py-3 px-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-indigo-100/30 rounded-2xl transition-colors"
@@ -1682,7 +1775,7 @@ export default function HomePage() {
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                  Bandeja de Triage ({allPendingTransactions.length})
+                  Bandeja de Triage ({visiblePendingTransactions.length})
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -1692,7 +1785,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {allPendingTransactions.length === 0 ? (
+            {visiblePendingTransactions.length === 0 ? (
               <div className="p-5 text-center text-slate-400 text-xs bg-white/70 rounded-2xl border border-dashed border-amber-200">
                 <CheckCircle2 className="w-5 h-5 text-[#00A37A] mx-auto mb-1" />
                 <span className="font-semibold text-slate-700 block">¡Bandeja al día!</span>
@@ -1700,7 +1793,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="divide-y divide-amber-200/70">
-                {allPendingTransactions.map((tx) => (
+                {visiblePendingTransactions.map((tx) => (
                   <div
                     key={tx.id}
                     className="py-3.5 px-2 flex items-start justify-between gap-2.5 hover:bg-amber-100/40 rounded-2xl transition-colors"
@@ -1898,7 +1991,7 @@ export default function HomePage() {
                   Histórico de Movimientos
                 </h2>
                 <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                  {classifiedTransactions.length}
+                  {visibleClassifiedTransactions.length}
                 </span>
               </div>
               <div className="flex items-center gap-2 self-start sm:self-auto">
@@ -1906,7 +1999,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            {classifiedTransactions.length === 0 ? (
+            {visibleClassifiedTransactions.length === 0 ? (
               <div className="py-10 text-center text-slate-400 text-xs bg-slate-50/60 rounded-2xl border border-dashed border-slate-200">
                 <Calendar className="w-6 h-6 text-slate-300 mx-auto mb-2" />
                 <span className="font-semibold text-slate-700 block">No hay movimientos en este mes</span>
@@ -1914,7 +2007,7 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="divide-y divide-slate-100">
-                {classifiedTransactions.map((tx) => (
+                {visibleClassifiedTransactions.map((tx) => (
                 <div
                   key={tx.id}
                   className="py-3.5 px-2 flex items-start justify-between gap-2.5 hover:bg-slate-50/80 rounded-2xl transition-colors"
@@ -2507,7 +2600,7 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {accounts.map((acc) => {
+                {visibleAccounts.map((acc) => {
                   const isJoint = acc.ownership === "JOINT";
                   const isA = acc.ownership === "USER_A";
                   const isB = acc.ownership === "USER_B";
@@ -3562,7 +3655,45 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* SECCIÓN 3: PERFILES DE LA PAREJA */}
+          {/* SECCIÓN 3: SEGURIDAD Y PIN DE PERFIL */}
+          <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-slate-900 flex items-center justify-center text-white shrink-0 shadow-sm">
+                  <Lock className="w-5 h-5 text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold text-slate-900">Seguridad & Código PIN</h2>
+                  <p className="text-xs text-slate-500">
+                    PIN personal de 6 dígitos para proteger la privacidad entre {memberAName} y {memberBName}.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => profileSecurity.openChangePinModal()}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto"
+              >
+                <KeyRound className="w-4 h-4 text-amber-400" />
+                <span>Modificar PIN ({activeRole === "memberA" ? memberAName : memberBName})</span>
+              </button>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-2">
+                <span className={`w-2.5 h-2.5 rounded-full ${activeRole === "memberA" ? "bg-red-500" : "bg-blue-500"}`} />
+                <span className="text-slate-600">
+                  Perfil autenticado actualmente: <strong className="text-slate-900">{activeRole === "memberA" ? memberAName : memberBName}</strong>
+                </span>
+              </div>
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full self-start sm:self-auto">
+                ✓ PIN activo y protegido
+              </span>
+            </div>
+          </div>
+
+          {/* SECCIÓN 4: PERFILES DE LA PAREJA */}
           <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-sm space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
               <Users className="w-5 h-5 text-[#00A37A]" />

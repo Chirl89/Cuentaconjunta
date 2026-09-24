@@ -6,6 +6,7 @@ import Header from "./Header";
 import SyncModal from "./SyncModal";
 import { NavigationProvider, useNavigation } from "@/context/NavigationContext";
 import { TransactionsProvider, useTransactions } from "@/context/TransactionsContext";
+import { ProfileSecurityProvider } from "@/context/ProfileSecurityContext";
 
 export const AppShellContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -50,11 +51,13 @@ export const AppShellContent: React.FC<{ children: React.ReactNode }> = ({ child
 
 export const AppShell: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
-    <TransactionsProvider>
-      <NavigationProvider>
-        <AppShellContent>{children}</AppShellContent>
-      </NavigationProvider>
-    </TransactionsProvider>
+    <ProfileSecurityProvider>
+      <TransactionsProvider>
+        <NavigationProvider>
+          <AppShellContent>{children}</AppShellContent>
+        </NavigationProvider>
+      </TransactionsProvider>
+    </ProfileSecurityProvider>
   );
 };
 
