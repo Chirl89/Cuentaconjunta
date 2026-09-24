@@ -12,6 +12,7 @@ import {
   Transaction,
   AVAILABLE_MONTHS,
   BankAccount,
+  getTransactionSortTimestamp,
 } from "@/context/TransactionsContext";
 import { useOptionalAuth } from "@/context/AuthContext";
 import MonthSelector from "@/components/MonthSelector";
@@ -168,12 +169,22 @@ export default function HomePage() {
     totalMemberBSpentWithJoint,
     memberARecognizedMovements,
     memberBRecognizedMovements,
+    memberAPersonalMovements,
+    memberBPersonalMovements,
+    memberAIncomeTransactions,
+    memberBIncomeTransactions,
+    jointIncomeTransactions,
+    householdIncomeTransactions,
+    jointMovementsWithIncome,
+    householdMovementsWithIncome,
     totalHouseholdSpent,
     totalHouseholdIncome,
     totalJointIncome,
     totalMemberAIncome,
     totalMemberBIncome,
     jointCategoriesBreakdown,
+    memberAPersonalCategoriesBreakdown,
+    memberBPersonalCategoriesBreakdown,
     memberACategoriesBreakdown,
     memberBCategoriesBreakdown,
     householdCategoriesBreakdown,
@@ -212,6 +223,11 @@ export default function HomePage() {
 
   // Ámbito de visualización en el Resumen Mensual
   const [monthlyScope, setMonthlyScope] = useState<"household" | "joint" | "memberA" | "memberB">("household");
+
+  // Filtros de movimientos (Todos / Gastos / Ingresos) en resúmenes
+  const [carlosMovementsFilter, setCarlosMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
+  const [andreaMovementsFilter, setAndreaMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
+  const [monthlyMovementsFilter, setMonthlyMovementsFilter] = useState<"all" | "expenses" | "incomes">("all");
 
   // Tab & scope redirection for privacy isolation
   useEffect(() => {
@@ -385,6 +401,181 @@ export default function HomePage() {
     if (monthlyScope === "memberB") return totalMemberBSpentWithJoint;
     return visibleHouseholdSpent;
   }, [monthlyScope, totalJointSpent, totalMemberASpentWithJoint, totalMemberBSpentWithJoint, visibleHouseholdSpent]);
+
+  interface MonthlyScopedMovementItem {
+    id: string;
+    merchant: string;
+    category: string;
+    date: string;
+    amount: number;
+    isCredit: boolean;
+    badge: string;
+    badgeColor: "green" | "red" | "blue" | "purple" | "indigo";
+    isManual?: boolean;
+    rawTx?: Transaction;
+    subtext?: string;
+  }
+
+  const monthlyScopeMovements = useMemo((): MonthlyScopedMovementItem[] => {
+    const list: MonthlyScopedMovementItem[] = [];
+
+    if (monthlyScope === "household") {
+      for (const tx of householdMovementsWithIncome) {
+        if (!isMovementVisible(tx)) continue;
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: !!tx.isCredit,
+          badge: tx.isCredit
+            ? "💰 Ingreso Hogar"
+            : tx.split === "50/50"
+            ? "50/50 Común"
+            : tx.split === "memberA"
+            ? `100% ${memberAName}`
+            : tx.split === "memberB"
+            ? `100% ${memberBName}`
+            : "Hogar",
+          badgeColor: tx.isCredit ? "green" : tx.split === "50/50" ? "purple" : tx.split === "memberA" ? "red" : "blue",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: tx.isCredit
+            ? `Abono / Ingreso (${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`
+            : `Pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`,
+        });
+      }
+    } else if (monthlyScope === "joint") {
+      for (const tx of jointMovementsWithIncome) {
+        if (!isMovementVisible(tx)) continue;
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: !!tx.isCredit,
+          badge: tx.isCredit ? "💰 Ingreso Conjunto" : "50/50 Común",
+          badgeColor: tx.isCredit ? "green" : "purple",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`,
+        });
+      }
+    } else if (monthlyScope === "memberA") {
+      for (const tx of memberAIncomeTransactions) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: true,
+          badge: `💰 Ingreso ${memberAName}`,
+          badgeColor: "green",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Ingreso propio de ${memberAName}`,
+        });
+      }
+      for (const tx of memberAClassifiedTransactions) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: false,
+          badge: `100% ${memberAName}`,
+          badgeColor: "red",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Gasto individual de ${memberAName}`,
+        });
+      }
+      for (const tx of jointClassifiedTransactions) {
+        list.push({
+          id: `${tx.id}-half`,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: Math.round((tx.amount / 2) * 100) / 100,
+          isCredit: false,
+          badge: "50% Común",
+          badgeColor: "purple",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Ticket: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`,
+        });
+      }
+    } else if (monthlyScope === "memberB") {
+      for (const tx of memberBIncomeTransactions) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: true,
+          badge: `💰 Ingreso ${memberBName}`,
+          badgeColor: "green",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Ingreso propio de ${memberBName}`,
+        });
+      }
+      for (const tx of memberBClassifiedTransactions) {
+        list.push({
+          id: tx.id,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: tx.amount,
+          isCredit: false,
+          badge: `100% ${memberBName}`,
+          badgeColor: "blue",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Gasto individual de ${memberBName}`,
+        });
+      }
+      for (const tx of jointClassifiedTransactions) {
+        list.push({
+          id: `${tx.id}-half`,
+          merchant: tx.merchant,
+          category: tx.category,
+          date: tx.date,
+          amount: Math.round((tx.amount / 2) * 100) / 100,
+          isCredit: false,
+          badge: "50% Común",
+          badgeColor: "purple",
+          isManual: tx.isManual,
+          rawTx: tx,
+          subtext: `Ticket: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"})`,
+        });
+      }
+    }
+
+    return list.sort((a, b) => {
+      const timeA = a.rawTx ? getTransactionSortTimestamp(a.rawTx) : 0;
+      const timeB = b.rawTx ? getTransactionSortTimestamp(b.rawTx) : 0;
+      return timeB - timeA;
+    });
+  }, [
+    monthlyScope,
+    householdMovementsWithIncome,
+    jointMovementsWithIncome,
+    memberAIncomeTransactions,
+    memberAClassifiedTransactions,
+    memberBIncomeTransactions,
+    memberBClassifiedTransactions,
+    jointClassifiedTransactions,
+    memberAName,
+    memberBName,
+    accounts,
+    activeRole,
+  ]);
 
   const checkingTotalBalance = useMemo(() => {
     return checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
@@ -1148,6 +1339,127 @@ export default function HomePage() {
               </div>
             </section>
           </div>
+
+          {/* Movimientos que Conforman el Resumen Mensual (Ingresos & Gastos) */}
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <ReceiptText className="w-4 h-4 text-indigo-600" />
+                  <span>Movimientos que Conforman el Resumen</span>
+                </h2>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {monthlyScope === "household"
+                    ? "Todos los ingresos y gastos del hogar en este mes"
+                    : monthlyScope === "joint"
+                    ? "Ingresos y gastos conjuntos 50/50"
+                    : `Ingresos, nómina y gastos imputados a ${monthlyScope === "memberA" ? memberAName : memberBName}`}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setMonthlyMovementsFilter("all")}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    monthlyMovementsFilter === "all"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  Todos ({monthlyScopeMovements.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthlyMovementsFilter("expenses")}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    monthlyMovementsFilter === "expenses"
+                      ? "bg-rose-600 text-white shadow-xs"
+                      : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                  }`}
+                >
+                  Gastos ({monthlyScopeMovements.filter((m) => !m.isCredit).length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthlyMovementsFilter("incomes")}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    monthlyMovementsFilter === "incomes"
+                      ? "bg-emerald-600 text-white shadow-xs"
+                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  }`}
+                >
+                  Ingresos ({monthlyScopeMovements.filter((m) => m.isCredit).length})
+                </button>
+              </div>
+            </div>
+
+            {monthlyScopeMovements.filter((m) =>
+              monthlyMovementsFilter === "expenses" ? !m.isCredit : monthlyMovementsFilter === "incomes" ? m.isCredit : true
+            ).length === 0 ? (
+              <div className="text-center text-slate-400 text-xs py-8">
+                No hay movimientos registrados para este filtro en el ámbito seleccionado.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto pr-1">
+                {monthlyScopeMovements
+                  .filter((m) =>
+                    monthlyMovementsFilter === "expenses" ? !m.isCredit : monthlyMovementsFilter === "incomes" ? m.isCredit : true
+                  )
+                  .map((item) => (
+                    <div key={item.id} className="py-3 flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.rawTx?.isManual ? (
+                            <button
+                              type="button"
+                              onClick={() => item.rawTx && setEditingTransaction(item.rawTx)}
+                              className="text-left text-xs font-bold text-slate-900 hover:text-indigo-600 hover:underline transition-colors flex items-center gap-1.5 break-words leading-snug cursor-pointer"
+                              title="Gasto manual: Pulsar para editar o eliminar"
+                            >
+                              <span>{item.merchant}</span>
+                              <span className="text-[8px] font-bold px-1 py-0.2 rounded bg-amber-100 text-amber-800 shrink-0">
+                                Manual
+                              </span>
+                            </button>
+                          ) : (
+                            <span className="text-xs font-bold text-slate-900 block break-words leading-snug">
+                              {item.merchant}
+                            </span>
+                          )}
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${
+                              item.badgeColor === "green"
+                                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                : item.badgeColor === "purple"
+                                ? "bg-purple-50 text-purple-700 border-purple-200"
+                                : item.badgeColor === "red"
+                                ? "bg-red-50 text-red-700 border-red-200"
+                                : "bg-blue-50 text-blue-700 border-blue-200"
+                            }`}
+                          >
+                            {item.badge}
+                          </span>
+                        </div>
+                        <span className="text-[10px] text-slate-400 block mt-1">
+                          {item.isCredit ? "💰 Ingreso • " : ""}{item.category} • {item.date}
+                          {item.subtext && ` • ${item.subtext}`}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0 mt-0.5">
+                        <span
+                          className={`text-sm font-black whitespace-nowrap block ${
+                            item.isCredit ? "text-emerald-600" : "text-slate-900"
+                          }`}
+                        >
+                          {item.isCredit ? `+ ${item.amount.toFixed(2)} €` : `${item.amount.toFixed(2)} €`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
         </div>
       )}
 
@@ -1274,17 +1586,17 @@ export default function HomePage() {
                     Últimos Movimientos Conjuntos
                   </h2>
                   <span className="text-xs font-bold text-[#008761]">
-                    {jointClassifiedTransactions.length} comunes
+                    {jointMovementsWithIncome.length} movimientos
                   </span>
                 </div>
 
-                {jointClassifiedTransactions.length === 0 ? (
+                {jointMovementsWithIncome.length === 0 ? (
                   <div className="text-center text-slate-400 text-xs py-8">
                     No hay movimientos conjuntos registrados en este mes.
                   </div>
                 ) : (
                   <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                    {jointClassifiedTransactions.map((tx) => (
+                    {jointMovementsWithIncome.map((tx) => (
                       <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           {tx.isManual ? (
@@ -1305,21 +1617,29 @@ export default function HomePage() {
                             </span>
                           )}
                           <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                            <span className="text-[10px] text-slate-400">{tx.category} • {tx.date}</span>
+                            <span className="text-[10px] text-slate-400">
+                              {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                            </span>
                             <span
                               className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
-                                tx.payer === "memberA"
+                                tx.isCredit
+                                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                  : tx.payer === "memberA"
                                   ? "bg-red-50 text-red-600 border-red-200"
                                   : tx.payer === "memberB"
                                   ? "bg-blue-50 text-blue-600 border-blue-200"
                                   : "bg-emerald-50 text-[#008761] border-emerald-200"
                               }`}
                             >
-                              Pagó {tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}
+                              {tx.isCredit
+                                ? "Ingreso 50/50"
+                                : `Pagó ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Conjunta"}`}
                             </span>
                           </div>
                         </div>
-                        <span className="text-sm font-black text-slate-900 shrink-0 mt-0.5">{tx.amount.toFixed(2)} €</span>
+                        <span className={`text-sm font-black shrink-0 mt-0.5 ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
+                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1341,7 +1661,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* GRÁFICA 2: GASTOS DE CARLOS (INDIVIDUAL + 50% COMUNES)       */}
+      {/* GRÁFICA 2: GASTOS DE CARLOS (100% INDIVIDUAL + INGRESOS)     */}
       {/* ============================================================ */}
       {activeTab === "resumen_carlos" && (
         <div className="space-y-6">
@@ -1353,7 +1673,7 @@ export default function HomePage() {
                   <span>Gastos de {memberAName}</span>
                 </h1>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-red-50 text-red-600 border border-red-200 text-xs font-bold whitespace-nowrap">
-                  Individual + 50% Comunes
+                  Individual
                 </span>
                 <MonthSelector />
               </div>
@@ -1361,14 +1681,14 @@ export default function HomePage() {
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
                 <div className="text-right">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Imputado ({memberAName})
+                    Total Gastos ({memberAName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {totalMemberASpent.toFixed(2)} € propios + {(totalJointSpent / 2).toFixed(2)} € (50% común)
+                    {memberAClassifiedTransactions.length} gastos • {memberAIncomeTransactions.length} ingresos
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight whitespace-nowrap">
-                  {totalMemberASpentWithJoint.toFixed(2)} €
+                  {totalMemberASpent.toFixed(2)} €
                 </div>
               </div>
             </div>
@@ -1377,9 +1697,9 @@ export default function HomePage() {
           {/* Income vs Expenses Horizontal Bars */}
           <IncomeExpenseBars
             totalIncome={totalMemberAIncome}
-            totalExpenses={totalMemberASpentWithJoint}
+            totalExpenses={totalMemberASpent}
             title={`Diferencia de Ingresos vs Gastos (${memberAName})`}
-            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos (individuales + 50% comunes)`}
+            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos individuales`}
             incomeLabel="Total Ingresos"
             expenseLabel="Total Gastos"
           />
@@ -1392,18 +1712,18 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   Categorías de {memberAName}
                 </h2>
-                <span className="text-xs font-bold text-red-600">Individual + 50% Común</span>
+                <span className="text-xs font-bold text-red-600">100% Individual</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
-                {memberACategoriesBreakdown.length > 0 ? (
+                {memberAPersonalCategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart key={`piechart-memberA-${memberACategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
+                      <PieChart key={`piechart-memberA-${memberAPersonalCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
                         <Pie
-                          key={`pie-memberA-${memberACategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
+                          key={`pie-memberA-${memberAPersonalCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
                           isAnimationActive={false}
-                          data={memberACategoriesBreakdown}
+                          data={memberAPersonalCategoriesBreakdown}
                           nameKey="name"
                           innerRadius={76}
                           outerRadius={100}
@@ -1411,7 +1731,7 @@ export default function HomePage() {
                           dataKey="value"
                           stroke="none"
                         >
-                          {memberACategoriesBreakdown.map((entry) => (
+                          {memberAPersonalCategoriesBreakdown.map((entry) => (
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
@@ -1421,22 +1741,22 @@ export default function HomePage() {
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Total Imputado
+                        Total Gastos
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-red-600 tracking-tight">
-                        {totalMemberASpentWithJoint.toFixed(0)} €
+                        {totalMemberASpent.toFixed(0)} €
                       </span>
                     </div>
                   </>
                 ) : (
                   <div className="text-center text-slate-400 text-xs py-8">
-                    {memberAName} no tiene gastos imputados este mes.
+                    {memberAName} no tiene gastos individuales propios este mes.
                   </div>
                 )}
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {memberACategoriesBreakdown.map((cat) => (
+                {memberAPersonalCategoriesBreakdown.map((cat) => (
                   <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
                     <span className="text-xs font-bold text-slate-800">{cat.name}</span>
                     <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
@@ -1445,25 +1765,51 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* List of Carlos's personal and 50% joint expenses */}
+            {/* List of Carlos's personal expenses and incomes */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                  Movimientos Imputados ({memberAName})
+                  Movimientos de {memberAName}
                 </h2>
-                <span className="text-xs font-bold text-red-600">
-                  {memberARecognizedMovements.length}
-                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setCarlosMovementsFilter("all")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      carlosMovementsFilter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Todos ({memberAPersonalMovements.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCarlosMovementsFilter("expenses")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      carlosMovementsFilter === "expenses" ? "bg-red-600 text-white" : "bg-red-50 text-red-600 hover:bg-red-100"
+                    }`}
+                  >
+                    Gastos ({memberAClassifiedTransactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCarlosMovementsFilter("incomes")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      carlosMovementsFilter === "incomes" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Ingresos ({memberAIncomeTransactions.length})
+                  </button>
+                </div>
               </div>
-              {memberARecognizedMovements.length === 0 ? (
+              {((carlosMovementsFilter === "expenses" ? memberAClassifiedTransactions : carlosMovementsFilter === "incomes" ? memberAIncomeTransactions : memberAPersonalMovements).length === 0) ? (
                 <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos imputados a {memberAName}.
+                  No hay movimientos registrados para este filtro.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {memberARecognizedMovements.map(({ transaction: tx, recognizedAmount, isSharedHalf }) => (
-                    <div key={`${tx.id}-${isSharedHalf ? "half" : "full"}`} className="py-3 flex items-start justify-between gap-3">
+                  {(carlosMovementsFilter === "expenses" ? memberAClassifiedTransactions : carlosMovementsFilter === "incomes" ? memberAIncomeTransactions : memberAPersonalMovements).map((tx) => (
+                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {tx.isManual ? (
@@ -1483,9 +1829,9 @@ export default function HomePage() {
                               {tx.merchant}
                             </span>
                           )}
-                          {isSharedHalf ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
-                              50% Común
+                          {tx.isCredit ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                              💰 Ingreso {memberAName}
                             </span>
                           ) : (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 shrink-0">
@@ -1495,18 +1841,12 @@ export default function HomePage() {
                         </div>
                         <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                          {isSharedHalf && ` • Ticket total: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Fondo Común"})`}
                         </span>
                       </div>
                       <div className="text-right shrink-0 mt-0.5">
                         <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                          {tx.isCredit ? `+ ${recognizedAmount.toFixed(2)} €` : `${recognizedAmount.toFixed(2)} €`}
+                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                         </span>
-                        {isSharedHalf && (
-                          <span className="text-[9px] text-slate-400 block">
-                            de {tx.amount.toFixed(2)} €
-                          </span>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -1518,7 +1858,7 @@ export default function HomePage() {
       )}
 
       {/* ============================================================ */}
-      {/* GRÁFICA 3: GASTOS DE ANDREA (INDIVIDUAL + 50% COMUNES)       */}
+      {/* GRÁFICA 3: GASTOS DE ANDREA (100% INDIVIDUAL + INGRESOS)     */}
       {/* ============================================================ */}
       {activeTab === "resumen_andrea" && (
         <div className="space-y-6">
@@ -1530,7 +1870,7 @@ export default function HomePage() {
                   <span>Gastos de {memberBName}</span>
                 </h1>
                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-xs font-bold whitespace-nowrap">
-                  Individual + 50% Comunes
+                  Individual
                 </span>
                 <MonthSelector />
               </div>
@@ -1538,14 +1878,14 @@ export default function HomePage() {
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
                 <div className="text-right">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                    Total Imputado ({memberBName})
+                    Total Gastos ({memberBName})
                   </span>
                   <span className="text-[11px] text-slate-400 block mt-0.5 whitespace-nowrap">
-                    {totalMemberBSpent.toFixed(2)} € propios + {(totalJointSpent / 2).toFixed(2)} € (50% común)
+                    {memberBClassifiedTransactions.length} gastos • {memberBIncomeTransactions.length} ingresos
                   </span>
                 </div>
                 <div className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight whitespace-nowrap">
-                  {totalMemberBSpentWithJoint.toFixed(2)} €
+                  {totalMemberBSpent.toFixed(2)} €
                 </div>
               </div>
             </div>
@@ -1554,9 +1894,9 @@ export default function HomePage() {
           {/* Income vs Expenses Horizontal Bars */}
           <IncomeExpenseBars
             totalIncome={totalMemberBIncome}
-            totalExpenses={totalMemberBSpentWithJoint}
+            totalExpenses={totalMemberBSpent}
             title={`Diferencia de Ingresos vs Gastos (${memberBName})`}
-            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos (individuales + 50% comunes)`}
+            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos individuales`}
             incomeLabel="Total Ingresos"
             expenseLabel="Total Gastos"
           />
@@ -1569,18 +1909,18 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                   Distribución Personal de {memberBName}
                 </h2>
-                <span className="text-xs font-bold text-blue-600">Individual + 50% Común</span>
+                <span className="text-xs font-bold text-blue-600">100% Individual</span>
               </div>
 
               <div className="relative h-64 w-full flex items-center justify-center my-3">
-                {memberBCategoriesBreakdown.length > 0 ? (
+                {memberBPersonalCategoriesBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart key={`piechart-memberB-${memberBCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
+                      <PieChart key={`piechart-memberB-${memberBPersonalCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}>
                         <Pie
-                          key={`pie-memberB-${memberBCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
+                          key={`pie-memberB-${memberBPersonalCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
                           isAnimationActive={false}
-                          data={memberBCategoriesBreakdown}
+                          data={memberBPersonalCategoriesBreakdown}
                           nameKey="name"
                           innerRadius={76}
                           outerRadius={100}
@@ -1588,7 +1928,7 @@ export default function HomePage() {
                           dataKey="value"
                           stroke="none"
                         >
-                          {memberBCategoriesBreakdown.map((entry) => (
+                          {memberBPersonalCategoriesBreakdown.map((entry) => (
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
@@ -1598,22 +1938,22 @@ export default function HomePage() {
 
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                       <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                        Total Imputado
+                        Total Gastos
                       </span>
                       <span className="text-2xl sm:text-3xl font-black text-blue-600 tracking-tight">
-                        {totalMemberBSpentWithJoint.toFixed(0)} €
+                        {totalMemberBSpent.toFixed(0)} €
                       </span>
                     </div>
                   </>
                 ) : (
                   <div className="text-center text-slate-400 text-xs py-8">
-                    {memberBName} no tiene gastos imputados este mes.
+                    {memberBName} no tiene gastos individuales propios este mes.
                   </div>
                 )}
               </div>
 
               <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                {memberBCategoriesBreakdown.map((cat) => (
+                {memberBPersonalCategoriesBreakdown.map((cat) => (
                   <div key={cat.name} className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors">
                     <span className="text-xs font-bold text-slate-800">{cat.name}</span>
                     <span className="text-xs font-bold text-slate-900">{cat.value.toFixed(2)} €</span>
@@ -1622,25 +1962,51 @@ export default function HomePage() {
               </div>
             </section>
 
-            {/* List of Andrea's personal and 50% joint expenses */}
+            {/* List of Andrea's personal expenses and incomes */}
             <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-3 gap-2">
                 <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                  Movimientos Imputados ({memberBName})
+                  Movimientos Propios de {memberBName}
                 </h2>
-                <span className="text-xs font-bold text-blue-600">
-                  {memberBRecognizedMovements.length}
-                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setAndreaMovementsFilter("all")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      andreaMovementsFilter === "all" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                  >
+                    Todos ({memberBPersonalMovements.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAndreaMovementsFilter("expenses")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      andreaMovementsFilter === "expenses" ? "bg-blue-600 text-white" : "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    }`}
+                  >
+                    Gastos ({memberBClassifiedTransactions.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAndreaMovementsFilter("incomes")}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-colors cursor-pointer ${
+                      andreaMovementsFilter === "incomes" ? "bg-emerald-600 text-white" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Ingresos ({memberBIncomeTransactions.length})
+                  </button>
+                </div>
               </div>
-              {memberBRecognizedMovements.length === 0 ? (
+              {((andreaMovementsFilter === "expenses" ? memberBClassifiedTransactions : andreaMovementsFilter === "incomes" ? memberBIncomeTransactions : memberBPersonalMovements).length === 0) ? (
                 <div className="text-center text-slate-400 text-xs py-8">
-                  No hay movimientos imputados a {memberBName}.
+                  No hay movimientos registrados para este filtro.
                 </div>
               ) : (
                 <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                  {memberBRecognizedMovements.map(({ transaction: tx, recognizedAmount, isSharedHalf }) => (
-                    <div key={`${tx.id}-${isSharedHalf ? "half" : "full"}`} className="py-3 flex items-start justify-between gap-3">
+                  {(andreaMovementsFilter === "expenses" ? memberBClassifiedTransactions : andreaMovementsFilter === "incomes" ? memberBIncomeTransactions : memberBPersonalMovements).map((tx) => (
+                    <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {tx.isManual ? (
@@ -1660,9 +2026,9 @@ export default function HomePage() {
                               {tx.merchant}
                             </span>
                           )}
-                          {isSharedHalf ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 shrink-0">
-                              50% Común
+                          {tx.isCredit ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                              💰 Ingreso {memberBName}
                             </span>
                           ) : (
                             <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
@@ -1672,18 +2038,12 @@ export default function HomePage() {
                         </div>
                         <span className="text-[10px] text-slate-400 block mt-1">
                           {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                          {isSharedHalf && ` • Ticket total: ${tx.amount.toFixed(2)} € (pagado por ${tx.payer === "memberA" ? memberAName : tx.payer === "memberB" ? memberBName : "Fondo Común"})`}
                         </span>
                       </div>
                       <div className="text-right shrink-0 mt-0.5">
                         <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
-                          {tx.isCredit ? `+ ${recognizedAmount.toFixed(2)} €` : `${recognizedAmount.toFixed(2)} €`}
+                          {tx.isCredit ? `+ ${tx.amount.toFixed(2)} €` : `${tx.amount.toFixed(2)} €`}
                         </span>
-                        {isSharedHalf && (
-                          <span className="text-[9px] text-slate-400 block">
-                            de {tx.amount.toFixed(2)} €
-                          </span>
-                        )}
                       </div>
                     </div>
                   ))}

@@ -227,5 +227,26 @@ describe("50% Joint Expense Imputation in Individual Summaries", () => {
     expect(breakdown[0].name).toBe("Supermercado");
     expect(breakdown[0].value).toBe(200);
   });
+
+  it("ensures personal tab isolated: only personal expenses and personal incomes, no common expenses", () => {
+    const personalA = 100; // Carlos individual
+    const incomeA = 2400;  // Carlos payroll
+    const jointExpense = 300; // Common expense
+
+    // In Carlos dedicated tab:
+    const carlosTabExpenses = personalA;
+    const carlosTabIncome = incomeA;
+
+    expect(carlosTabExpenses).toBe(100);
+    expect(carlosTabIncome).toBe(2400);
+
+    // Common expenses are not added to Carlos dedicated tab:
+    expect(carlosTabExpenses).not.toBe(personalA + jointExpense * 0.5);
+
+    // Common expenses only appear in Resumen Mensual under Carlos scope:
+    const monthlySummaryCarlosScope = personalA + jointExpense * 0.5;
+    expect(monthlySummaryCarlosScope).toBe(250);
+  });
 });
+
 

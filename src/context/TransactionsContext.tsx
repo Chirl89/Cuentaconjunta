@@ -683,6 +683,14 @@ interface TransactionsContextType {
   totalMemberBSpentWithJoint: number;
   memberARecognizedMovements: RecognizedMovementItem[];
   memberBRecognizedMovements: RecognizedMovementItem[];
+  memberAPersonalMovements: Transaction[];
+  memberBPersonalMovements: Transaction[];
+  memberAIncomeTransactions: Transaction[];
+  memberBIncomeTransactions: Transaction[];
+  jointIncomeTransactions: Transaction[];
+  householdIncomeTransactions: Transaction[];
+  jointMovementsWithIncome: Transaction[];
+  householdMovementsWithIncome: Transaction[];
   totalHouseholdSpent: number;
   totalHouseholdIncome: number;
   totalJointIncome: number;
@@ -690,6 +698,8 @@ interface TransactionsContextType {
   totalMemberBIncome: number;
   categoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   jointCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberAPersonalCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  memberBPersonalCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   memberACategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   memberBCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   householdCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
@@ -2361,7 +2371,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [jointClassifiedTransactions, buildCategoryBreakdown]
   );
 
-  // Carlos recognized category breakdown: 100% individual + 50% joint
+  // Carlos personal category breakdown: 100% individual (only personal expenses)
+  const memberAPersonalCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown(memberAClassifiedTransactions),
+    [memberAClassifiedTransactions, buildCategoryBreakdown]
+  );
+
+  // Andrea personal category breakdown: 100% individual (only personal expenses)
+  const memberBPersonalCategoriesBreakdown = useMemo(
+    () => buildCategoryBreakdown(memberBClassifiedTransactions),
+    [memberBClassifiedTransactions, buildCategoryBreakdown]
+  );
+
+  // Carlos recognized category breakdown: 100% individual + 50% joint (for Resumen Mensual scope)
   const memberACategoriesBreakdown = useMemo(
     () =>
       buildWeightedCategoryBreakdown([
@@ -2371,7 +2393,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [memberAClassifiedTransactions, jointClassifiedTransactions, buildWeightedCategoryBreakdown]
   );
 
-  // Andrea recognized category breakdown: 100% individual + 50% joint
+  // Andrea recognized category breakdown: 100% individual + 50% joint (for Resumen Mensual scope)
   const memberBCategoriesBreakdown = useMemo(
     () =>
       buildWeightedCategoryBreakdown([
@@ -2431,46 +2453,105 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
   }, [memberBClassifiedTransactions, jointClassifiedTransactions]);
 
-  const totalJointIncome = useMemo(
+  // Carlos (Member A) Income Movements
+  const memberAIncomeTransactions = useMemo(
+    () =>
+      filteredTransactions.filter((t) => {
+        if (!t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.split === "memberA") return true;
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        return (t.payer === "memberA" || acc?.ownership === "USER_A") && t.split !== "memberB" && t.split !== "50/50";
+      }),
+    [filteredTransactions, accounts]
+  );
+
+  // Andrea (Member B) Income Movements
+  const memberBIncomeTransactions = useMemo(
+    () =>
+      filteredTransactions.filter((t) => {
+        if (!t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.split === "memberB") return true;
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        return (t.payer === "memberB" || acc?.ownership === "USER_B") && t.split !== "memberA" && t.split !== "50/50";
+      }),
+    [filteredTransactions, accounts]
+  );
+
+  // Joint Income Movements
+  const jointIncomeTransactions = useMemo(
+    () =>
+      filteredTransactions.filter((t) => {
+        if (!t.isCredit || t.movementType === "transfer_to_joint" || t.movementType === "settlement") return false;
+        if (t.split === "50/50") return true;
+        const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
+        return (t.payer === "joint" || acc?.ownership === "JOINT") && t.split !== "memberA" && t.split !== "memberB";
+      }),
+    [filteredTransactions, accounts]
+  );
+
+  // All Household Income Movements
+  const householdIncomeTransactions = useMemo(
+    () =>
+      filteredTransactions.filter(
+        (t) => t.isCredit && t.movementType !== "transfer_to_joint" && t.movementType !== "settlement"
+      ),
+    [filteredTransactions]
+  );
+
+  // Carlos Personal Movements (Both 100% Personal Expenses AND Incomes)
+  const memberAPersonalMovements = useMemo(
+    () =>
+      [...memberAClassifiedTransactions, ...memberAIncomeTransactions].sort(
+        (a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)
+      ),
+    [memberAClassifiedTransactions, memberAIncomeTransactions]
+  );
+
+  // Andrea Personal Movements (Both 100% Personal Expenses AND Incomes)
+  const memberBPersonalMovements = useMemo(
+    () =>
+      [...memberBClassifiedTransactions, ...memberBIncomeTransactions].sort(
+        (a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)
+      ),
+    [memberBClassifiedTransactions, memberBIncomeTransactions]
+  );
+
+  // Joint Movements with Incomes
+  const jointMovementsWithIncome = useMemo(
+    () =>
+      [...jointClassifiedTransactions, ...jointIncomeTransactions].sort(
+        (a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)
+      ),
+    [jointClassifiedTransactions, jointIncomeTransactions]
+  );
+
+  // Household Movements with Incomes
+  const householdMovementsWithIncome = useMemo(
     () =>
       filteredTransactions
         .filter(
           (t) =>
-            t.isCredit &&
-            (t.split === "50/50" || (!t.split && t.payer === "joint")) &&
             t.movementType !== "transfer_to_joint" &&
-            t.movementType !== "settlement"
+            t.movementType !== "settlement" &&
+            (t.isCredit || t.status === "classified" || t.status === "auto_assigned" || t.status === "pending")
         )
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+        .sort((a, b) => getTransactionSortTimestamp(b) - getTransactionSortTimestamp(a)),
     [filteredTransactions]
+  );
+
+  const totalJointIncome = useMemo(
+    () => jointIncomeTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [jointIncomeTransactions]
   );
 
   const totalMemberAIncome = useMemo(
-    () =>
-      filteredTransactions
-        .filter(
-          (t) =>
-            t.isCredit &&
-            (t.split === "memberA" || (!t.split && t.payer === "memberA")) &&
-            t.movementType !== "transfer_to_joint" &&
-            t.movementType !== "settlement"
-        )
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
-    [filteredTransactions]
+    () => memberAIncomeTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [memberAIncomeTransactions]
   );
 
   const totalMemberBIncome = useMemo(
-    () =>
-      filteredTransactions
-        .filter(
-          (t) =>
-            t.isCredit &&
-            (t.split === "memberB" || (!t.split && t.payer === "memberB")) &&
-            t.movementType !== "transfer_to_joint" &&
-            t.movementType !== "settlement"
-        )
-        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
-    [filteredTransactions]
+    () => memberBIncomeTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [memberBIncomeTransactions]
   );
 
   const totalHouseholdSpent = useMemo(
@@ -2857,6 +2938,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         totalMemberBSpentWithJoint,
         memberARecognizedMovements,
         memberBRecognizedMovements,
+        memberAPersonalMovements,
+        memberBPersonalMovements,
+        memberAIncomeTransactions,
+        memberBIncomeTransactions,
+        jointIncomeTransactions,
+        householdIncomeTransactions,
+        jointMovementsWithIncome,
+        householdMovementsWithIncome,
         totalHouseholdSpent,
         totalHouseholdIncome,
         totalJointIncome,
@@ -2864,6 +2953,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         totalMemberBIncome,
         categoriesBreakdown: jointCategoriesBreakdown,
         jointCategoriesBreakdown,
+        memberAPersonalCategoriesBreakdown,
+        memberBPersonalCategoriesBreakdown,
         memberACategoriesBreakdown,
         memberBCategoriesBreakdown,
         householdCategoriesBreakdown,
