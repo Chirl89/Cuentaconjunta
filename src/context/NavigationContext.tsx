@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState } from "react";
 
 export type TabKey =
+  | "resumen_mensual"
   | "resumen_conjunta"
   | "resumen_carlos"
   | "resumen_andrea"

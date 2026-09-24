@@ -18,10 +18,13 @@ import MonthSelector from "@/components/MonthSelector";
 import AddManualExpenseModal from "@/components/AddManualExpenseModal";
 import CoupleLinkingCard from "@/components/CoupleLinkingCard";
 import ConnectBankModal from "@/components/ConnectBankModal";
+import IncomeExpenseBars from "@/components/IncomeExpenseBars";
+import CategoryPieTooltip from "@/components/CategoryPieTooltip";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
 import versionData from "../../version.json";
 import {
+  BarChart3,
   TrendingDown,
   TrendingUp,
   ArrowRight,
@@ -157,9 +160,15 @@ export default function HomePage() {
     totalJointSpent,
     totalMemberASpent,
     totalMemberBSpent,
+    totalHouseholdSpent,
+    totalHouseholdIncome,
+    totalJointIncome,
+    totalMemberAIncome,
+    totalMemberBIncome,
     jointCategoriesBreakdown,
     memberACategoriesBreakdown,
     memberBCategoriesBreakdown,
+    householdCategoriesBreakdown,
     balanceData,
     debtContributingMovements,
     settleDebt,
@@ -223,6 +232,65 @@ export default function HomePage() {
         a.id !== "acc_card_bankinter"
     );
   }, [accounts]);
+
+  // Ámbito de visualización en el Resumen Mensual
+  const [monthlyScope, setMonthlyScope] = useState<"household" | "joint" | "memberA" | "memberB">("household");
+
+  // Proyección y Análisis de Previsiones del Mes Seleccionado
+  const monthlyForecast = useMemo(() => {
+    const [yearStr, monthStr] = (selectedMonth || "").split("-");
+    const year = parseInt(yearStr, 10) || new Date().getFullYear();
+    const month = parseInt(monthStr, 10) || (new Date().getMonth() + 1);
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const isCurrentMonth = year === currentYear && month === currentMonth;
+    const isPastMonth = year < currentYear || (year === currentYear && month < currentMonth);
+
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    const elapsedDays = isCurrentMonth ? Math.min(Math.max(now.getDate(), 1), totalDaysInMonth) : totalDaysInMonth;
+    const remainingDays = isCurrentMonth ? Math.max(0, totalDaysInMonth - elapsedDays) : 0;
+
+    const dailyBurnRate = elapsedDays > 0 ? totalHouseholdSpent / elapsedDays : 0;
+    const projectedExpenses = isCurrentMonth
+      ? Math.round(dailyBurnRate * totalDaysInMonth * 100) / 100
+      : totalHouseholdSpent;
+    const projectedSavings = Math.round((totalHouseholdIncome - projectedExpenses) * 100) / 100;
+    const currentSavings = Math.round((totalHouseholdIncome - totalHouseholdSpent) * 100) / 100;
+
+    return {
+      isCurrentMonth,
+      isPastMonth,
+      totalDaysInMonth,
+      elapsedDays,
+      remainingDays,
+      dailyBurnRate,
+      projectedExpenses,
+      projectedSavings,
+      currentSavings,
+    };
+  }, [selectedMonth, totalHouseholdSpent, totalHouseholdIncome]);
+
+  const monthlyScopeBreakdown = useMemo(() => {
+    if (monthlyScope === "joint") return jointCategoriesBreakdown;
+    if (monthlyScope === "memberA") return memberACategoriesBreakdown;
+    if (monthlyScope === "memberB") return memberBCategoriesBreakdown;
+    return householdCategoriesBreakdown;
+  }, [
+    monthlyScope,
+    jointCategoriesBreakdown,
+    memberACategoriesBreakdown,
+    memberBCategoriesBreakdown,
+    householdCategoriesBreakdown,
+  ]);
+
+  const monthlyScopeTotal = useMemo(() => {
+    if (monthlyScope === "joint") return totalJointSpent;
+    if (monthlyScope === "memberA") return totalMemberASpent;
+    if (monthlyScope === "memberB") return totalMemberBSpent;
+    return totalHouseholdSpent;
+  }, [monthlyScope, totalJointSpent, totalMemberASpent, totalMemberBSpent, totalHouseholdSpent]);
 
   const checkingTotalBalance = useMemo(() => {
     return checkingAccounts.reduce((sum, a) => sum + a.balance, 0);
@@ -564,6 +632,429 @@ export default function HomePage() {
       />
 
       {/* ============================================================ */}
+      {/* GRÁFICA 0: RESUMEN MENSUAL INTEGRAL (ANÁLISIS & PREVISIONES)  */}
+      {/* ============================================================ */}
+      {activeTab === "resumen_mensual" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-5 sm:p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200/80 flex items-center justify-center text-indigo-600 shadow-xs">
+                  <BarChart3 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight whitespace-nowrap">
+                      Resumen Mensual
+                    </h1>
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold whitespace-nowrap">
+                      Hogar Completo
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400 font-medium">
+                    {monthlyForecast.isCurrentMonth
+                      ? `Mes en curso • Día ${monthlyForecast.elapsedDays} de ${monthlyForecast.totalDaysInMonth} (Quedan ${monthlyForecast.remainingDays} días)`
+                      : monthlyForecast.isPastMonth
+                      ? `Mes cerrado • Consolidado de ${monthlyForecast.totalDaysInMonth} días`
+                      : "Mes futuro planificado"}
+                  </p>
+                </div>
+                <MonthSelector />
+              </div>
+
+              {/* Status pill / Quick balance indicator */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-5 py-3 flex items-center gap-5 shrink-0 ml-auto sm:ml-0">
+                <div className="text-right">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
+                    Ahorro Neto Mes
+                  </span>
+                  <span
+                    className={`text-[11px] font-bold flex items-center justify-end gap-1 mt-0.5 whitespace-nowrap ${
+                      monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                    }`}
+                  >
+                    {monthlyForecast.currentSavings >= 0 ? (
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    ) : (
+                      <TrendingDown className="w-3.5 h-3.5" />
+                    )}
+                    {monthlyForecast.currentSavings >= 0 ? "Superávit" : "Déficit"}
+                  </span>
+                </div>
+                <div
+                  className={`text-2xl sm:text-3xl font-black tracking-tight whitespace-nowrap ${
+                    monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                  }`}
+                >
+                  {monthlyForecast.currentSavings >= 0 ? "+" : ""}
+                  {monthlyForecast.currentSavings.toFixed(2)}
+                  <span className="text-lg ml-1 font-bold">€</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* 4 KPI Highlight Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Ingresos Totales */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Ingresos Totales</span>
+                <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  ↓
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {totalHouseholdIncome.toFixed(2)} <span className="text-sm font-bold text-emerald-600">€</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
+                  Nóminas y abonos
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 2: Gastos Totales */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Gastos Totales</span>
+                <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                  ↑
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {totalHouseholdSpent.toFixed(2)} <span className="text-sm font-bold text-rose-500">€</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
+                  Comunes + Personales
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 3: Ritmo Diario */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Ritmo Diario</span>
+                <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  ⚡
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {monthlyForecast.dailyBurnRate.toFixed(2)} <span className="text-sm font-bold text-blue-600">€/día</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
+                  Media en {monthlyForecast.elapsedDays} días
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 4: Previsión Cierre */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Previsión Cierre</span>
+                <span className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  🎯
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {monthlyForecast.projectedExpenses.toFixed(2)} <span className="text-sm font-bold text-purple-600">€</span>
+                </div>
+                <span
+                  className={`text-[11px] font-bold mt-0.5 block ${
+                    monthlyForecast.projectedSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                  }`}
+                >
+                  {monthlyForecast.projectedSavings >= 0
+                    ? `Previsión: +${monthlyForecast.projectedSavings.toFixed(0)}€ ahorro`
+                    : `Previsión: ${monthlyForecast.projectedSavings.toFixed(0)}€ déficit`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Comparativa Ingresos vs Gastos con Doble Barra Horizontal */}
+          <IncomeExpenseBars
+            totalIncome={
+              monthlyScope === "household"
+                ? totalHouseholdIncome
+                : monthlyScope === "joint"
+                ? totalJointIncome
+                : monthlyScope === "memberA"
+                ? totalMemberAIncome
+                : totalMemberBIncome
+            }
+            totalExpenses={
+              monthlyScope === "household"
+                ? totalHouseholdSpent
+                : monthlyScope === "joint"
+                ? totalJointSpent
+                : monthlyScope === "memberA"
+                ? totalMemberASpent
+                : totalMemberBSpent
+            }
+            title={`Diferencia de Ingresos vs Gastos (${
+              monthlyScope === "household"
+                ? "Hogar"
+                : monthlyScope === "joint"
+                ? "Conjuntos 50/50"
+                : monthlyScope === "memberA"
+                ? memberAName
+                : memberBName
+            })`}
+            subtitle="El tamaño máximo lo determina el número mayor entre total_gastos y total_ingresos"
+            incomeLabel="Total Ingresos"
+            expenseLabel="Total Gastos"
+          />
+
+          {/* Selector de Ámbito para el Análisis */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">
+              Ámbito:
+            </span>
+            {[
+              { id: "household", label: "🏠 Todo el Hogar" },
+              { id: "joint", label: "👥 Gastos Conjuntos (50/50)" },
+              { id: "memberA", label: `👤 Solo ${memberAName}` },
+              { id: "memberB", label: `👤 Solo ${memberBName}` },
+            ].map((scope) => (
+              <button
+                key={scope.id}
+                onClick={() => setMonthlyScope(scope.id as any)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  monthlyScope === scope.id
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80"
+                }`}
+              >
+                {scope.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Grid: Donut Chart Global & Análisis de Previsiones */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Donut Chart Global del Hogar */}
+            <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                  Distribución por Categorías
+                </h2>
+                <span className="text-xs font-bold text-indigo-600">
+                  {monthlyScopeBreakdown.length} categorías
+                </span>
+              </div>
+
+              <div className="relative h-64 w-full flex items-center justify-center my-3">
+                {monthlyScopeBreakdown.length > 0 ? (
+                  <>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart
+                        key={`piechart-monthly-${monthlyScopeBreakdown
+                          .map((c) => `${c.name}:${c.value.toFixed(2)}`)
+                          .join("-")}`}
+                      >
+                        <Pie
+                          key={`pie-monthly-${monthlyScopeBreakdown
+                            .map((c) => `${c.name}:${c.value.toFixed(2)}`)
+                            .join("-")}`}
+                          isAnimationActive={false}
+                          data={monthlyScopeBreakdown}
+                          nameKey="name"
+                          innerRadius={76}
+                          outerRadius={100}
+                          paddingAngle={4}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {monthlyScopeBreakdown.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CategoryPieTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+
+                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        Total Gastos
+                      </span>
+                      <span className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                        {monthlyScopeTotal.toFixed(0)} €
+                      </span>
+                      <span className="text-[11px] text-indigo-600 font-bold mt-0.5">
+                        {monthlyScope === "household"
+                          ? "Hogar Global"
+                          : monthlyScope === "joint"
+                          ? "50/50"
+                          : `Solo ${monthlyScope === "memberA" ? memberAName : memberBName}`}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    No hay gastos clasificados registrados en este ámbito para este mes.
+                  </div>
+                )}
+              </div>
+
+              {/* Categorías con porcentaje */}
+              <div className="space-y-2 pt-2 border-t border-slate-100 max-h-60 overflow-y-auto pr-1">
+                {monthlyScopeBreakdown.map((cat) => {
+                  const pct =
+                    monthlyScopeTotal > 0 ? Math.round((cat.value / monthlyScopeTotal) * 100) : 0;
+                  return (
+                    <div
+                      key={cat.name}
+                      className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span
+                          className="w-3 h-3 rounded-full shrink-0"
+                          style={{ backgroundColor: cat.color }}
+                        />
+                        <div>
+                          <span className="text-xs font-bold text-slate-800 block">{cat.name}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {cat.count} movimientos • {pct}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-black text-slate-900">
+                          {cat.value.toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Módulo de Previsiones & Diagnóstico Financiero */}
+            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
+              <div>
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
+                    Análisis & Previsiones
+                  </h2>
+                  <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
+                    Forecast
+                  </span>
+                </div>
+
+                <div className="space-y-4 pt-3">
+                  {/* Semáforo de Ritmo */}
+                  <div
+                    className={`p-4 rounded-2xl border ${
+                      monthlyForecast.projectedSavings >= 0
+                        ? "bg-emerald-50/60 border-emerald-200/80 text-emerald-900"
+                        : "bg-rose-50/60 border-rose-200/80 text-rose-900"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {monthlyForecast.projectedSavings >= 0 ? (
+                        <CheckCircle2 className="w-4 h-4 text-[#00A37A] shrink-0" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                      )}
+                      <h4 className="text-xs font-black">
+                        {monthlyForecast.isCurrentMonth
+                          ? monthlyForecast.projectedSavings >= 0
+                            ? "Ritmo presupuestario saludable"
+                            : "Alerta de ritmo de gasto elevado"
+                          : "Mes cerrado con balance definitivo"}
+                      </h4>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
+                      {monthlyForecast.isCurrentMonth
+                        ? monthlyForecast.projectedSavings >= 0
+                          ? `Al ritmo diario de ${monthlyForecast.dailyBurnRate.toFixed(
+                              2
+                            )} €/día, la proyección de gasto a final de mes es de ${monthlyForecast.projectedExpenses.toFixed(
+                              0
+                            )} €, lo que te permitirá cerrar con un ahorro estimado de ~${monthlyForecast.projectedSavings.toFixed(
+                              0
+                            )} €.`
+                          : `Al ritmo actual de ${monthlyForecast.dailyBurnRate.toFixed(
+                              2
+                            )} €/día, el gasto proyectado al cierre de mes alcanzará los ${monthlyForecast.projectedExpenses.toFixed(
+                              0
+                            )} €, superando los ingresos actuales por ~${Math.abs(
+                              monthlyForecast.projectedSavings
+                            ).toFixed(0)} €.`
+                        : `El mes finalizó con un gasto consolidado de ${totalHouseholdSpent.toFixed(
+                            2
+                          )} € frente a ${totalHouseholdIncome.toFixed(2)} € de ingresos (${
+                            monthlyForecast.currentSavings >= 0 ? "superávit" : "déficit"
+                          } de ${Math.abs(monthlyForecast.currentSavings).toFixed(2)} €).`}
+                    </p>
+                  </div>
+
+                  {/* Resumen de Reparto y Deuda */}
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
+                      Reparto del Gasto en el Hogar
+                    </span>
+                    <div className="space-y-1.5 text-xs font-semibold">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-600">Comunes (50/50):</span>
+                        <span className="font-bold text-slate-900">
+                          {totalJointSpent.toFixed(2)} €
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-red-600">Personales {memberAName}:</span>
+                        <span className="font-bold text-red-600">
+                          {totalMemberASpent.toFixed(2)} €
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-blue-600">Personales {memberBName}:</span>
+                        <span className="font-bold text-blue-600">
+                          {totalMemberBSpent.toFixed(2)} €
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-medium">Estado de balances:</span>
+                      <button
+                        onClick={() => setActiveTab("balances")}
+                        className="font-bold text-[#00A37A] hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>
+                          {balanceData.debtor !== "none"
+                            ? `${balanceData.debtorName} debe ${balanceData.netDebt.toFixed(2)} €`
+                            : "Cuentas saldadas"}
+                        </span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => setActiveTab("movimientos")}
+                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <span>Ver todos los movimientos del mes</span>
+                  <ArrowRight className="w-3 h-3 text-slate-400" />
+                </button>
+              </div>
+            </section>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================ */}
       {/* GRÁFICA 1: GASTOS CONJUNTOS (1/2)                            */}
       {/* ============================================================ */}
       {activeTab === "resumen_conjunta" && (
@@ -599,6 +1090,16 @@ export default function HomePage() {
             </div>
           </section>
 
+          {/* Income vs Expenses Horizontal Bars */}
+          <IncomeExpenseBars
+            totalIncome={totalJointIncome}
+            totalExpenses={totalJointSpent}
+            title="Diferencia de Ingresos vs Gastos Conjuntos"
+            subtitle="Ingresos comunes vs gastos comunes con reparto 50/50"
+            incomeLabel="Total Ingresos"
+            expenseLabel="Total Gastos"
+          />
+
           {/* Grid: Donut Chart & Latest Joint Movements */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Joint Donut Chart */}
@@ -620,6 +1121,7 @@ export default function HomePage() {
                           key={`pie-joint-${jointCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
                           isAnimationActive={false}
                           data={jointCategoriesBreakdown}
+                          nameKey="name"
                           innerRadius={76}
                           outerRadius={100}
                           paddingAngle={4}
@@ -630,16 +1132,7 @@ export default function HomePage() {
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip
-                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
-                          contentStyle={{
-                            backgroundColor: "#FFFFFF",
-                            borderColor: "#E2E8F0",
-                            borderRadius: "1rem",
-                            color: "#0F172A",
-                            fontSize: "12px",
-                          }}
-                        />
+                        <Tooltip content={<CategoryPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
 
@@ -784,6 +1277,16 @@ export default function HomePage() {
             </div>
           </section>
 
+          {/* Income vs Expenses Horizontal Bars */}
+          <IncomeExpenseBars
+            totalIncome={totalMemberAIncome}
+            totalExpenses={totalMemberASpent}
+            title={`Diferencia de Ingresos vs Gastos (${memberAName})`}
+            subtitle={`Ingresos y nómina de ${memberAName} vs sus gastos individuales`}
+            incomeLabel="Total Ingresos"
+            expenseLabel="Total Gastos"
+          />
+
           {/* Donut Chart Carlos */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -804,6 +1307,7 @@ export default function HomePage() {
                           key={`pie-memberA-${memberACategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
                           isAnimationActive={false}
                           data={memberACategoriesBreakdown}
+                          nameKey="name"
                           innerRadius={76}
                           outerRadius={100}
                           paddingAngle={4}
@@ -814,10 +1318,7 @@ export default function HomePage() {
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip
-                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
-                          contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "1rem" }}
-                        />
+                        <Tooltip content={<CategoryPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
 
@@ -934,6 +1435,16 @@ export default function HomePage() {
             </div>
           </section>
 
+          {/* Income vs Expenses Horizontal Bars */}
+          <IncomeExpenseBars
+            totalIncome={totalMemberBIncome}
+            totalExpenses={totalMemberBSpent}
+            title={`Diferencia de Ingresos vs Gastos (${memberBName})`}
+            subtitle={`Ingresos y nómina de ${memberBName} vs sus gastos individuales`}
+            incomeLabel="Total Ingresos"
+            expenseLabel="Total Gastos"
+          />
+
           {/* Donut Chart Andrea */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -954,6 +1465,7 @@ export default function HomePage() {
                           key={`pie-memberB-${memberBCategoriesBreakdown.map((c) => `${c.name}:${c.value.toFixed(2)}`).join("-")}`}
                           isAnimationActive={false}
                           data={memberBCategoriesBreakdown}
+                          nameKey="name"
                           innerRadius={76}
                           outerRadius={100}
                           paddingAngle={4}
@@ -964,10 +1476,7 @@ export default function HomePage() {
                             <Cell key={entry.name} fill={entry.color} />
                           ))}
                         </Pie>
-                        <Tooltip
-                          formatter={(value: number) => [`${value.toFixed(2)} €`, "Gasto"]}
-                          contentStyle={{ backgroundColor: "#FFFFFF", borderRadius: "1rem" }}
-                        />
+                        <Tooltip content={<CategoryPieTooltip />} />
                       </PieChart>
                     </ResponsiveContainer>
 

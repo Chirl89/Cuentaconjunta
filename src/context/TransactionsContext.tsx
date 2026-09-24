@@ -673,10 +673,16 @@ interface TransactionsContextType {
   totalJointSpent: number;
   totalMemberASpent: number;
   totalMemberBSpent: number;
+  totalHouseholdSpent: number;
+  totalHouseholdIncome: number;
+  totalJointIncome: number;
+  totalMemberAIncome: number;
+  totalMemberBIncome: number;
   categoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   jointCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   memberACategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   memberBCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
+  householdCategoriesBreakdown: { name: string; value: number; color: string; count: number }[];
   balanceData: {
     paidByA: number;
     paidByB: number;
@@ -2303,6 +2309,79 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     [memberBClassifiedTransactions, buildCategoryBreakdown]
   );
 
+  const totalJointIncome = useMemo(
+    () =>
+      filteredTransactions
+        .filter(
+          (t) =>
+            t.isCredit &&
+            t.split === "50/50" &&
+            t.movementType !== "transfer_to_joint" &&
+            t.movementType !== "settlement"
+        )
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [filteredTransactions]
+  );
+
+  const totalMemberAIncome = useMemo(
+    () =>
+      filteredTransactions
+        .filter(
+          (t) =>
+            t.isCredit &&
+            t.split === "memberA" &&
+            t.movementType !== "transfer_to_joint" &&
+            t.movementType !== "settlement"
+        )
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [filteredTransactions]
+  );
+
+  const totalMemberBIncome = useMemo(
+    () =>
+      filteredTransactions
+        .filter(
+          (t) =>
+            t.isCredit &&
+            t.split === "memberB" &&
+            t.movementType !== "transfer_to_joint" &&
+            t.movementType !== "settlement"
+        )
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [filteredTransactions]
+  );
+
+  const totalHouseholdSpent = useMemo(
+    () => totalJointSpent + totalMemberASpent + totalMemberBSpent,
+    [totalJointSpent, totalMemberASpent, totalMemberBSpent]
+  );
+
+  const totalHouseholdIncome = useMemo(
+    () =>
+      filteredTransactions
+        .filter(
+          (t) =>
+            t.isCredit &&
+            t.movementType !== "transfer_to_joint" &&
+            t.movementType !== "settlement"
+        )
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0),
+    [filteredTransactions]
+  );
+
+  const householdCategoriesBreakdown = useMemo(
+    () =>
+      buildCategoryBreakdown(
+        classifiedTransactions.filter(
+          (t) =>
+            !t.isCredit &&
+            t.movementType !== "transfer_to_joint" &&
+            t.movementType !== "settlement"
+        )
+      ),
+    [classifiedTransactions, buildCategoryBreakdown]
+  );
+
   const activeSettlement = settlementCutoffs[selectedMonth] || null;
 
   const settleDebt = (method: "direct" | "joint" = "direct") => {
@@ -2642,10 +2721,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         totalJointSpent,
         totalMemberASpent,
         totalMemberBSpent,
+        totalHouseholdSpent,
+        totalHouseholdIncome,
+        totalJointIncome,
+        totalMemberAIncome,
+        totalMemberBIncome,
         categoriesBreakdown: jointCategoriesBreakdown,
         jointCategoriesBreakdown,
         memberACategoriesBreakdown,
         memberBCategoriesBreakdown,
+        householdCategoriesBreakdown,
         balanceData,
         debtContributingMovements,
         settleDebt,

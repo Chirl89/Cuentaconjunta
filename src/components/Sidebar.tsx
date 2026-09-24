@@ -20,6 +20,7 @@ import {
   HeartHandshake,
   RefreshCw,
   SlidersHorizontal,
+  BarChart3,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -65,6 +66,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
     color: string;
     activeClass: string;
   }[] = [
+    {
+      key: "resumen_mensual",
+      name: "Resumen Mensual",
+      icon: BarChart3,
+      color: "text-indigo-600",
+      activeClass: "bg-indigo-50 text-indigo-700 font-bold shadow-xs border border-indigo-200",
+    },
     {
       key: "resumen_conjunta",
       name: "Gastos Conjuntos",
