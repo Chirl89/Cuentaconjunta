@@ -4,7 +4,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import CumulativeExpenseAreaChart from "../src/components/CumulativeExpenseAreaChart";
 import LiveBalanceCard from "../src/components/LiveBalanceCard";
 import DashboardInboxWidget from "../src/components/DashboardInboxWidget";
-import { MonthlyEvolutionBarChart, getRolling12Months } from "../src/components/MonthlyEvolutionBarChart";
+import { MonthlyEvolutionBarChart, getRolling12Months, getRollingMonths } from "../src/components/MonthlyEvolutionBarChart";
 import { Transaction, Category, BankAccount } from "../src/context/TransactionsContext";
 
 describe("Paso 9: CumulativeExpenseAreaChart Component", () => {
@@ -507,5 +507,48 @@ describe("Paso 9: MonthlyEvolutionBarChart Component", () => {
       screen.getByText("No hay movimientos registrados para mostrar la evolución")
     ).toBeInTheDocument();
   });
+
+  it("computes rolling 7 months correctly for iOS", () => {
+    const months = getRollingMonths("2026-09", 7);
+    expect(months).toHaveLength(7);
+    expect(months).toEqual([
+      "2026-03",
+      "2026-04",
+      "2026-05",
+      "2026-06",
+      "2026-07",
+      "2026-08",
+      "2026-09",
+    ]);
+  });
+
+  it("renders 7 months on iOS with adapted title, button label and cards", () => {
+    render(
+      <MonthlyEvolutionBarChart
+        transactions={evolutionTxs}
+        referenceMonth="2026-09"
+        activeRole="memberA"
+        memberAName="Carlos"
+        memberBName="Andrea"
+        isIOS={true}
+      />
+    );
+
+    // Title specifies 7 months
+    expect(screen.getByText("Evolución del Gasto (Últimos 7 Meses)")).toBeInTheDocument();
+
+    // Toggle button displays 7 Meses
+    expect(screen.getByTestId("evolution-view-all12")).toHaveTextContent("7 Meses");
+
+    // Renders exactly the 7 months ending in referenceMonth (2026-03 to 2026-09)
+    expect(screen.getByTestId("evolution-card-2026-03")).toBeInTheDocument();
+    expect(screen.getByTestId("evolution-card-2026-09")).toBeInTheDocument();
+
+    // Months older than 7 months are not rendered
+    expect(screen.queryByTestId("evolution-card-2025-10")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("evolution-card-2026-01")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("evolution-card-2026-02")).not.toBeInTheDocument();
+  });
 });
+
 

@@ -28,6 +28,7 @@ export interface MonthlyEvolutionBarChartProps {
   memberAName?: string;
   memberBName?: string;
   onUserChange?: (user: "memberA" | "memberB") => void;
+  isIOS?: boolean;
 }
 
 export interface MonthlyEvolutionItem {
@@ -76,16 +77,30 @@ const MONTH_NAMES_FULL = [
 ];
 
 /**
- * Calculates rolling 12 months (not calendar year) ending in referenceMonth.
- * E.g., for "2026-09", returns ["2025-10", "2025-11", ..., "2026-09"].
+ * Checks if the current client platform is iOS (iPhone/iPad/iPod).
  */
-export function getRolling12Months(referenceMonth: string = "2026-09"): string[] {
+export function checkIsIOS(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return false;
+  }
+  const ua = navigator.userAgent || "";
+  return (
+    /iPad|iPhone|iPod/i.test(ua) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * Calculates rolling N months ending in referenceMonth.
+ * E.g., for "2026-09" and count 7, returns ["2026-03", "2026-04", ..., "2026-09"].
+ */
+export function getRollingMonths(referenceMonth: string = "2026-09", count: number = 12): string[] {
   const [yStr, mStr] = referenceMonth.split("-");
   const baseYear = parseInt(yStr, 10) || new Date().getFullYear();
   const baseMonth = parseInt(mStr, 10) || new Date().getMonth() + 1; // 1-12
 
   const months: string[] = [];
-  for (let i = 11; i >= 0; i--) {
+  for (let i = count - 1; i >= 0; i--) {
     let m = baseMonth - i;
     let y = baseYear;
     while (m <= 0) {
@@ -97,6 +112,14 @@ export function getRolling12Months(referenceMonth: string = "2026-09"): string[]
   return months;
 }
 
+/**
+ * Calculates rolling 12 months (not calendar year) ending in referenceMonth.
+ * E.g., for "2026-09", returns ["2025-10", "2025-11", ..., "2026-09"].
+ */
+export function getRolling12Months(referenceMonth: string = "2026-09"): string[] {
+  return getRollingMonths(referenceMonth, 12);
+}
+
 export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> = ({
   transactions,
   accounts = [],
@@ -104,15 +127,25 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
   activeRole = "memberA",
   memberAName = "Carlos",
   memberBName = "Andrea",
+  isIOS: propIsIOS,
 }) => {
   const [viewMode, setViewMode] = useState<"all12" | "onlyData">("all12");
+  const [detectedIsIOS, setDetectedIsIOS] = useState<boolean>(false);
 
+  React.useEffect(() => {
+    if (propIsIOS === undefined) {
+      setDetectedIsIOS(checkIsIOS());
+    }
+  }, [propIsIOS]);
+
+  const effectiveIsIOS = propIsIOS !== undefined ? propIsIOS : detectedIsIOS;
   const currentPersonName = activeRole === "memberA" ? memberAName : memberBName;
 
-  // Pre-calculate 12 rolling months data for active viewing person
+  // Pre-calculate rolling months data for active viewing person (7 months on iOS, 12 months on PC)
   const { allMonthsData, chartData, total12mIncome, total12mExpense, total12mNet, monthsWithDataCount } =
     useMemo(() => {
-      const rollingMonths = getRolling12Months(referenceMonth);
+      const monthsCount = effectiveIsIOS ? 7 : 12;
+      const rollingMonths = getRollingMonths(referenceMonth, monthsCount);
 
       const getAccountOwnership = (tx: Transaction): "USER_A" | "USER_B" | "JOINT" | undefined => {
         if (!accounts || accounts.length === 0) return undefined;
@@ -275,7 +308,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
         total12mNet: Math.round((sumIncome - sumExpense) * 100) / 100,
         monthsWithDataCount: countWithData,
       };
-    }, [transactions, accounts, referenceMonth, activeRole, viewMode]);
+    }, [transactions, accounts, referenceMonth, activeRole, viewMode, effectiveIsIOS]);
 
   // Tooltip personalizado
   const CustomBarTooltip = ({ active, payload }: any) => {
@@ -365,7 +398,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
             </span>
             <div>
               <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
-                <span>Evolución del Gasto (Últimos 12 Meses)</span>
+                <span>{effectiveIsIOS ? "Evolución del Gasto (Últimos 7 Meses)" : "Evolución del Gasto (Últimos 12 Meses)"}</span>
               </h2>
               <p className="text-xs text-slate-500 font-medium">
                 Reflejando ingresos y gastos de{" "}
@@ -387,7 +420,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
             <span>{currentPersonName}</span>
           </div>
 
-          {/* View mode toggle: 12 meses vs Solo con datos */}
+          {/* View mode toggle: 12 meses / 7 meses vs Solo con datos */}
           <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200/70 text-xs">
             <button
               type="button"
@@ -398,9 +431,9 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
                   ? "bg-white text-slate-900 shadow-xs font-extrabold"
                   : "text-slate-500 hover:text-slate-900"
               }`}
-              title="Mostrar ventana móvil completa de 12 meses"
+              title={effectiveIsIOS ? "Mostrar ventana de 7 meses" : "Mostrar ventana móvil completa de 12 meses"}
             >
-              12 Meses
+              {effectiveIsIOS ? "7 Meses" : "12 Meses"}
             </button>
             <button
               type="button"
@@ -457,15 +490,15 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
         </div>
       ) : (
         <>
-          {/* 12-Month Bar Chart */}
+          {/* Bar Chart */}
           <div className="w-full overflow-x-auto">
-            <div className="min-w-[620px] sm:min-w-full h-64 pt-2">
+            <div className={`${effectiveIsIOS ? "w-full min-w-0" : "min-w-[620px] sm:min-w-full"} h-64 pt-2`}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   data={chartData}
-                  margin={{ top: 10, right: 10, left: -15, bottom: 25 }}
-                  barGap={2}
-                  barCategoryGap="18%"
+                  margin={{ top: 10, right: 10, left: effectiveIsIOS ? -20 : -15, bottom: 25 }}
+                  barGap={effectiveIsIOS ? 1 : 2}
+                  barCategoryGap={effectiveIsIOS ? "12%" : "18%"}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                   <XAxis
@@ -519,14 +552,14 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
                     name="Ingresos"
                     fill="#10B981"
                     radius={[4, 4, 0, 0]}
-                    maxBarSize={22}
+                    maxBarSize={effectiveIsIOS ? 18 : 22}
                   />
                   <Bar
                     dataKey="expense"
                     name="Gastos"
                     fill="#F43F5E"
                     radius={[4, 4, 0, 0]}
-                    maxBarSize={22}
+                    maxBarSize={effectiveIsIOS ? 18 : 22}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -552,7 +585,7 @@ export const MonthlyEvolutionBarChart: React.FC<MonthlyEvolutionBarChartProps> =
               </span>
             </div>
 
-            <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-12 gap-1.5">
+            <div className={`grid ${effectiveIsIOS ? "grid-cols-4 sm:grid-cols-7" : "grid-cols-4 sm:grid-cols-6 lg:grid-cols-12"} gap-1.5`}>
               {chartData.map((d) => {
                 const hasData = d.hasData && d.net !== null;
                 const isPos = hasData && d.net! >= 0;

@@ -62,9 +62,9 @@ describe("Sygis Brand & Visual Identity", () => {
     expect(screen.getAllByText("Sygis").length).toBeGreaterThan(0);
   });
 
-  it("renders VersionBadge with current version v0.11.6", () => {
+  it("renders VersionBadge with current version v0.11.7", () => {
     render(<VersionBadge />);
     expect(screen.getByText(`v${versionData.version}`)).toBeInTheDocument();
-    expect(versionData.version).toBe("0.11.6");
+    expect(versionData.version).toBe("0.11.7");
   });
 });
