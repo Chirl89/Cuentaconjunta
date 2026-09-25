@@ -47,3 +47,9 @@
   - Despliegue en Vercel y GitHub Pages, configuración de Cron Jobs para sincronización periódica desatendida.
   - **Respaldo Continuo Cloud:** Configuración de Point-in-Time Recovery (PITR) en base de datos y snapshots cifrados automatizados en almacenamiento en la nube con SHA-256 para máxima seguridad y cero pérdida de datos.
   - Verificación visual en iOS (Safari PWA) y PC (Chrome/Edge), manual de usuario (WALKTHROUGH.md) y entrega final.
+
+- **Paso 12 (v0.12)**: **Simplificación del Flujo de Sincronización Bancaria (Selector Bankinter, BBVA, Revolut, Descarga Oficial con Guías y Carga Directa)** *(En curso)*
+  - Rediseño y simplificación radical del modal de sincronización: selector limpio de banco entre tarjetas (Bankinter, BBVA, Revolut).
+  - Dos botones directos por entidad: "Descargar extracto" (redirige al portal oficial de descarga) y "Cargar extracto en app" (subida e importación inmediata sin fricción).
+  - Miniguía paso a paso contextual para cada banco debajo de los botones para resolver la descarga si falla la redirección directa.
+

@@ -1,295 +1,222 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useTransactions } from "@/context/TransactionsContext";
-import { parseSpanishBankStatement, parseBankinterExcel, ParsedBankMovement } from "@/lib/bank/importer";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { parseUniversalBankExtract } from "@/lib/bank/importer";
 import {
   RefreshCw,
   X,
   CreditCard,
-  Building2,
+  ExternalLink,
+  Upload,
   CheckCircle2,
   AlertCircle,
-  Upload,
-  ShieldCheck,
-  ExternalLink,
-  Clipboard,
-  Smartphone,
-  Laptop,
   FileSpreadsheet,
 } from "lucide-react";
 
-const HOUSEHOLD_SYNC_SQL = `-- 1. Tabla de Estado Global del Hogar para sincronización multi-dispositivo
-CREATE TABLE IF NOT EXISTS public.household_state (
-    household_code TEXT PRIMARY KEY,
-    transactions JSONB NOT NULL DEFAULT '[]'::jsonb,
-    accounts JSONB NOT NULL DEFAULT '[]'::jsonb,
-    settlements JSONB NOT NULL DEFAULT '{}'::jsonb,
-    categories JSONB NOT NULL DEFAULT '[]'::jsonb,
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+export type SupportedBankId = "bankinter" | "bbva" | "revolut";
 
--- 2. Habilitar Seguridad (RLS) y permitir lectura/escritura para el hogar
-ALTER TABLE public.household_state ENABLE ROW LEVEL SECURITY;
+export interface BankConfig {
+  id: SupportedBankId;
+  name: string;
+  downloadUrl: string;
+  brandColor: string;
+  activeBorder: string;
+  activeBg: string;
+  badgeBg: string;
+  badgeText: string;
+  steps: string[];
+}
 
-DROP POLICY IF EXISTS "Allow household read" ON public.household_state;
-CREATE POLICY "Allow household read" ON public.household_state
-    FOR SELECT TO anon, authenticated USING (true);
-
-DROP POLICY IF EXISTS "Allow household insert" ON public.household_state;
-CREATE POLICY "Allow household insert" ON public.household_state
-    FOR INSERT TO anon, authenticated WITH CHECK (true);
-
-DROP POLICY IF EXISTS "Allow household update" ON public.household_state;
-CREATE POLICY "Allow household update" ON public.household_state
-    FOR UPDATE TO anon, authenticated USING (true) WITH CHECK (true);
-
--- 3. Habilitar Realtime para reflejo instantáneo en todos los dispositivos
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_publication_tables 
-        WHERE pubname = 'supabase_realtime' 
-        AND schemaname = 'public' 
-        AND tablename = 'household_state'
-    ) THEN
-        ALTER PUBLICATION supabase_realtime ADD TABLE public.household_state;
-    END IF;
-END $$;`;
+export const SUPPORTED_BANKS: BankConfig[] = [
+  {
+    id: "bankinter",
+    name: "Bankinter",
+    downloadUrl:
+      "https://bancaonline.bankinter.com/tarjetas/secure/tarjetas_ficha.xhtml?INDEX_CTA=5",
+    brandColor: "#FA6400",
+    activeBorder: "border-[#FA6400]",
+    activeBg: "bg-orange-50/70",
+    badgeBg: "bg-orange-100",
+    badgeText: "text-orange-800",
+    steps: [
+      "Inicia sesión en Bankinter con tu usuario y contraseña.",
+      "Accede a la sección Tarjetas en el menú y selecciona tu tarjeta.",
+      "Pulsa en el botón Descargar Excel para obtener el fichero de movimientos (.xls / .xlsx).",
+    ],
+  },
+  {
+    id: "bbva",
+    name: "BBVA",
+    downloadUrl: "https://www.bbva.es/personas.html",
+    brandColor: "#004481",
+    activeBorder: "border-[#004481]",
+    activeBg: "bg-blue-50/70",
+    badgeBg: "bg-blue-100",
+    badgeText: "text-blue-800",
+    steps: [
+      "Inicia sesión en la web o app móvil de BBVA con tus claves.",
+      "Entra en tu Tarjeta y accede al apartado de Movimientos o Extractos.",
+      "Pulsa en Descargar / Exportar y selecciona formato Excel (.xlsx) o CSV.",
+    ],
+  },
+  {
+    id: "revolut",
+    name: "Revolut",
+    downloadUrl: "https://app.revolut.com/",
+    brandColor: "#191C1F",
+    activeBorder: "border-slate-900",
+    activeBg: "bg-slate-100/70",
+    badgeBg: "bg-slate-200",
+    badgeText: "text-slate-800",
+    steps: [
+      "Inicia sesión en Revolut Web (app.revolut.com) o abre tu app móvil.",
+      "En tu cuenta o sección Tarjetas, pulsa en Extractos (o en el icono de los tres puntos ···).",
+      "Selecciona el periodo deseado y pulsa Descargar en formato Excel o CSV.",
+    ],
+  },
+];
 
 interface SyncModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onOpenBankConnect: () => void;
+  onOpenBankConnect?: () => void;
 }
 
-export const SyncModal: React.FC<SyncModalProps> = ({
-  isOpen,
-  onClose,
-  onOpenBankConnect,
-}) => {
-  const { syncBankFeed, importBankMovements, accounts } = useTransactions();
-  const [isSyncingBank, setIsSyncingBank] = useState(false);
-  const [bankSyncMessage, setBankSyncMessage] = useState<string | null>(null);
-  const [cardExtractText, setCardExtractText] = useState("");
-  const [parsedCardMovements, setParsedCardMovements] = useState<ParsedBankMovement[]>([]);
-  const [cardError, setCardError] = useState<string | null>(null);
-  const [cardSuccessMsg, setCardSuccessMsg] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<"account" | "card">("card");
-  const [isLaunchingBrowser, setIsLaunchingBrowser] = useState(false);
-  const [browserSyncStatus, setBrowserSyncStatus] = useState<string | null>(null);
-  const [detectedCardInfo, setDetectedCardInfo] = useState<string | null>(null);
-  const [dbStatus, setDbStatus] = useState<"checking" | "connected" | "pending">("checking");
-  const [copiedSql, setCopiedSql] = useState(false);
+export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
+  const { importBankMovements, accounts } = useTransactions();
+  const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    try {
-      const supabase = getSupabaseBrowserClient();
-      (supabase as any)
-        .from("household_state")
-        .select("household_code")
-        .limit(1)
-        .then(({ error }: any) => {
-          if (error && error.code === "PGRST205") {
-            setDbStatus("pending");
-          } else if (!error) {
-            setDbStatus("connected");
-          } else {
-            setDbStatus("pending");
-          }
-        })
-        .catch(() => setDbStatus("pending"));
-    } catch {
-      setDbStatus("pending");
-    }
-  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handlePasteFromClipboard = async () => {
-    try {
-      setCardError(null);
-      if (!navigator.clipboard || !navigator.clipboard.readText) {
-        setCardError("Tu navegador no permite acceso directo al portapapeles. Pega el texto directamente en el recuadro.");
-        return;
-      }
-      const text = await navigator.clipboard.readText();
-      if (!text || text.trim().length === 0) {
-        setCardError("El portapapeles está vacío. Copia los movimientos en Bankinter y vuelve a pulsar este botón.");
-        return;
-      }
-      handleCardTextChange(text);
-    } catch (err: any) {
-      setCardError("No se pudo leer el portapapeles: concede permisos a Safari o pega el texto en el área inferior.");
-    }
-  };
+  const currentBank =
+    SUPPORTED_BANKS.find((b) => b.id === selectedBankId) || SUPPORTED_BANKS[0];
 
-  const handleLaunchBankinterBrowser = async () => {
-    setIsLaunchingBrowser(true);
-    setBrowserSyncStatus("Iniciando pasarela oficial de Bankinter...");
-    try {
-      // Detect static web deployments (GitHub Pages) where Next.js Node API routes do not run
-      const isStaticHosting = typeof window !== "undefined" && (window.location.hostname.includes("github.io") || window.location.protocol === "file:");
-      if (isStaticHosting) {
-        setIsLaunchingBrowser(false);
-        setBrowserSyncStatus("ℹ️ En la Web móvil (GitHub Pages) no hay servidor local ejecutándose. Para extraer movimientos en tu móvil, pulsa 'Abrir Web de Bankinter' abajo, copia los movimientos y pulsa 'Pegar del Portapapeles'.");
-        return;
-      }
-
-      const res = await fetch("/api/sync/launch-card-sync", { method: "POST" });
-      if (!res.ok) {
-        setIsLaunchingBrowser(false);
-        setBrowserSyncStatus(`Aviso: Servidor devolvió estado ${res.status}. Esta función requiere el servidor local en PC.`);
-        return;
-      }
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        setIsLaunchingBrowser(false);
-        setBrowserSyncStatus("Aviso: El servidor no devolvió una respuesta JSON válida.");
-        return;
-      }
-      const data = await res.json();
-      if (data.success) {
-        setBrowserSyncStatus("Ventana de Bankinter abierta en tu pantalla. Introduce tus claves en Bankinter.");
-        const pollInterval = setInterval(async () => {
-          try {
-            const statusRes = await fetch("/api/sync/launch-card-sync");
-            if (!statusRes.ok) return;
-            const ct = statusRes.headers.get("content-type") || "";
-            if (!ct.includes("application/json")) return;
-            const statusData = await statusRes.json();
-            if (statusData.status === "WAITING_USER_LOGIN") {
-              setBrowserSyncStatus("Introduce tu usuario y contraseña en la ventana de Bankinter...");
-            } else if (statusData.status === "EXTRACTING") {
-              setBrowserSyncStatus("¡Sesión iniciada con éxito! Extrayendo compras de la tarjeta...");
-            } else if (statusData.status === "COMPLETED") {
-              clearInterval(pollInterval);
-              setIsLaunchingBrowser(false);
-              setBrowserSyncStatus("✅ ¡Sincronización completada! Compras de la tarjeta incorporadas.");
-              await syncBankFeed();
-            } else if (statusData.status === "ERROR") {
-              clearInterval(pollInterval);
-              setIsLaunchingBrowser(false);
-              setBrowserSyncStatus("⚠️ " + (statusData.error || "Se detuvo la sincronización."));
-            }
-          } catch {
-            // ignore poll error
-          }
-        }, 2000);
-      } else {
-        setIsLaunchingBrowser(false);
-        setBrowserSyncStatus("Error: " + (data.error || "No se pudo abrir la ventana."));
-      }
-    } catch (err: any) {
-      setIsLaunchingBrowser(false);
-      setBrowserSyncStatus("Aviso de sincronización: " + (err.message || "Error al contactar con el servicio."));
-    }
-  };
-
-  const bankinterAccount = accounts.find(
-    (a) => a.bankName.toLowerCase().includes("bankinter") || a.id.includes("bankinter")
-  );
-
-  const handleSyncBank = async () => {
-    setIsSyncingBank(true);
-    setBankSyncMessage(null);
-    try {
-      const res = await syncBankFeed({ forceLiveApi: true });
-      if (res && res.cardCount > 0) {
-        setBankSyncMessage(`¡Sincronización completada! Cuenta nómina al día y ${res.cardCount} compras de tarjeta sincronizadas desde la base de datos.`);
-      } else {
-        setBankSyncMessage("¡Sincronización completada! Cuenta nómina y compras de tarjeta al día.");
-      }
-    } catch {
-      setBankSyncMessage("Error al sincronizar con la base de datos o el banco. Inténtalo de nuevo.");
-    } finally {
-      setIsSyncingBank(false);
-    }
-  };
-
-  const handleCardTextChange = (text: string) => {
-    setCardExtractText(text);
-    setCardError(null);
-    setCardSuccessMsg(null);
-
-    if (text.trim().length > 10) {
-      const result = parseSpanishBankStatement(text, "Bankinter");
-      if (result.success && result.movements.length > 0) {
-        setParsedCardMovements(result.movements);
-      } else {
-        setParsedCardMovements([]);
-        if (result.error) setCardError(result.error);
-      }
-    } else {
-      setParsedCardMovements([]);
-    }
-  };
-
-  const handleImportCardMovements = () => {
-    if (parsedCardMovements.length === 0) return;
-
-    const result = importBankMovements(
-      parsedCardMovements.map((m) => ({
-        id: m.id,
-        concept: m.concept,
-        amount: m.amount,
-        date: m.date,
-        monthKey: m.monthKey,
-        bankName: "Bankinter",
-        accountLabel: detectedCardInfo || "Tarjeta Bankinter (VISA)",
-        ownership: "USER_A" as const,
-        rawConcept: m.rawConcept || m.concept,
-      }))
-    );
-
-    if (result.added === 0) {
-      setCardSuccessMsg(`Todos los movimientos (${result.duplicates}) ya estaban registrados. Cero duplicados creados.`);
-    } else if (result.duplicates > 0) {
-      setCardSuccessMsg(
-        `¡${result.added} compras nuevas incorporadas! (${result.duplicates} compras repetidas del extracto se mantuvieron intactas sin duplicar)`
-      );
-    } else {
-      setCardSuccessMsg(`¡${result.added} compras de la tarjeta incorporadas y sincronizadas con la nube!`);
-    }
-
-    setCardExtractText("");
-    setParsedCardMovements([]);
+  const handleBankSelect = (bankId: SupportedBankId) => {
+    setSelectedBankId(bankId);
+    setSuccessMessage(null);
+    setErrorMessage(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const fileNameLower = file.name.toLowerCase();
-    const isExcel = fileNameLower.endsWith(".xls") || fileNameLower.endsWith(".xlsx");
+    setIsProcessing(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+
+    // Active user role assignment: Carlos (USER_A) or Andrea (USER_B)
+    const activeRole =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("fitduo_active_role")
+        : null;
+    const currentOwnership: "USER_A" | "USER_B" =
+      activeRole === "memberB" ? "USER_B" : "USER_A";
+
+    const isExcel = /\.(xlsx|xls)$/i.test(file.name);
 
     if (isExcel) {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const buffer = ev.target?.result;
-        if (buffer instanceof ArrayBuffer) {
-          const result = parseBankinterExcel(buffer);
-          if (result.success && result.movements.length > 0) {
-            setParsedCardMovements(result.movements);
-            setDetectedCardInfo(`${result.cardName} (${result.cardNumber || "VISA"})`);
-            setCardError(null);
-            setCardSuccessMsg(`¡${result.totalMovements} compras extraídas de ${file.name}!`);
-          } else {
-            setParsedCardMovements([]);
-            setCardError(result.error || "No se pudieron extraer movimientos del archivo Excel.");
+        try {
+          const buffer = ev.target?.result;
+          if (buffer instanceof ArrayBuffer) {
+            const result = parseUniversalBankExtract(buffer, currentBank.name);
+            if (result.success && result.movements.length > 0) {
+              const importRes = importBankMovements(
+                result.movements.map((m) => ({
+                  id: m.id,
+                  concept: m.concept,
+                  amount: m.amount,
+                  date: m.date,
+                  monthKey: m.monthKey,
+                  bankName: currentBank.name,
+                  accountLabel: result.cardName || `Tarjeta ${currentBank.name}`,
+                  ownership: currentOwnership,
+                  rawConcept: m.rawConcept || m.concept,
+                }))
+              );
+
+              if (importRes.added > 0) {
+                setSuccessMessage(
+                  `¡${importRes.added} compras de ${currentBank.name} incorporadas con éxito!${
+                    importRes.duplicates > 0
+                      ? ` (${importRes.duplicates} repetidas se omitieron)`
+                      : ""
+                  }`
+                );
+              } else {
+                setSuccessMessage(
+                  `Todos los movimientos del extracto (${importRes.duplicates}) ya estaban incorporados en la app.`
+                );
+              }
+            } else {
+              setErrorMessage(
+                result.error ||
+                  `No se detectaron movimientos válidos en el extracto de ${currentBank.name}.`
+              );
+            }
           }
+        } catch (err: any) {
+          setErrorMessage(`Error al procesar el archivo: ${err.message}`);
+        } finally {
+          setIsProcessing(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
         }
       };
       reader.readAsArrayBuffer(file);
     } else {
       const reader = new FileReader();
       reader.onload = (ev) => {
-        const text = ev.target?.result;
-        if (typeof text === "string") {
-          handleCardTextChange(text);
+        try {
+          const text = ev.target?.result;
+          if (typeof text === "string") {
+            const result = parseUniversalBankExtract(text, currentBank.name);
+            if (result.success && result.movements.length > 0) {
+              const importRes = importBankMovements(
+                result.movements.map((m) => ({
+                  id: m.id,
+                  concept: m.concept,
+                  amount: m.amount,
+                  date: m.date,
+                  monthKey: m.monthKey,
+                  bankName: currentBank.name,
+                  accountLabel: result.cardName || `Tarjeta ${currentBank.name}`,
+                  ownership: currentOwnership,
+                  rawConcept: m.rawConcept || m.concept,
+                }))
+              );
+
+              if (importRes.added > 0) {
+                setSuccessMessage(
+                  `¡${importRes.added} compras de ${currentBank.name} incorporadas con éxito!${
+                    importRes.duplicates > 0
+                      ? ` (${importRes.duplicates} repetidas se omitieron)`
+                      : ""
+                  }`
+                );
+              } else {
+                setSuccessMessage(
+                  `Todos los movimientos del extracto (${importRes.duplicates}) ya estaban incorporados en la app.`
+                );
+              }
+            } else {
+              setErrorMessage(
+                result.error ||
+                  `No se detectaron movimientos válidos en el archivo de ${currentBank.name}.`
+              );
+            }
+          }
+        } catch (err: any) {
+          setErrorMessage(`Error al leer el archivo: ${err.message}`);
+        } finally {
+          setIsProcessing(false);
+          if (fileInputRef.current) fileInputRef.current.value = "";
         }
       };
       reader.readAsText(file);
@@ -298,415 +225,137 @@ export const SyncModal: React.FC<SyncModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl border border-slate-100 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/60">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-2xl bg-emerald-100 text-[#00A37A] flex items-center justify-center shadow-xs">
               <RefreshCw className="w-4 h-4" />
             </div>
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
-                Sincronizar Movimientos
+                Sincronizar Extracto
               </h2>
-              <p className="text-xs text-slate-500">
-                Actualiza tu cuenta corriente y tus compras de tarjeta
-              </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors"
+            className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-900 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Cerrar"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* 1-Tap Universal Sync Card: Synchronizes both checking account and card purchases */}
-        <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-indigo-500/10 border border-emerald-200/90 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-xs">
-                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
-              </div>
-              <div>
-                <h3 className="text-xs font-black text-slate-900">Sincronización Unificada 1-Clic</h3>
-                <p className="text-[11px] text-slate-600">Actualiza Cuenta Nómina y descarga las compras de Tarjeta</p>
-              </div>
-            </div>
-            {dbStatus === "connected" && (
-              <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
-                Nube Activa
-              </span>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={handleSyncBank}
-            disabled={isSyncingBank}
-            className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-60"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
-            <span>{isSyncingBank ? "Sincronizando Todo..." : "Sincronizar Todo Ahora (Cuenta + Tarjeta BBDD)"}</span>
-          </button>
-
-          {bankSyncMessage && (
-            <div className="p-2.5 rounded-xl bg-emerald-100/90 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
-              <span>{bankSyncMessage}</span>
-            </div>
-          )}
-        </div>
-
-        {/* Tab Switcher: Cuenta vs Tarjeta */}
-        <div className="flex border-b border-slate-200/80 bg-slate-50/80 p-1.5 gap-1.5 mx-6 mt-3 rounded-2xl">
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("account")}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeSubTab === "account"
-                ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <Building2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Cuenta Nómina</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveSubTab("card")}
-            className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
-              activeSubTab === "card"
-                ? "bg-white text-slate-900 shadow-sm border border-slate-200/60"
-                : "text-slate-500 hover:text-slate-800"
-            }`}
-          >
-            <CreditCard className="w-3.5 h-3.5 text-indigo-600" />
-            <span>Tarjeta VISA Clásica</span>
-          </button>
-        </div>
-
-        {/* Content Area */}
+        {/* Content */}
         <div className="p-6 overflow-y-auto space-y-5">
-          {/* Cloud BBDD Status Warning / Connected Banner */}
-          {dbStatus === "pending" && (
-            <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-950 text-xs space-y-2">
-              <div className="flex items-center justify-between font-bold">
-                <span className="flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                  Base de Datos Supabase: Tabla pendiente
-                </span>
-                <span className="text-[10px] bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">
-                  15 seg
-                </span>
-              </div>
-              <p className="text-[11px] text-amber-850 leading-snug">
-                Para que los gastos cargados vía Excel se almacenen en la nube y se sincronicen de forma duradera con tus otros dispositivos, activa la tabla en Supabase:
-              </p>
-              <div className="flex items-center gap-2 pt-0.5 flex-wrap">
-                <a
-                  href="https://supabase.com/dashboard/project/egougygfqnnzfqpceggn/sql/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="py-1.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-[11px] flex items-center gap-1.5 shadow-xs"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  Abrir Supabase SQL Editor
-                </a>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigator.clipboard.writeText(HOUSEHOLD_SYNC_SQL);
-                    setCopiedSql(true);
-                    setTimeout(() => setCopiedSql(false), 2500);
-                  }}
-                  className="py-1.5 px-3 rounded-xl bg-white border border-amber-300 text-amber-900 font-bold text-[11px] flex items-center gap-1.5 hover:bg-amber-50 cursor-pointer shadow-xs"
-                >
-                  <Clipboard className="w-3.5 h-3.5 text-amber-700" />
-                  {copiedSql ? "¡SQL Copiado!" : "Copiar SQL en 1 Clic"}
-                </button>
-              </div>
-            </div>
-          )}
-          {dbStatus === "connected" && (
-            <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 text-[11px] font-bold flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                Base de datos en la nube: Conectada y sincronizada
-              </span>
-              <span className="text-[9px] bg-emerald-200/80 text-emerald-800 px-1.5 py-0.5 rounded-md">
-                Multi-dispositivo Activo
-              </span>
-            </div>
-          )}
+          {/* 1. Selector de Banco */}
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-slate-700">
+              Seleccionar banco:
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {SUPPORTED_BANKS.map((b) => {
+                const isSelected = b.id === selectedBankId;
+                const hasLoadedCard = accounts.some(
+                  (acc) =>
+                    acc.bankName.toLowerCase().includes(b.id) ||
+                    acc.accountName.toLowerCase().includes(b.id)
+                );
 
-          {/* TAB 1: CUENTA CORRIENTE */}
-          {activeSubTab === "account" && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span className="text-xs font-black text-emerald-900">
-                      Conexión Oficial Bankinter (PSD2)
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-800 px-2 py-0.5 rounded-full">
-                    Activa
-                  </span>
-                </div>
-                <p className="text-xs text-emerald-800 leading-relaxed">
-                  Autorizada para <strong>Carlos</strong> hasta el{" "}
-                  <strong>16 de diciembre de 2026</strong> (90 días). Sincroniza al
-                  instante sin necesidad de introducir códigos SMS.
-                </p>
-                {bankinterAccount && (
-                  <div className="pt-2 flex items-center justify-between text-xs text-emerald-900 font-bold border-t border-emerald-200/60">
-                    <span>Saldo reportado:</span>
-                    <span>{bankinterAccount.balance.toLocaleString("es-ES", { minimumFractionDigits: 2 })} €</span>
-                  </div>
-                )}
-              </div>
-
-              {bankSyncMessage && (
-                <div className="p-3 rounded-xl bg-emerald-100/70 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  <span>{bankSyncMessage}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={handleSyncBank}
-                disabled={isSyncingBank}
-                className="w-full py-3.5 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <RefreshCw className={`w-4 h-4 ${isSyncingBank ? "animate-spin" : ""}`} />
-                <span>
-                  {isSyncingBank ? "Sincronizando con Bankinter..." : "Sincronizar Todo Ahora (Cuenta + Tarjeta BBDD)"}
-                </span>
-              </button>
-
-              <div className="text-center pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    onOpenBankConnect();
-                  }}
-                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 underline transition-colors"
-                >
-                  ¿Caducaron los 90 días? Renovar autorización bancaria con SMS
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: TARJETA VISA */}
-          {activeSubTab === "card" && (
-            <div className="space-y-4">
-              <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="w-4 h-4 text-indigo-600" />
-                    <span className="text-xs font-black text-indigo-950">
-                      Sincronización Directa de Tarjeta VISA
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-bold bg-indigo-200/80 text-indigo-900 px-2 py-0.5 rounded-full">
-                    100% Automático
-                  </span>
-                </div>
-                <p className="text-xs text-indigo-900 leading-relaxed">
-                  Bankinter no expone tarjetas de crédito en su pasarela PSD2 (solo cuentas con IBAN). 
-                  Para tener tus compras sin guardar contraseñas en código, elige tu método:
-                </p>
-              </div>
-
-              {/* Action Buttons: Mobile Excel Upload, Direct Link & Desktop Runner */}
-              <div className="space-y-3">
-                {/* 1. Bankinter Direct Flow (Descargar Excel en 1 clic y cargar) */}
-                <div className="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-100 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-950">
-                      <Smartphone className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Sincronización con Excel Oficial Bankinter:</span>
-                    </div>
-                    <span className="text-[10px] font-bold bg-indigo-200/80 text-indigo-900 px-2 py-0.5 rounded-full">
-                      Recomendado
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <a
-                      href="https://bancaonline.bankinter.com/tarjetas/secure/tarjetas_ficha.xhtml?INDEX_CTA=5"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="py-2.5 px-3 rounded-xl bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs text-center"
-                    >
-                      <ExternalLink className="w-3.5 h-3.5 shrink-0" />
-                      <span>1. Abrir Tarjeta Bankinter</span>
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="py-2.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs cursor-pointer active:scale-98"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5 shrink-0" />
-                      <span>2. Cargar Excel</span>
-                    </button>
-                  </div>
-
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileUpload}
-                    accept=".xls,.xlsx,.csv"
-                    className="hidden"
-                  />
-
-                  <p className="text-[11px] text-indigo-800/80 leading-tight">
-                    En Bankinter pulsa <strong>Descargar Excel</strong> en tu tarjeta. Luego pulsa <strong>Cargar Excel</strong> y selecciona el archivo (<em>movimientos.xls</em>). Se extraerán todas las compras al instante sin manualidad.
-                  </p>
-                </div>
-
-                {/* Cloud Sync for Card movements */}
-                <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200/90 flex items-center justify-between gap-2">
-                  <div>
-                    <div className="text-xs font-black text-emerald-950">Compras en Base de Datos Nube:</div>
-                    <div className="text-[11px] text-emerald-800">Descarga las compras subidas desde otros dispositivos</div>
-                  </div>
+                return (
                   <button
+                    key={b.id}
                     type="button"
-                    onClick={handleSyncBank}
-                    disabled={isSyncingBank}
-                    className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition-all cursor-pointer disabled:opacity-60 shrink-0"
-                  >
-                    <RefreshCw className={`w-3.5 h-3.5 ${isSyncingBank ? "animate-spin" : ""}`} />
-                    <span>{isSyncingBank ? "Descargando..." : "Descargar de BBDD"}</span>
-                  </button>
-                </div>
-
-                {/* 2. Desktop Auto Runner */}
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/70 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                      <Laptop className="w-3.5 h-3.5 text-slate-600" />
-                      <span>Desde PC (Servidor Local):</span>
-                    </div>
-                    <span className="text-[10px] font-semibold text-slate-400">Automatizado</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleLaunchBankinterBrowser}
-                    disabled={isLaunchingBrowser}
-                    className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>
-                      {isLaunchingBrowser ? "Ventana Abierta en Pantalla..." : "Abrir Ventana Chrome en PC"}
-                    </span>
-                  </button>
-                </div>
-
-                {browserSyncStatus && (
-                  <div
-                    className={`p-3.5 rounded-2xl border text-xs font-bold flex items-center gap-2.5 ${
-                      browserSyncStatus.includes("✅")
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
-                        : browserSyncStatus.includes("⚠️") || browserSyncStatus.includes("Error")
-                        ? "bg-red-50 border-red-200 text-red-700"
-                        : "bg-indigo-50 border-indigo-200 text-indigo-950"
+                    onClick={() => handleBankSelect(b.id)}
+                    className={`p-3 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-98 ${
+                      isSelected
+                        ? `${b.activeBorder} ${b.activeBg} ring-2 ring-offset-1 ring-slate-400/20 shadow-xs font-extrabold text-slate-900`
+                        : "border-slate-200 bg-white hover:bg-slate-50 text-slate-600 font-semibold"
                     }`}
                   >
-                    {isLaunchingBrowser ? (
-                      <RefreshCw className="w-4 h-4 animate-spin text-indigo-600 shrink-0" />
-                    ) : browserSyncStatus.includes("✅") ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    ) : (
-                      <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    )}
-                    <span className="leading-snug">{browserSyncStatus}</span>
-                  </div>
-                )}
-
-                {cardError && (
-                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{cardError}</span>
-                  </div>
-                )}
-
-                {cardSuccessMsg && (
-                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-                    <span>{cardSuccessMsg}</span>
-                  </div>
-                )}
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 space-y-1">
-                  <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Seguridad y Privacidad Estricta:</span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Tus credenciales nunca se guardan en variables ni en repositorios; te autenticas siempre directamente en el entorno oficial de Bankinter.
-                  </p>
-                </div>
-              </div>
-
-              {/* Parsed movements preview */}
-              {parsedCardMovements.length > 0 && (
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
-                    <div>
-                      <span>{parsedCardMovements.length} compras detectadas:</span>
-                      {detectedCardInfo && (
-                        <span className="block text-[10px] text-indigo-600 font-semibold">{detectedCardInfo}</span>
-                      )}
+                    <div className="flex items-center gap-1.5">
+                      <CreditCard
+                        className="w-4 h-4 shrink-0"
+                        style={{ color: b.brandColor }}
+                      />
+                      <span className="text-xs leading-none">{b.name}</span>
                     </div>
-                    <span className="text-indigo-600 font-extrabold">Listo para añadir</span>
-                  </div>
-
-                  <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
-                    {parsedCardMovements.slice(0, 6).map((m, idx) => (
-                      <div
-                        key={idx}
-                        className="p-2 rounded-xl bg-white border border-slate-100 flex items-center justify-between text-xs"
-                      >
-                        <div className="min-w-0 pr-2">
-                          <span className="font-bold text-slate-800 block truncate text-[11px]">
-                            {m.concept}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            {m.date}
-                          </span>
-                        </div>
-                        <span className="font-extrabold text-slate-900 text-xs shrink-0">
-                          {m.amount.toFixed(2)} €
-                        </span>
-                      </div>
-                    ))}
-                    {parsedCardMovements.length > 6 && (
-                      <div className="text-center text-[10px] text-slate-400 py-1 font-semibold">
-                        + {parsedCardMovements.length - 6} compras más...
-                      </div>
+                    {hasLoadedCard && (
+                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                        Cargada
+                      </span>
                     )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleImportCardMovements}
-                    className="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 transition-all cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Incorporar {parsedCardMovements.length} Compras a Sygis</span>
                   </button>
-                </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 2. Botones de Acción: Descargar Extracto y Cargar Extracto en App */}
+          <div className="grid grid-cols-2 gap-2.5 pt-1">
+            <a
+              href={currentBank.downloadUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="py-3 px-3 rounded-2xl bg-white border border-slate-300 hover:border-slate-400 text-slate-800 hover:bg-slate-50 font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all text-center"
+            >
+              <ExternalLink className="w-3.5 h-3.5 shrink-0 text-slate-600" />
+              <span>Descargar extracto</span>
+            </a>
+
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => fileInputRef.current?.click()}
+              className="py-3 px-3 rounded-2xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-[#00D09C]/20 transition-all cursor-pointer disabled:opacity-50 active:scale-98"
+            >
+              {isProcessing ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Upload className="w-3.5 h-3.5 shrink-0" />
               )}
+              <span>{isProcessing ? "Cargando..." : "Cargar extracto en app"}</span>
+            </button>
+          </div>
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+            accept=".xls,.xlsx,.csv,.txt"
+            className="hidden"
+          />
+
+          {/* Feedback messages */}
+          {successMessage && (
+            <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMessage}</span>
             </div>
           )}
+
+          {errorMessage && (
+            <div className="p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
+
+          {/* 3. Miniguía por pasos de cómo descargar el extracto según el banco */}
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-850">
+              <FileSpreadsheet className="w-3.5 h-3.5 text-slate-600" />
+              <span>Cómo descargar el extracto en {currentBank.name}:</span>
+            </div>
+            <ol className="text-xs text-slate-600 space-y-1.5 pl-4 list-decimal leading-relaxed">
+              {currentBank.steps.map((step, idx) => (
+                <li key={idx} className="pl-1">
+                  {step}
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
     </div>

@@ -72,4 +72,35 @@ Fecha,Concepto,Importe
       expect(justEat?.date).toBe("11/09/2026");
     }
   });
+
+  it("parses Revolut CSV statement format accurately", async () => {
+    const { parseUniversalBankExtract } = await import("../src/lib/bank/importer");
+    const revolutCsv = `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+CARD_PAYMENT,Current,2026-09-20 14:22:00,2026-09-20 14:23:00,Uber Eats,-18.50,0.00,EUR,COMPLETED,340.20
+CARD_PAYMENT,Current,2026-09-19 10:15:00,2026-09-19 10:16:00,Starbucks,-4.20,0.00,EUR,COMPLETED,358.70`;
+
+    const res = parseUniversalBankExtract(revolutCsv, "Revolut");
+    expect(res.success).toBe(true);
+    expect(res.totalMovements).toBe(2);
+    expect(res.movements[0].concept).toBe("Uber Eats");
+    expect(res.movements[0].amount).toBe(18.5);
+    expect(res.movements[0].date).toBe("20/09/2026");
+    expect(res.movements[1].concept).toBe("Starbucks");
+    expect(res.movements[1].amount).toBe(4.2);
+  });
+
+  it("parses BBVA CSV statement format accurately", async () => {
+    const { parseUniversalBankExtract } = await import("../src/lib/bank/importer");
+    const bbvaCsv = `Fecha;Concepto;Importe;Divisa
+21/09/2026;MERCADONA SUPERMERCADO;-42,30;EUR
+20/09/2026;ZARA MADRID;-69,95;EUR`;
+
+    const res = parseUniversalBankExtract(bbvaCsv, "BBVA");
+    expect(res.success).toBe(true);
+    expect(res.totalMovements).toBe(2);
+    expect(res.movements[0].concept).toBe("MERCADONA SUPERMERCADO");
+    expect(res.movements[0].amount).toBe(42.3);
+    expect(res.movements[1].concept).toBe("ZARA MADRID");
+    expect(res.movements[1].amount).toBe(69.95);
+  });
 });
