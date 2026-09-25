@@ -1,13 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import VersionBadge from "./VersionBadge";
 import SygisLogo from "./SygisLogo";
-import { useUserNames } from "@/context/UserNamesContext";
-import { useOptionalAuth } from "@/context/AuthContext";
 import { useTransactions } from "@/context/TransactionsContext";
-import { useProfileSecurity } from "@/context/ProfileSecurityContext";
-import { Menu, HeartHandshake, User, RefreshCw, SlidersHorizontal } from "lucide-react";
+import { Menu, RefreshCw, SlidersHorizontal } from "lucide-react";
 
 interface HeaderProps {
   onOpenMobileMenu: () => void;
@@ -15,21 +11,9 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModal }) => {
-  const { memberAName, memberBName } = useUserNames();
-  const auth = useOptionalAuth();
-  const profileSecurity = useProfileSecurity();
   const { syncBankFeed } = useTransactions();
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncToast, setSyncToast] = useState<string | null>(null);
-
-  const activeName = auth?.activeRole === "memberB" ? memberBName : memberAName;
-  const isB = auth?.activeRole === "memberB";
-
-  const handleToggleRole = () => {
-    if (auth) {
-      profileSecurity.requestSwitchProfile(isB ? "memberA" : "memberB");
-    }
-  };
 
   const handleQuickSync = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -68,8 +52,8 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
         </div>
       </div>
 
-      {/* Right side: Sync Button, Active Role Switcher Badge & VersionBadge */}
-      <div className="flex items-center gap-1.5">
+      {/* Right side: Sync Button (placed where VersionBadge previously was) */}
+      <div className="flex items-center">
         <div className="flex items-center rounded-full bg-emerald-50 border border-emerald-300/80 shadow-xs overflow-hidden">
           <button
             type="button"
@@ -92,23 +76,6 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
             </button>
           )}
         </div>
-
-        {auth && (
-          <button
-            type="button"
-            onClick={handleToggleRole}
-            className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-all cursor-pointer ${
-              isB
-                ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                : "bg-red-50 text-red-700 border-red-200 hover:bg-red-100"
-            }`}
-            title={`Actuando como ${activeName}. Toca para cambiar.`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${isB ? "bg-blue-500" : "bg-red-500"}`} />
-            <span>{activeName}</span>
-          </button>
-        )}
-        <VersionBadge showDetails={false} />
       </div>
     </header>
   );

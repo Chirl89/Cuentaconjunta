@@ -62,9 +62,27 @@ describe("Sygis Brand & Visual Identity", () => {
     expect(screen.getAllByText("Sygis").length).toBeGreaterThan(0);
   });
 
-  it("renders VersionBadge with current version v0.11.8", () => {
+  it("renders VersionBadge with current version v0.11.9", () => {
     render(<VersionBadge />);
     expect(screen.getByText(`v${versionData.version}`)).toBeInTheDocument();
-    expect(versionData.version).toBe("0.11.8");
+    expect(versionData.version).toBe("0.11.9");
+  });
+
+  it("renders mobile Header with Sync button and without version badge or profile switcher", () => {
+    render(
+      <UserNamesProvider>
+        <TransactionsProvider>
+          <NavigationProvider>
+            <Header onOpenMobileMenu={() => {}} onOpenSyncModal={() => {}} />
+          </NavigationProvider>
+        </TransactionsProvider>
+      </UserNamesProvider>
+    );
+
+    // Sync button is present
+    expect(screen.getByText("Sync")).toBeInTheDocument();
+
+    // VersionBadge is not rendered in mobile Header
+    expect(screen.queryByTestId("version-badge")).not.toBeInTheDocument();
   });
 });
