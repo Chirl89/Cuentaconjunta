@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertCircle,
   FileSpreadsheet,
+  Trash2,
 } from "lucide-react";
 
 export type SupportedBankId = "bankinter" | "bbva" | "revolut";
@@ -84,7 +85,7 @@ interface SyncModalProps {
 }
 
 export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
-  const { importBankMovements, accounts } = useTransactions();
+  const { importBankMovements, accounts, transactions, deleteMovementsByBank } = useTransactions();
   const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -95,6 +96,18 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
 
   const currentBank =
     SUPPORTED_BANKS.find((b) => b.id === selectedBankId) || SUPPORTED_BANKS[0];
+
+  const bankMovementsCount = transactions.filter((t) => {
+    const acc = (t.accountLabel || "").toLowerCase();
+    const id = (t.id || "").toLowerCase();
+    const bId = (t.bankMovementId || "").toLowerCase();
+    return (
+      acc.includes(currentBank.id) ||
+      id.includes(currentBank.id) ||
+      bId.includes(currentBank.id) ||
+      acc.includes(currentBank.name.toLowerCase())
+    );
+  }).length;
 
   const handleBankSelect = (bankId: SupportedBankId) => {
     setSelectedBankId(bankId);
@@ -293,6 +306,30 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
               })}
             </div>
           </div>
+
+          {/* Información y botón para borrar movimientos previos del banco */}
+          {bankMovementsCount > 0 && (
+            <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-xs gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0"></span>
+                <span className="text-slate-700 font-medium truncate">
+                  <strong className="text-slate-900 font-bold">{bankMovementsCount}</strong> {bankMovementsCount === 1 ? "movimiento registrado" : "movimientos registrados"} de {currentBank.name}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const deleted = deleteMovementsByBank(currentBank.id);
+                  setSuccessMessage(`Se han borrado los ${deleted} movimientos de ${currentBank.name}. Ya puedes volver a cargar el extracto.`);
+                }}
+                className="text-red-600 hover:text-red-700 hover:bg-red-100/70 font-bold px-2.5 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shrink-0 text-xs active:scale-95"
+                title={`Eliminar todos los movimientos de ${currentBank.name}`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Borrar movimientos</span>
+              </button>
+            </div>
+          )}
 
           {/* 2. Botones de Acción: Descargar Extracto y Cargar Extracto en App */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">

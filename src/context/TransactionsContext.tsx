@@ -953,6 +953,7 @@ interface TransactionsContextType {
   }>) => { added: number; duplicates: number; total: number };
   syncBankFeed: (options?: { forceLiveApi?: boolean }) => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
+  deleteMovementsByBank: (bankOrKeyword: string) => number;
   // Paso 7: Rules & Continuous Category Learning
   rules: AssignmentRule[];
   learnings: CategoryLearningItem[];
@@ -1139,7 +1140,21 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const parsed = JSON.parse(savedTxs);
         if (Array.isArray(parsed)) {
           const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-          const sanitized = filtered.map((t: any) => {
+          const HAS_CLEARED_REVOLUT_KEY = "cuentaconjunta_purged_revolut_v0124";
+          let toSanitize = filtered;
+          if (!isTestEnv && typeof window !== "undefined" && !localStorage.getItem(HAS_CLEARED_REVOLUT_KEY)) {
+            try {
+              localStorage.setItem(HAS_CLEARED_REVOLUT_KEY, "true");
+              toSanitize = filtered.filter((t: any) => {
+                const acc = (t.accountLabel || "").toLowerCase();
+                const id = (t.id || "").toLowerCase();
+                const bId = (t.bankMovementId || "").toLowerCase();
+                const isRev = acc.includes("revolut") || id.includes("revolut") || bId.includes("revolut");
+                return !isRev;
+              });
+            } catch {}
+          }
+          const sanitized = toSanitize.map((t: any) => {
             const m = (t.merchant || "").toLowerCase();
             const raw = (t.rawConcept || "").toLowerCase();
             if (isCardBillingStatement(m) || isCardBillingStatement(raw)) {
@@ -1603,6 +1618,36 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       }
     },
     [inviteCode]
+  );
+
+  const deleteMovementsByBank = useCallback(
+    (bankOrKeyword: string): number => {
+      let deletedCount = 0;
+      const target = bankOrKeyword.toLowerCase().trim();
+      if (!target) return 0;
+
+      persistTransactions((prev) => {
+        const remaining: Transaction[] = [];
+        prev.forEach((t) => {
+          const acc = (t.accountLabel || "").toLowerCase();
+          const id = (t.id || "").toLowerCase();
+          const bId = (t.bankMovementId || "").toLowerCase();
+          const isMatch =
+            acc.includes(target) ||
+            id.includes(target) ||
+            bId.includes(target);
+          if (isMatch) {
+            deletedCount++;
+          } else {
+            remaining.push(t);
+          }
+        });
+        return remaining;
+      });
+
+      return deletedCount;
+    },
+    [persistTransactions]
   );
 
   const persistSettlements = useCallback(
@@ -3409,6 +3454,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         importBankMovements,
         syncBankFeed,
         clearAllTransactions,
+        deleteMovementsByBank,
         rules,
         learnings,
         addRule,

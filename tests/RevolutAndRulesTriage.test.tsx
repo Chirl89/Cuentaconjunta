@@ -119,4 +119,56 @@ describe("Revolut Incomes/Expenses & Reglas de Autoasignación Sólo Categorías
     expect(classifiedTx?.split).toBe("memberA");
     expect(classifiedTx?.category).toBe("Supermercado");
   });
+
+  it("deleteMovementsByBank elimina todos los movimientos del banco especificado sin afectar al resto", () => {
+    const { result } = renderHook(() => useTransactions(), { wrapper });
+
+    act(() => {
+      result.current.importBankMovements([
+        {
+          id: "bk-1",
+          concept: "Compra Bankinter",
+          amount: 50.0,
+          date: "10/09/2026",
+          monthKey: "2026-09",
+          bankName: "Bankinter",
+          accountLabel: "Tarjeta Bankinter",
+        },
+        {
+          id: "rev-1",
+          concept: "Compra Revolut 1",
+          amount: 25.0,
+          date: "11/09/2026",
+          monthKey: "2026-09",
+          bankName: "Revolut",
+          accountLabel: "Tarjeta Revolut",
+        },
+        {
+          id: "rev-2",
+          concept: "Compra Revolut 2",
+          amount: 15.0,
+          date: "12/09/2026",
+          monthKey: "2026-09",
+          bankName: "Revolut",
+          accountLabel: "Tarjeta Revolut",
+        },
+      ]);
+    });
+
+    expect(result.current.transactions.some((t) => t.id === "rev-1")).toBe(true);
+    expect(result.current.transactions.some((t) => t.id === "rev-2")).toBe(true);
+    expect(result.current.transactions.some((t) => t.id === "bk-1")).toBe(true);
+
+    // Borramos los movimientos de Revolut
+    act(() => {
+      const deleted = result.current.deleteMovementsByBank("revolut");
+      expect(deleted).toBe(2);
+    });
+
+    // Ningún movimiento de Revolut debe quedar, el de Bankinter permanece
+    expect(result.current.transactions.some((t) => t.id === "rev-1")).toBe(false);
+    expect(result.current.transactions.some((t) => t.id === "rev-2")).toBe(false);
+    expect(result.current.transactions.some((t) => t.id === "bk-1")).toBe(true);
+  });
 });
+
