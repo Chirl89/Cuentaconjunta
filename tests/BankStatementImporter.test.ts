@@ -89,14 +89,17 @@ CARD_PAYMENT,Current,2026-09-19 10:15:00,2026-09-19 10:16:00,Starbucks,-4.20,0.0
     expect(res.movements[1].amount).toBe(4.2);
   });
 
-  it("parses BBVA CSV statement format accurately", async () => {
+  it("parses BBVA CSV statement format and detects card type and digits", async () => {
     const { parseUniversalBankExtract } = await import("../src/lib/bank/importer");
-    const bbvaCsv = `Fecha;Concepto;Importe;Divisa
+    const bbvaCsv = `Tarjeta Débito BBVA **** 9912
+Fecha;Concepto;Importe;Divisa
 21/09/2026;MERCADONA SUPERMERCADO;-42,30;EUR
 20/09/2026;ZARA MADRID;-69,95;EUR`;
 
     const res = parseUniversalBankExtract(bbvaCsv, "BBVA");
     expect(res.success).toBe(true);
+    expect(res.cardName).toBe("Tarjeta Débito BBVA");
+    expect(res.cardNumber).toBe("*9912");
     expect(res.totalMovements).toBe(2);
     expect(res.movements[0].concept).toBe("MERCADONA SUPERMERCADO");
     expect(res.movements[0].amount).toBe(42.3);

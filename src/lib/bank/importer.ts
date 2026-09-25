@@ -215,6 +215,10 @@ export function parseUniversalBankExtract(
       };
     }
 
+    const cardDetails = detectCardDetails(text, bankName);
+    const detectedCardName = cardDetails.detectedCardName || `Tarjeta ${bankName}`;
+    const detectedCardNumber = cardDetails.detectedDigits ? `*${cardDetails.detectedDigits}` : "";
+
     // Check for Revolut CSV structure
     const isRevolutCsv = text.includes("Started Date") || text.includes("Type,Product");
     if (isRevolutCsv || bankName.toLowerCase().includes("revolut")) {
@@ -280,8 +284,8 @@ export function parseUniversalBankExtract(
             const totalExpenses = movements.filter((m) => !m.isCredit).reduce((s, m) => s + m.amount, 0);
             return {
               success: true,
-              cardName: "Tarjeta Revolut",
-              cardNumber: "",
+              cardName: detectedCardName,
+              cardNumber: detectedCardNumber,
               totalMovements: movements.length,
               totalExpenses,
               movements,
@@ -295,8 +299,8 @@ export function parseUniversalBankExtract(
     const stmt = parseSpanishBankStatement(text, bankName);
     return {
       success: stmt.success,
-      cardName: `Tarjeta ${bankName}`,
-      cardNumber: "",
+      cardName: detectedCardName,
+      cardNumber: detectedCardNumber,
       totalMovements: stmt.totalMovements,
       totalExpenses: stmt.totalExpenses,
       movements: stmt.movements.map((m) => ({
@@ -338,17 +342,14 @@ export function parseUniversalBankExtract(
       };
     }
 
-    let cardName = `Tarjeta ${bankName}`;
-    let cardNumber = "";
-    if (rows[0] && rows[0][0]) {
-      const m = String(rows[0][0]).match(/([^(]+)\s*\(([^)]+)\)/);
-      if (m) {
-        let rawName = m[1].replace(/Número de tarjeta:\s*/i, "").trim();
-        if (/visa clasi/i.test(rawName)) rawName = "Visa Clásica";
-        cardName = rawName;
-        cardNumber = m[2].replace(/^\.+/, "*").trim();
-      }
-    }
+    // Inspect metadata rows for card details
+    const headerSnippet = rows
+      .slice(0, 6)
+      .map((r) => (Array.isArray(r) ? r.join(" ") : String(r)))
+      .join(" ");
+    const cardDetails = detectCardDetails(headerSnippet, bankName);
+    let cardName = cardDetails.detectedCardName || `Tarjeta ${bankName}`;
+    let cardNumber = cardDetails.detectedDigits ? `*${cardDetails.detectedDigits}` : "";
 
     // Detect column indexes (date, concept, amount)
     let dateColIdx = -1;
