@@ -977,6 +977,8 @@ const TransactionsContext = createContext<TransactionsContextType | undefined>(u
 
 export const PURGE_REVOLUT_KEY = "cuentaconjunta_revolut_purged_v0126";
 export const PURGE_REVOLUT_TS_KEY = "cuentaconjunta_revolut_purge_timestamp";
+export const PURGE_ANDREA_VISACLASICA_KEY = "cuentaconjunta_purged_andrea_visaclasica_v0127";
+export const PURGE_ANDREA_VISACLASICA_TS_KEY = "cuentaconjunta_purged_andrea_visaclasica_ts";
 
 export function isRevolutTransaction(t: {
   accountLabel?: string;
@@ -1004,6 +1006,47 @@ export function isRevolutTransaction(t: {
   );
 }
 
+export function shouldPurgeMovement(t: any): boolean {
+  if (!t) return false;
+
+  // 1. Any movement of Andrea in general (user: "elimina todos los movimientos de andrea, en general")
+  if (
+    t.payer === "memberB" ||
+    t.split === "memberB" ||
+    t.ownership === "USER_B" ||
+    (t.accountLabel || "").toLowerCase().includes("andrea")
+  ) {
+    return true;
+  }
+
+  // 2. Any movement of Visa Clásica (user: "siguen apareciendo, pero como visa clásica... la tarjeta se ha asignado como bankinter visa clásica, asignada a carlos")
+  const acc = (t.accountLabel || "").toLowerCase();
+  const id = (t.id || "").toLowerCase();
+  const bId = (t.bankMovementId || "").toLowerCase();
+  const m = (t.merchant || "").toLowerCase();
+  const raw = (t.rawConcept || "").toLowerCase();
+
+  if (
+    acc.includes("clásica") ||
+    acc.includes("clasica") ||
+    id.includes("clasica") ||
+    id.includes("clásica") ||
+    bId.includes("clasica") ||
+    bId.includes("clásica") ||
+    m.includes("visa clasica") ||
+    raw.includes("visa clasica")
+  ) {
+    return true;
+  }
+
+  // 3. Any Revolut movement
+  if (isRevolutTransaction(t)) {
+    return true;
+  }
+
+  return false;
+}
+
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
@@ -1018,12 +1061,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
             let filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-            const isPurged = localStorage.getItem(PURGE_REVOLUT_KEY) === "true";
+            const isPurged = localStorage.getItem(PURGE_ANDREA_VISACLASICA_KEY) === "true";
             if (!isTestEnv && !isPurged) {
               const nowTs = Date.now();
-              localStorage.setItem(PURGE_REVOLUT_KEY, "true");
-              localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
-              filtered = filtered.filter((t: any) => !isRevolutTransaction(t));
+              localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
+              localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
+              filtered = filtered.filter((t: any) => !shouldPurgeMovement(t));
               localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(filtered));
             }
             return filtered;
@@ -1179,22 +1222,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
           let toSanitize = filtered;
           const purgeTs = typeof window !== "undefined"
-            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
             : 0;
-          const isPurged = typeof window !== "undefined" && localStorage.getItem(PURGE_REVOLUT_KEY) === "true";
+          const isPurged = typeof window !== "undefined" && localStorage.getItem(PURGE_ANDREA_VISACLASICA_KEY) === "true";
 
           if (!isTestEnv && typeof window !== "undefined") {
             if (!isPurged || purgeTs === 0) {
               const nowTs = Date.now();
               try {
-                localStorage.setItem(PURGE_REVOLUT_KEY, "true");
-                localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
+                localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
+                localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
               } catch {}
-              toSanitize = filtered.filter((t: any) => !isRevolutTransaction(t));
+              toSanitize = filtered.filter((t: any) => !shouldPurgeMovement(t));
             } else {
-              // Only keep Revolut transactions if they were created after the purge timestamp
+              // Only keep transactions if they were created after the purge timestamp
               toSanitize = filtered.filter((t: any) => {
-                if (!isRevolutTransaction(t)) return true;
+                if (!shouldPurgeMovement(t)) return true;
                 return (t.createdAt || 0) > purgeTs;
               });
             }
@@ -1235,7 +1278,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           setTransactions(sanitized);
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(sanitized));
 
-          // If old Revolut transactions were purged, propagate immediately to Supabase
+          // If old transactions were purged, propagate immediately to Supabase
           if (!isTestEnv && toSanitize.length !== filtered.length) {
             pushStateToCloud(inviteCode, { transactions: sanitized }).catch(() => {});
           }
@@ -1265,20 +1308,20 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (!cloud) return;
         if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
           const currentPurgeTs = typeof window !== "undefined"
-            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
             : 0;
 
-          // Strip any old Revolut transactions from cloud created before currentPurgeTs
+          // Strip any purged transactions from cloud created before currentPurgeTs
           const cleanCloudTransactions = cloud.transactions.filter((ct: any) => {
-            if (!isRevolutTransaction(ct)) return true;
+            if (!shouldPurgeMovement(ct)) return true;
             return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
           });
 
-          const hadOldRevolutInCloud = cleanCloudTransactions.length !== cloud.transactions.length;
+          const hadPurgedInCloud = cleanCloudTransactions.length !== cloud.transactions.length;
 
           setTransactions((prev) => {
             const cleanPrev = prev.filter((t: any) => {
-              if (!isRevolutTransaction(t)) return true;
+              if (!shouldPurgeMovement(t)) return true;
               return currentPurgeTs > 0 && (t.createdAt || 0) > currentPurgeTs;
             });
 
@@ -1304,7 +1347,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
             } catch {}
 
-            if (hadOldRevolutInCloud) {
+            if (hadPurgedInCloud) {
               pushStateToCloud(inviteCode, { transactions: merged }).catch(console.warn);
             }
 
@@ -1366,11 +1409,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const cloud = await fetchStateFromCloud(inviteCode);
         if (cloud) {
           const currentPurgeTs = typeof window !== "undefined"
-            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
             : 0;
           if (Array.isArray(cloud.transactions)) {
             cloudTxs = cloud.transactions.filter((ct: any) => {
-              if (!isRevolutTransaction(ct)) return true;
+              if (!shouldPurgeMovement(ct)) return true;
               return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
             });
           }
@@ -1705,12 +1748,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (!target) return 0;
 
       const isRevolutTarget = target.includes("revolut");
+      const isAndreaTarget = target.includes("andrea");
+      const isVisaClasicaTarget = target.includes("clasica") || target.includes("clásica");
+      const isSpecialPurge = isRevolutTarget || isAndreaTarget || isVisaClasicaTarget;
       const nowTs = Date.now();
 
-      if (isRevolutTarget && typeof window !== "undefined") {
+      if (isSpecialPurge && typeof window !== "undefined") {
         try {
-          localStorage.setItem(PURGE_REVOLUT_KEY, "true");
-          localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
+          localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
+          localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
         } catch {}
       }
 
@@ -1719,6 +1765,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         prev.forEach((t) => {
           const isMatch = isRevolutTarget
             ? isRevolutTransaction(t)
+            : isAndreaTarget
+            ? (t.payer === "memberB" || t.split === "memberB" || (t as any).ownership === "USER_B" || (t.accountLabel || "").toLowerCase().includes("andrea"))
+            : isVisaClasicaTarget
+            ? ((t.accountLabel || "").toLowerCase().includes("clasica") || (t.accountLabel || "").toLowerCase().includes("clásica") || (t.id || "").toLowerCase().includes("clasica") || (t.id || "").toLowerCase().includes("clásica"))
             : ((t.accountLabel || "").toLowerCase().includes(target) ||
                (t.id || "").toLowerCase().includes(target) ||
                (t.bankMovementId || "").toLowerCase().includes(target) ||
@@ -2295,16 +2345,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const unsubscribeDb = subscribeHouseholdDbChanges(inviteCode, (cloud) => {
       if (cloud.transactions && Array.isArray(cloud.transactions)) {
         const currentPurgeTs = typeof window !== "undefined"
-          ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+          ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
           : 0;
         const cleanCloudTransactions = cloud.transactions.filter((ct: any) => {
-          if (!isRevolutTransaction(ct)) return true;
+          if (!shouldPurgeMovement(ct)) return true;
           return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
         });
 
         setTransactions((prev) => {
           const cleanPrev = prev.filter((t: any) => {
-            if (!isRevolutTransaction(t)) return true;
+            if (!shouldPurgeMovement(t)) return true;
             return currentPurgeTs > 0 && (t.createdAt || 0) > currentPurgeTs;
           });
           const prevMap = new Map(cleanPrev.map((t) => [t.id, t]));

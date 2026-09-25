@@ -230,5 +230,62 @@ describe("Revolut Incomes/Expenses & Reglas de Autoasignación Sólo Categorías
     // El movimiento de Bankinter permanece intacto
     expect(result.current.transactions.some((t) => t.id === "bk-stay-1")).toBe(true);
   });
+
+  it("elimina movimientos de Andrea en general y de Tarjeta VISA Clásica aunque se hayan asignado a Carlos", () => {
+    const { result } = renderHook(() => useTransactions(), { wrapper });
+
+    act(() => {
+      result.current.importBankMovements([
+        {
+          id: "andrea-mov-1",
+          concept: "Zara Ropa",
+          amount: 55.0,
+          date: "10/09/2026",
+          monthKey: "2026-09",
+          bankName: "Bankinter",
+          accountLabel: "Tarjeta Andrea",
+          ownership: "USER_B",
+        },
+        {
+          id: "visa-clasica-1",
+          concept: "Compra Supermercado Misassigned",
+          amount: 42.0,
+          date: "12/09/2026",
+          monthKey: "2026-09",
+          bankName: "Bankinter",
+          accountLabel: "Tarjeta VISA Clásica",
+          ownership: "USER_A", // asignada a Carlos por error al cargar
+        },
+        {
+          id: "carlos-stay-1",
+          concept: "Gasolina Repsol Carlos",
+          amount: 50.0,
+          date: "15/09/2026",
+          monthKey: "2026-09",
+          bankName: "Bankinter",
+          accountLabel: "Bankinter (ES9301280082940100030803)",
+          ownership: "USER_A",
+        },
+      ]);
+    });
+
+    expect(result.current.transactions.some((t) => t.id === "andrea-mov-1")).toBe(true);
+    expect(result.current.transactions.some((t) => t.id === "visa-clasica-1")).toBe(true);
+    expect(result.current.transactions.some((t) => t.id === "carlos-stay-1")).toBe(true);
+
+    // Borramos usando deleteMovementsByBank con "clasica" y "andrea"
+    act(() => {
+      const deletedClasica = result.current.deleteMovementsByBank("clasica");
+      expect(deletedClasica).toBe(1);
+      const deletedAndrea = result.current.deleteMovementsByBank("andrea");
+      expect(deletedAndrea).toBeGreaterThanOrEqual(1);
+    });
+
+    // Se han eliminado los de Andrea y los de Visa Clásica
+    expect(result.current.transactions.some((t) => t.id === "andrea-mov-1")).toBe(false);
+    expect(result.current.transactions.some((t) => t.id === "visa-clasica-1")).toBe(false);
+    // El legítimo de Carlos permanece
+    expect(result.current.transactions.some((t) => t.id === "carlos-stay-1")).toBe(true);
+  });
 });
 

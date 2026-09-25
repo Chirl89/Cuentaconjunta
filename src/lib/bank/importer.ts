@@ -215,9 +215,14 @@ export function parseUniversalBankExtract(
       };
     }
 
-    const isRevolutCsv = text.includes("Started Date") || text.includes("Type,Product");
+    const isRevolutCsv =
+      text.includes("Started Date") ||
+      text.includes("Type,Product") ||
+      text.toLowerCase().includes("revolut") ||
+      (text.toLowerCase().includes("fecha de inicio") && text.toLowerCase().includes("producto")) ||
+      text.toLowerCase().includes("app.revolut.com");
     const isRevolutBank = isRevolutCsv || bankName.toLowerCase().includes("revolut");
-    const cardDetails = detectCardDetails(text, bankName);
+    const cardDetails = detectCardDetails(text, isRevolutBank ? "Revolut" : bankName);
     const detectedCardName = isRevolutBank
       ? `Tarjeta Revolut${cardDetails.detectedDigits ? ` *${cardDetails.detectedDigits}` : ""}`
       : cardDetails.detectedCardName || `Tarjeta ${bankName}`;
@@ -227,9 +232,11 @@ export function parseUniversalBankExtract(
     if (isRevolutBank) {
       const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
       if (lines.length > 1) {
-        const header = lines[0].split(",").map((h) => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
+        const firstLine = lines[0];
+        const delimiter = firstLine.includes(";") ? ";" : firstLine.includes("\t") ? "\t" : ",";
+        const header = firstLine.split(delimiter).map((h) => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
         const dateIdx = header.findIndex((h) => h.includes("started date") || h.includes("fecha"));
-        const descIdx = header.findIndex((h) => h.includes("description") || h.includes("descripcion") || h.includes("concepto"));
+        const descIdx = header.findIndex((h) => h.includes("description") || h.includes("descripci") || h.includes("concepto"));
         const amtIdx = header.findIndex((h) => h === "amount" || h.includes("importe"));
 
         if (dateIdx !== -1 && descIdx !== -1 && amtIdx !== -1) {
@@ -237,12 +244,17 @@ export function parseUniversalBankExtract(
           const occurrenceMap = new Map<string, number>();
 
           for (let i = 1; i < lines.length; i++) {
-            const rowParts = lines[i].split(",").map((p) => p.replace(/^["']|["']$/g, "").trim());
+            const rowParts = lines[i].split(delimiter).map((p) => p.replace(/^["']|["']$/g, "").trim());
             if (rowParts.length <= Math.max(dateIdx, descIdx, amtIdx)) continue;
 
             const dateStr = rowParts[dateIdx];
             const conceptStr = rowParts[descIdx];
-            const amtStr = rowParts[amtIdx].replace(/€|\s/g, "");
+            let amtStr = rowParts[amtIdx].replace(/€|\s/g, "");
+            if (amtStr.includes(",") && amtStr.includes(".")) {
+              amtStr = amtStr.replace(/\./g, "").replace(",", ".");
+            } else if (amtStr.includes(",")) {
+              amtStr = amtStr.replace(",", ".");
+            }
             const numAmount = parseFloat(amtStr);
 
             if (isNaN(numAmount) || !conceptStr) continue;
@@ -351,8 +363,16 @@ export function parseUniversalBankExtract(
       .slice(0, 6)
       .map((r) => (Array.isArray(r) ? r.join(" ") : String(r)))
       .join(" ");
-    const cardDetails = detectCardDetails(headerSnippet, bankName);
-    let cardName = cardDetails.detectedCardName || `Tarjeta ${bankName}`;
+    const isRevolutExcel =
+      bankName.toLowerCase().includes("revolut") ||
+      headerSnippet.toLowerCase().includes("revolut") ||
+      headerSnippet.toLowerCase().includes("started date") ||
+      (headerSnippet.toLowerCase().includes("fecha de inicio") && headerSnippet.toLowerCase().includes("producto"));
+
+    const cardDetails = detectCardDetails(headerSnippet, isRevolutExcel ? "Revolut" : bankName);
+    let cardName = isRevolutExcel
+      ? `Tarjeta Revolut${cardDetails.detectedDigits ? ` *${cardDetails.detectedDigits}` : ""}`
+      : cardDetails.detectedCardName || `Tarjeta ${bankName}`;
     let cardNumber = cardDetails.detectedDigits ? `*${cardDetails.detectedDigits}` : "";
 
     // Detect column indexes (date, concept, amount)
@@ -462,7 +482,7 @@ export function parseUniversalBankExtract(
         occurrenceMap.set(occKey, occ + 1);
 
         movements.push({
-          id: buildDeterministicMovementId("card", isoDate, absVal, conceptStr, occ),
+          id: buildDeterministicMovementId(isRevolutExcel ? "revolut" : "card", isoDate, absVal, conceptStr, occ),
           date: `${day}/${month}/${year}`,
           monthKey,
           rawDate: isoDate,
@@ -548,8 +568,10 @@ export function detectCardDetails(content: string, defaultBank = "Bankinter"): D
     detectedDigits = digitsMatch[1];
   }
 
-  let detectedCardName = "Tarjeta VISA";
-  if (lower.includes("visa clásica") || lower.includes("visa clasica")) {
+  let detectedCardName = detectedBank === "Revolut" ? "Tarjeta Revolut" : `Tarjeta VISA ${detectedBank}`;
+  if (detectedBank === "Revolut") {
+    detectedCardName = "Tarjeta Revolut";
+  } else if (lower.includes("visa clásica") || lower.includes("visa clasica")) {
     detectedCardName = "Tarjeta VISA Clásica";
   } else if (lower.includes("visa oro")) {
     detectedCardName = "Tarjeta VISA Oro";

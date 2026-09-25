@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from "react";
 import { useTransactions, isRevolutTransaction } from "@/context/TransactionsContext";
+import { useUserNames } from "@/context/UserNamesContext";
 import { parseUniversalBankExtract } from "@/lib/bank/importer";
 import {
   RefreshCw,
@@ -13,6 +14,8 @@ import {
   AlertCircle,
   FileSpreadsheet,
   Trash2,
+  User,
+  Users,
 } from "lucide-react";
 
 export type SupportedBankId = "bankinter" | "bbva" | "revolut";
@@ -86,7 +89,16 @@ interface SyncModalProps {
 
 export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
   const { importBankMovements, accounts, transactions, deleteMovementsByBank } = useTransactions();
+  const { memberAName, memberBName } = useUserNames();
   const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
+  const [cardOwnership, setCardOwnership] = useState<"USER_B" | "USER_A" | "JOINT">(() => {
+    if (typeof window !== "undefined") {
+      const activeRole = window.localStorage.getItem("fitduo_active_role");
+      if (activeRole === "memberB") return "USER_B";
+      if (activeRole === "memberA") return "USER_A";
+    }
+    return "USER_B";
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -126,13 +138,8 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
     setSuccessMessage(null);
     setErrorMessage(null);
 
-    // Active user role assignment: Carlos (USER_A) or Andrea (USER_B)
-    const activeRole =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("fitduo_active_role")
-        : null;
-    const currentOwnership: "USER_A" | "USER_B" =
-      activeRole === "memberB" ? "USER_B" : "USER_A";
+    // Explicit card ownership selected by user (Andrea, Carlos, or Conjunta)
+    const currentOwnership = cardOwnership;
 
     const isExcel = /\.(xlsx|xls)$/i.test(file.name);
 
@@ -333,6 +340,53 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
               </button>
             </div>
           )}
+
+          {/* Selector de Titular de la Tarjeta */}
+          <div className="space-y-1.5 pt-1">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+              ¿A quién pertenece esta tarjeta?
+            </span>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setCardOwnership("USER_B")}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                  cardOwnership === "USER_B"
+                    ? "border-pink-500 bg-pink-50 text-pink-700 shadow-xs ring-2 ring-pink-400/20 font-black"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <User className="w-3.5 h-3.5 text-pink-500" />
+                <span className="truncate">{memberBName || "Andrea"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCardOwnership("USER_A")}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                  cardOwnership === "USER_A"
+                    ? "border-blue-500 bg-blue-50 text-blue-700 shadow-xs ring-2 ring-blue-400/20 font-black"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <User className="w-3.5 h-3.5 text-blue-500" />
+                <span className="truncate">{memberAName || "Carlos"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCardOwnership("JOINT")}
+                className={`py-2 px-2 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 ${
+                  cardOwnership === "JOINT"
+                    ? "border-[#00D09C] bg-emerald-50 text-emerald-800 shadow-xs ring-2 ring-emerald-400/20 font-black"
+                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="truncate">Conjunta</span>
+              </button>
+            </div>
+          </div>
 
           {/* 2. Botones de Acción: Descargar Extracto y Cargar Extracto en App */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">
