@@ -15,18 +15,17 @@ describe("Paso 11: Despliegue en Producción, Verificación Cross-Platform, Cron
       expect(config).toBeDefined();
     });
 
-    it("configures Vercel Cron jobs for twice-daily bank sync (madrugada y mediodía)", () => {
+    it("configures Vercel Cron job for daily bank sync at midnight (00:00)", () => {
       const config = JSON.parse(fs.readFileSync(vercelConfigPath, "utf8"));
       expect(config.crons).toBeDefined();
       expect(Array.isArray(config.crons)).toBe(true);
-      expect(config.crons.length).toBeGreaterThanOrEqual(2);
+      expect(config.crons.length).toBeGreaterThanOrEqual(1);
 
       const paths = config.crons.map((c: any) => c.path);
       expect(paths).toContain("/api/bank/sync");
 
       const schedules = config.crons.map((c: any) => c.schedule);
-      expect(schedules).toContain("0 3 * * *");
-      expect(schedules).toContain("0 14 * * *");
+      expect(schedules).toContain("0 0 * * *");
     });
 
     it("configures essential security and cache-control headers", () => {

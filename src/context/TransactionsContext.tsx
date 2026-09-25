@@ -950,7 +950,7 @@ interface TransactionsContextType {
     ownership?: "JOINT" | "USER_A" | "USER_B";
     rawConcept?: string;
   }>) => { added: number; duplicates: number; total: number };
-  syncBankFeed: () => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
+  syncBankFeed: (options?: { forceLiveApi?: boolean }) => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
   // Paso 7: Rules & Continuous Category Learning
   rules: AssignmentRule[];
@@ -1254,12 +1254,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [inviteCode]);
 
   // Automated background bank feed & cloud database synchronization (Unified PSD2 + Supabase household_state)
-  const syncBankFeed = useCallback(async (): Promise<{ success: boolean; total: number; cardCount: number; error?: string }> => {
+  const syncBankFeed = useCallback(async (options?: { forceLiveApi?: boolean }): Promise<{ success: boolean; total: number; cardCount: number; error?: string }> => {
     if (typeof window === "undefined") return { success: false, total: 0, cardCount: 0 };
     try {
       if (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))) {
         return { success: true, total: 0, cardCount: 0 };
       }
+
+      const isManualTrigger = Boolean(options?.forceLiveApi);
 
       // 1. Fetch live Supabase Cloud database state (includes card XLS transactions)
       let cloudTxs: Transaction[] = [];
@@ -1286,27 +1288,29 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           ? "/Cuentaconjunta"
           : "";
 
-        // Attempt live bank sync endpoint first (attended PSU call)
-        try {
-          const apiUrl = origin ? `${origin}${basePath}/api/bank/sync` : `${basePath}/api/bank/sync`;
-          const apiRes = await fetch(apiUrl, {
-            method: "POST",
-            signal: AbortSignal.timeout(7000),
-          });
-          if (apiRes.ok) {
-            const apiData = await apiRes.json();
-            if (Array.isArray(apiData?.transactions) && apiData.transactions.length > 0) {
-              feedTxs = apiData.transactions;
+        // Only call live bank sync API when explicitly triggered on-demand (e.g. by pressing Sync button)
+        if (isManualTrigger) {
+          try {
+            const apiUrl = origin ? `${origin}${basePath}/api/bank/sync` : `${basePath}/api/bank/sync`;
+            const apiRes = await fetch(apiUrl, {
+              method: "POST",
+              signal: AbortSignal.timeout(10000),
+            });
+            if (apiRes.ok) {
+              const apiData = await apiRes.json();
+              if (Array.isArray(apiData?.transactions) && apiData.transactions.length > 0) {
+                feedTxs = apiData.transactions;
+              }
+              if (Array.isArray(apiData?.accounts) && apiData.accounts.length > 0) {
+                feedAccs = apiData.accounts;
+              }
             }
-            if (Array.isArray(apiData?.accounts) && apiData.accounts.length > 0) {
-              feedAccs = apiData.accounts;
-            }
+          } catch {
+            // If on static hosting without server API, continue to bank-feed.json
           }
-        } catch {
-          // If on static hosting without server API, continue to bank-feed.json
         }
 
-        // Fallback or read from bank-feed.json
+        // Fallback or read from bank-feed.json (cached feed)
         if (feedTxs.length === 0) {
           const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
           const res = await fetch(url);

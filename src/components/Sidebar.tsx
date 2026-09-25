@@ -46,7 +46,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
     e.stopPropagation();
     setIsSyncing(true);
     try {
-      const res = await syncBankFeed();
+      const res = await syncBankFeed({ forceLiveApi: true });
       if (res?.cardCount) {
         setSyncStatus(`¡Al día! (${res.cardCount})`);
       } else {

@@ -19,7 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenMobileMenu, onOpenSyncModa
     e.stopPropagation();
     setIsSyncing(true);
     try {
-      const res = await syncBankFeed();
+      const res = await syncBankFeed({ forceLiveApi: true });
       if (res?.cardCount) {
         setSyncToast(`¡Al día! (${res.cardCount})`);
       } else {

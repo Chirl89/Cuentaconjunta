@@ -197,7 +197,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({
     setIsSyncingBank(true);
     setBankSyncMessage(null);
     try {
-      const res = await syncBankFeed();
+      const res = await syncBankFeed({ forceLiveApi: true });
       if (res && res.cardCount > 0) {
         setBankSyncMessage(`¡Sincronización completada! Cuenta nómina al día y ${res.cardCount} compras de tarjeta sincronizadas desde la base de datos.`);
       } else {

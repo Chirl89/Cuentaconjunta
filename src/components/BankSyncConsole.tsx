@@ -156,7 +156,7 @@ export const BankSyncConsole: React.FC = () => {
     ]);
 
     try {
-      await syncBankFeed();
+      await syncBankFeed({ forceLiveApi: true });
       const endTime = new Date().toLocaleTimeString("es-ES", { hour12: false });
       setLogs((prev) => [
         ...prev,

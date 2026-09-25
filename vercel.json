@@ -3,11 +3,7 @@
   "crons": [
     {
       "path": "/api/bank/sync",
-      "schedule": "0 3 * * *"
-    },
-    {
-      "path": "/api/bank/sync",
-      "schedule": "0 14 * * *"
+      "schedule": "0 0 * * *"
     }
   ],
   "headers": [
