@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-09-25T05:47:17.067Z",
+  "lastSyncAt": "2026-09-25T07:35:26.929Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 12546.57,
-      "lastUpdated": "2026-09-23T11:06:51.140Z"
+      "balance": 15423.1,
+      "lastUpdated": "2026-09-25T07:35:26.929Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-09-23T11:06:51.140Z"
+      "lastUpdated": "2026-09-25T07:35:26.929Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,44 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-09-23T11:06:51.140Z"
+      "lastUpdated": "2026-09-25T07:35:26.929Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-09-24.0",
+      "merchant": "Transferencia NFOQUE ADVISORY S",
+      "amount": 2971.38,
+      "date": "24 Sep",
+      "monthKey": "2026-09",
+      "category": "Ingreso / Nómina",
+      "categoryColor": "#10B981",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "classified",
+      "payer": "memberA",
+      "split": "memberA",
+      "isManual": false,
+      "bankMovementId": "2026-09-24.0",
+      "currency": "EUR",
+      "isCredit": true
+    },
+    {
+      "id": "eb_2026-09-25.0",
+      "merchant": "Recibo TESTA RESIDENCIAL SOCIM",
+      "amount": 10.49,
+      "date": "25 Sep",
+      "monthKey": "2026-09",
+      "category": "Hogar & Luz",
+      "categoryColor": "#0EA5E9",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-09-25.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_052d5245-8658-e31c-0240-1b32faea898f",
       "merchant": "Seitt R2",

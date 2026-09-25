@@ -165,6 +165,8 @@ async function main() {
       try {
         const baseHeaders = {
           Authorization: `Bearer ${jwt}`,
+          ...(psuIp ? { 'Psu-Ip-Address': psuIp } : {}),
+          ...(psuUserAgent ? { 'Psu-User-Agent': psuUserAgent } : {}),
         };
         const sessionRes = await fetch(`https://api.enablebanking.com/sessions/${conn.sessionId}`, {
           headers: baseHeaders,
@@ -292,6 +294,7 @@ async function main() {
                   console.warn(`Could not fetch balance for ${accUid}:`, e.message);
                 }
 
+                const isBankinter = conn.bankName.toLowerCase().includes('bankinter');
                 const richAcc = (conn.accounts || []).find((a) => (a.uid || a.id) === accUid) || (typeof acc === 'object' ? acc : {});
                 const iban = richAcc.account_id?.iban || (isBankinter ? 'ES9301280082940100030803' : conn.ibanMask) || '';
                 const isJoint = richAcc.name?.includes('&') || richAcc.name?.toLowerCase().includes('andrea') || iban === 'ES0715830001109142458796';

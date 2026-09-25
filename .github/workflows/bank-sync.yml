@@ -2,8 +2,9 @@ name: FitDuo Automated Bank Sync
 
 on:
   schedule:
-    # Run every hour automatically
-    - cron: '0 * * * *'
+    # Run twice an hour at off-peak minutes (:20 and :50) to avoid GitHub Actions queue delays
+    - cron: '20 * * * *'
+    - cron: '50 * * * *'
   workflow_dispatch:
     inputs:
       auth_code:

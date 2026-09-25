@@ -1277,7 +1277,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         console.warn("Could not fetch cloud state in syncBankFeed:", cloudErr);
       }
 
-      // 2. Fetch local/remote bank feed JSON (Cuenta Nómina PSD2)
+      // 2. Fetch local/remote bank feed JSON or live API sync (Cuenta Nómina PSD2)
       let feedTxs: any[] = [];
       let feedAccs: any[] = [];
       try {
@@ -1285,12 +1285,36 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const basePath = window.location.pathname.startsWith("/Cuentaconjunta")
           ? "/Cuentaconjunta"
           : "";
-        const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const feed = await res.json();
-          if (Array.isArray(feed?.transactions)) feedTxs = feed.transactions;
-          if (Array.isArray(feed?.accounts)) feedAccs = feed.accounts;
+
+        // Attempt live bank sync endpoint first (attended PSU call)
+        try {
+          const apiUrl = origin ? `${origin}${basePath}/api/bank/sync` : `${basePath}/api/bank/sync`;
+          const apiRes = await fetch(apiUrl, {
+            method: "POST",
+            signal: AbortSignal.timeout(7000),
+          });
+          if (apiRes.ok) {
+            const apiData = await apiRes.json();
+            if (Array.isArray(apiData?.transactions) && apiData.transactions.length > 0) {
+              feedTxs = apiData.transactions;
+            }
+            if (Array.isArray(apiData?.accounts) && apiData.accounts.length > 0) {
+              feedAccs = apiData.accounts;
+            }
+          }
+        } catch {
+          // If on static hosting without server API, continue to bank-feed.json
+        }
+
+        // Fallback or read from bank-feed.json
+        if (feedTxs.length === 0) {
+          const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const feed = await res.json();
+            if (Array.isArray(feed?.transactions)) feedTxs = feed.transactions;
+            if (Array.isArray(feed?.accounts)) feedAccs = feed.accounts;
+          }
         }
       } catch (feedErr) {
         console.warn("Could not fetch local bank feed:", feedErr);
