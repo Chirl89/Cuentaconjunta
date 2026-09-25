@@ -949,6 +949,7 @@ interface TransactionsContextType {
     accountLabel?: string;
     ownership?: "JOINT" | "USER_A" | "USER_B";
     rawConcept?: string;
+    isCredit?: boolean;
   }>) => { added: number; duplicates: number; total: number };
   syncBankFeed: (options?: { forceLiveApi?: boolean }) => Promise<{ success: boolean; total: number; cardCount: number; error?: string }>;
   clearAllTransactions: () => void;
@@ -1161,6 +1162,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 split: targetOwner,
                 category: t.category === "Otros Gastos Comunes" ? "Ingreso / Nómina" : t.category,
                 categoryColor: t.category === "Otros Gastos Comunes" ? "#10B981" : t.categoryColor,
+              };
+            }
+            if (t.status === "auto_assigned") {
+              return {
+                ...t,
+                status: "pending",
               };
             }
             return t;
@@ -1704,14 +1711,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           return prevTxs.map((tx) => {
             if (tx.status === "classified") return tx;
             if (matchesRule(newRule, tx)) {
-              const { payer, split } = resolveRuleAssignment(newRule, tx.accountLabel || undefined);
               const catName = newRule.categoryName || tx.category;
               const foundColor = (categories.find((c) => c.name === catName) || CATEGORIES_LIST.find((c) => c.name === catName))?.color || tx.categoryColor;
               return {
                 ...tx,
-                status: "auto_assigned",
-                split,
-                payer,
+                status: "pending",
                 category: catName,
                 categoryColor: foundColor,
                 autoAssignedRuleId: newRule.id,
@@ -1747,14 +1751,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           prevTxs.map((tx) => {
             if (tx.status === "classified") return tx;
             if (matchesRule(rule, tx)) {
-              const { payer, split } = resolveRuleAssignment(rule, tx.accountLabel || undefined);
               const catName = rule.categoryName || tx.category;
               const foundColor = (categories.find((c) => c.name === catName) || CATEGORIES_LIST.find((c) => c.name === catName))?.color || tx.categoryColor;
               return {
                 ...tx,
-                status: "auto_assigned",
-                split,
-                payer,
+                status: "pending",
                 category: catName,
                 categoryColor: foundColor,
                 autoAssignedRuleId: rule.id,
@@ -1932,6 +1933,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         accountLabel?: string;
         ownership?: "JOINT" | "USER_A" | "USER_B";
         rawConcept?: string;
+        isCredit?: boolean;
       }>
     ): { added: number; duplicates: number; total: number } => {
       let addedCount = 0;
@@ -1977,11 +1979,37 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             categoriesRef.current
           );
 
-          const status = isCardBill ? "classified" : pipe.status; // "auto_assigned" | "pending"
-          const payer = isCardBill ? "joint" : (pipe.payer || defaultPayer);
-          const split = isCardBill ? "ignored" : (pipe.split || "50/50");
-          const category = isCardBill ? "Liquidación / Neteo" : pipe.category;
-          const categoryColor = isCardBill ? "#8B5CF6" : pipe.categoryColor;
+          const isCredit = Boolean(m.isCredit);
+
+          let status: "pending" | "classified" | "auto_assigned";
+          let payer: PayerType;
+          let split: SplitType;
+          let category: string;
+          let categoryColor: string;
+          let movementType: "expense" | "transfer_to_joint" | "settlement" | undefined;
+
+          if (isCardBill) {
+            status = "classified";
+            payer = "joint";
+            split = "ignored";
+            category = "Liquidación / Neteo";
+            categoryColor = "#8B5CF6";
+            movementType = "expense";
+          } else if (isCredit) {
+            status = "classified";
+            payer = defaultPayer;
+            split = defaultPayer === "memberB" ? "memberB" : defaultPayer === "memberA" ? "memberA" : "50/50";
+            category = pipe.category && pipe.category !== "Otros Gastos Comunes" ? pipe.category : "Ingreso / Nómina";
+            categoryColor = pipe.categoryColor && pipe.category !== "Otros Gastos Comunes" ? pipe.categoryColor : "#10B981";
+            movementType = undefined;
+          } else {
+            status = "pending";
+            payer = defaultPayer;
+            split = "50/50";
+            category = pipe.category;
+            categoryColor = pipe.categoryColor;
+            movementType = "expense";
+          }
 
           const createdTx: Transaction = {
             id: m.id || `bank-stmt-${Date.now()}-${idx}`,
@@ -1998,7 +2026,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             payer,
             split,
             isManual: false,
-            movementType: "expense",
+            movementType,
+            isCredit,
             createdAt: Date.now() - idx * 1000,
             autoAssignedRuleId: pipe.matchedRuleId,
             autoAssignedReason: pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale,

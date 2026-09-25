@@ -139,6 +139,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
                   accountLabel: result.cardName || `Tarjeta ${currentBank.name}`,
                   ownership: currentOwnership,
                   rawConcept: m.rawConcept || m.concept,
+                  isCredit: m.isCredit,
                 }))
               );
 
@@ -189,6 +190,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
                   accountLabel: result.cardName || `Tarjeta ${currentBank.name}`,
                   ownership: currentOwnership,
                   rawConcept: m.rawConcept || m.concept,
+                  isCredit: m.isCredit,
                 }))
               );
 

@@ -271,9 +271,8 @@ describe("Paso 7: Motor de Categorización Inteligente con IA, Feedback Loop y R
         [{ name: "Restaurantes & Ocio", color: "#F59E0B" }]
       );
 
-      // La regla determina el reparto (status = auto_assigned) y el aprendizaje del usuario la categoría
-      expect(result.status).toBe("auto_assigned");
-      expect(result.split).toBe("50/50");
+      // Las reglas y aprendizajes asignan la categoría por defecto, manteniendo status = pending para el triaje
+      expect(result.status).toBe("pending");
       expect(result.category).toBe("Restaurantes & Ocio");
       expect(result.categoryColor).toBe("#F59E0B");
     });

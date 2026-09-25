@@ -84,9 +84,47 @@ CARD_PAYMENT,Current,2026-09-19 10:15:00,2026-09-19 10:16:00,Starbucks,-4.20,0.0
     expect(res.totalMovements).toBe(2);
     expect(res.movements[0].concept).toBe("Uber Eats");
     expect(res.movements[0].amount).toBe(18.5);
+    expect(res.movements[0].isCredit).toBe(false);
     expect(res.movements[0].date).toBe("20/09/2026");
     expect(res.movements[1].concept).toBe("Starbucks");
     expect(res.movements[1].amount).toBe(4.2);
+    expect(res.movements[1].isCredit).toBe(false);
+  });
+
+  it("distinguishes positive amounts (incomes) from negative amounts (expenses) in Revolut CSV", async () => {
+    const { parseUniversalBankExtract } = await import("../src/lib/bank/importer");
+    const mixedRevolutCsv = `Type,Product,Started Date,Completed Date,Description,Amount,Fee,Currency,State,Balance
+CARD_PAYMENT,Current,2026-09-22 13:00:00,2026-09-22 13:00:00,Mercadona Supermercado,-45.50,0.00,EUR,COMPLETED,854.50
+TOPUP,Current,2026-09-21 09:30:00,2026-09-21 09:30:00,Recarga con Tarjeta,200.00,0.00,EUR,COMPLETED,900.00
+TRANSFER,Current,2026-09-20 18:00:00,2026-09-20 18:00:00,Bizum de Pedro,35.00,0.00,EUR,COMPLETED,700.00
+CARD_PAYMENT,Current,2026-09-19 14:15:00,2026-09-19 14:15:00,Gasolinera Repsol,-60.00,0.00,EUR,COMPLETED,665.00`;
+
+    const res = parseUniversalBankExtract(mixedRevolutCsv, "Revolut");
+    expect(res.success).toBe(true);
+    expect(res.totalMovements).toBe(4);
+
+    // Gasto 1: Mercadona
+    expect(res.movements[0].concept).toBe("Mercadona Supermercado");
+    expect(res.movements[0].amount).toBe(45.5);
+    expect(res.movements[0].isCredit).toBe(false);
+
+    // Ingreso 1: Recarga
+    expect(res.movements[1].concept).toBe("Recarga con Tarjeta");
+    expect(res.movements[1].amount).toBe(200.0);
+    expect(res.movements[1].isCredit).toBe(true);
+
+    // Ingreso 2: Bizum recibido
+    expect(res.movements[2].concept).toBe("Bizum de Pedro");
+    expect(res.movements[2].amount).toBe(35.0);
+    expect(res.movements[2].isCredit).toBe(true);
+
+    // Gasto 2: Gasolinera
+    expect(res.movements[3].concept).toBe("Gasolinera Repsol");
+    expect(res.movements[3].amount).toBe(60.0);
+    expect(res.movements[3].isCredit).toBe(false);
+
+    // Total expenses should only sum negative amounts (45.5 + 60.0 = 105.5)
+    expect(res.totalExpenses).toBeCloseTo(105.5, 2);
   });
 
   it("parses BBVA CSV statement format and detects card type and digits", async () => {
