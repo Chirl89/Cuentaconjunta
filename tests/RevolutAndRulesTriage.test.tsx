@@ -170,5 +170,65 @@ describe("Revolut Incomes/Expenses & Reglas de Autoasignación Sólo Categorías
     expect(result.current.transactions.some((t) => t.id === "rev-2")).toBe(false);
     expect(result.current.transactions.some((t) => t.id === "bk-1")).toBe(true);
   });
+
+  it("elimina todos los movimientos de Revolut INCLUSO los ya clasificados y asignados", () => {
+    const { result } = renderHook(() => useTransactions(), { wrapper });
+
+    act(() => {
+      result.current.importBankMovements([
+        {
+          id: "rev-classified-1",
+          concept: "Cena Restaurante Revolut",
+          amount: 45.0,
+          date: "14/09/2026",
+          monthKey: "2026-09",
+          bankName: "Revolut",
+          accountLabel: "Tarjeta Revolut",
+        },
+        {
+          id: "rev-pending-2",
+          concept: "Farmacia Revolut",
+          amount: 18.2,
+          date: "15/09/2026",
+          monthKey: "2026-09",
+          bankName: "Revolut",
+          accountLabel: "Tarjeta Revolut *8821",
+        },
+        {
+          id: "bk-stay-1",
+          concept: "Luz Bankinter",
+          amount: 60.0,
+          date: "16/09/2026",
+          monthKey: "2026-09",
+          bankName: "Bankinter",
+          accountLabel: "Tarjeta VISA",
+        },
+      ]);
+    });
+
+    // Clasificamos el primer movimiento de Revolut a Carlos (memberA)
+    act(() => {
+      result.current.classifyTransaction("rev-classified-1", "memberA", "50/50", "Restaurantes", "#F59E0B");
+    });
+
+    const tx1 = result.current.transactions.find((t) => t.id === "rev-classified-1");
+    expect(tx1?.status).toBe("classified");
+    expect(result.current.classifiedTransactions.some((t) => t.id === "rev-classified-1")).toBe(true);
+
+    // Ejecutamos el borrado total de movimientos de Revolut
+    act(() => {
+      const deleted = result.current.deleteMovementsByBank("revolut");
+      expect(deleted).toBe(2);
+    });
+
+    // Comprobamos que ni el clasificado ni el pendiente de Revolut siguen existiendo
+    expect(result.current.transactions.some((t) => t.id === "rev-classified-1")).toBe(false);
+    expect(result.current.classifiedTransactions.some((t) => t.id === "rev-classified-1")).toBe(false);
+    expect(result.current.transactions.some((t) => t.id === "rev-pending-2")).toBe(false);
+    expect(result.current.allPendingTransactions.some((t) => t.id === "rev-pending-2")).toBe(false);
+
+    // El movimiento de Bankinter permanece intacto
+    expect(result.current.transactions.some((t) => t.id === "bk-stay-1")).toBe(true);
+  });
 });
 

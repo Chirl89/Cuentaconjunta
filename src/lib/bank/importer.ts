@@ -215,13 +215,16 @@ export function parseUniversalBankExtract(
       };
     }
 
+    const isRevolutCsv = text.includes("Started Date") || text.includes("Type,Product");
+    const isRevolutBank = isRevolutCsv || bankName.toLowerCase().includes("revolut");
     const cardDetails = detectCardDetails(text, bankName);
-    const detectedCardName = cardDetails.detectedCardName || `Tarjeta ${bankName}`;
+    const detectedCardName = isRevolutBank
+      ? `Tarjeta Revolut${cardDetails.detectedDigits ? ` *${cardDetails.detectedDigits}` : ""}`
+      : cardDetails.detectedCardName || `Tarjeta ${bankName}`;
     const detectedCardNumber = cardDetails.detectedDigits ? `*${cardDetails.detectedDigits}` : "";
 
     // Check for Revolut CSV structure
-    const isRevolutCsv = text.includes("Started Date") || text.includes("Type,Product");
-    if (isRevolutCsv || bankName.toLowerCase().includes("revolut")) {
+    if (isRevolutBank) {
       const lines = text.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 0);
       if (lines.length > 1) {
         const header = lines[0].split(",").map((h) => h.replace(/^["']|["']$/g, "").trim().toLowerCase());
@@ -248,6 +251,7 @@ export function parseUniversalBankExtract(
             let day = "", month = "", year = "";
             const isoM = dateStr.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
             const esM = dateStr.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})/);
+
             if (isoM) {
               year = isoM[1];
               month = isoM[2].padStart(2, "0");
@@ -268,7 +272,7 @@ export function parseUniversalBankExtract(
               occurrenceMap.set(occKey, occ + 1);
 
               movements.push({
-                id: buildDeterministicMovementId("card", isoDate, absVal, conceptStr, occ),
+                id: buildDeterministicMovementId("revolut", isoDate, absVal, conceptStr, occ),
                 date: `${day}/${month}/${year}`,
                 monthKey,
                 rawDate: isoDate,

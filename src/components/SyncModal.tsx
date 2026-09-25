@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
-import { useTransactions } from "@/context/TransactionsContext";
+import { useTransactions, isRevolutTransaction } from "@/context/TransactionsContext";
 import { parseUniversalBankExtract } from "@/lib/bank/importer";
 import {
   RefreshCw,
@@ -98,6 +98,9 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
     SUPPORTED_BANKS.find((b) => b.id === selectedBankId) || SUPPORTED_BANKS[0];
 
   const bankMovementsCount = transactions.filter((t) => {
+    if (currentBank.id === "revolut") {
+      return isRevolutTransaction(t);
+    }
     const acc = (t.accountLabel || "").toLowerCase();
     const id = (t.id || "").toLowerCase();
     const bId = (t.bankMovementId || "").toLowerCase();

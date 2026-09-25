@@ -975,6 +975,35 @@ interface TransactionsContextType {
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
 
+export const PURGE_REVOLUT_KEY = "cuentaconjunta_revolut_purged_v0126";
+export const PURGE_REVOLUT_TS_KEY = "cuentaconjunta_revolut_purge_timestamp";
+
+export function isRevolutTransaction(t: {
+  accountLabel?: string;
+  id?: string;
+  bankMovementId?: string;
+  merchant?: string;
+  rawConcept?: string;
+  bankName?: string;
+}): boolean {
+  if (!t) return false;
+  const acc = (t.accountLabel || "").toLowerCase();
+  const id = (t.id || "").toLowerCase();
+  const bId = (t.bankMovementId || "").toLowerCase();
+  const bName = ((t as any).bankName || "").toLowerCase();
+  const m = (t.merchant || "").toLowerCase();
+  const raw = (t.rawConcept || "").toLowerCase();
+
+  return (
+    acc.includes("revolut") ||
+    id.includes("revolut") ||
+    bId.includes("revolut") ||
+    bName.includes("revolut") ||
+    m.includes("revolut") ||
+    raw.includes("revolut")
+  );
+}
+
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
@@ -988,7 +1017,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
+            let filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
+            const isPurged = localStorage.getItem(PURGE_REVOLUT_KEY) === "true";
+            if (!isTestEnv && !isPurged) {
+              const nowTs = Date.now();
+              localStorage.setItem(PURGE_REVOLUT_KEY, "true");
+              localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
+              filtered = filtered.filter((t: any) => !isRevolutTransaction(t));
+              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(filtered));
+            }
             return filtered;
           }
         }
@@ -1140,19 +1177,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         const parsed = JSON.parse(savedTxs);
         if (Array.isArray(parsed)) {
           const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-          const HAS_CLEARED_REVOLUT_KEY = "cuentaconjunta_purged_revolut_v0124";
           let toSanitize = filtered;
-          if (!isTestEnv && typeof window !== "undefined" && !localStorage.getItem(HAS_CLEARED_REVOLUT_KEY)) {
-            try {
-              localStorage.setItem(HAS_CLEARED_REVOLUT_KEY, "true");
+          const purgeTs = typeof window !== "undefined"
+            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            : 0;
+          const isPurged = typeof window !== "undefined" && localStorage.getItem(PURGE_REVOLUT_KEY) === "true";
+
+          if (!isTestEnv && typeof window !== "undefined") {
+            if (!isPurged || purgeTs === 0) {
+              const nowTs = Date.now();
+              try {
+                localStorage.setItem(PURGE_REVOLUT_KEY, "true");
+                localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
+              } catch {}
+              toSanitize = filtered.filter((t: any) => !isRevolutTransaction(t));
+            } else {
+              // Only keep Revolut transactions if they were created after the purge timestamp
               toSanitize = filtered.filter((t: any) => {
-                const acc = (t.accountLabel || "").toLowerCase();
-                const id = (t.id || "").toLowerCase();
-                const bId = (t.bankMovementId || "").toLowerCase();
-                const isRev = acc.includes("revolut") || id.includes("revolut") || bId.includes("revolut");
-                return !isRev;
+                if (!isRevolutTransaction(t)) return true;
+                return (t.createdAt || 0) > purgeTs;
               });
-            } catch {}
+            }
           }
           const sanitized = toSanitize.map((t: any) => {
             const m = (t.merchant || "").toLowerCase();
@@ -1189,6 +1234,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           });
           setTransactions(sanitized);
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(sanitized));
+
+          // If old Revolut transactions were purged, propagate immediately to Supabase
+          if (!isTestEnv && toSanitize.length !== filtered.length) {
+            pushStateToCloud(inviteCode, { transactions: sanitized }).catch(() => {});
+          }
         }
       }
       const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
@@ -1214,10 +1264,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       fetchStateFromCloud(inviteCode).then((cloud) => {
         if (!cloud) return;
         if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
+          const currentPurgeTs = typeof window !== "undefined"
+            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            : 0;
+
+          // Strip any old Revolut transactions from cloud created before currentPurgeTs
+          const cleanCloudTransactions = cloud.transactions.filter((ct: any) => {
+            if (!isRevolutTransaction(ct)) return true;
+            return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
+          });
+
+          const hadOldRevolutInCloud = cleanCloudTransactions.length !== cloud.transactions.length;
+
           setTransactions((prev) => {
-            const prevMap = new Map(prev.map((t) => [t.id, t]));
+            const cleanPrev = prev.filter((t: any) => {
+              if (!isRevolutTransaction(t)) return true;
+              return currentPurgeTs > 0 && (t.createdAt || 0) > currentPurgeTs;
+            });
+
+            const prevMap = new Map(cleanPrev.map((t) => [t.id, t]));
             const cloudMap = new Map<string, Transaction>();
-            for (const ct of cloud.transactions) {
+            for (const ct of cleanCloudTransactions) {
               const local = prevMap.get(ct.id);
               if (!local) {
                 cloudMap.set(ct.id, ct);
@@ -1231,11 +1298,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 cloudMap.set(ct.id, ct);
               }
             }
-            const localOnly = prev.filter((t) => !cloudMap.has(t.id));
+            const localOnly = cleanPrev.filter((t) => !cloudMap.has(t.id));
             const merged = [...Array.from(cloudMap.values()), ...localOnly];
             try {
               localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
             } catch {}
+
+            if (hadOldRevolutInCloud) {
+              pushStateToCloud(inviteCode, { transactions: merged }).catch(console.warn);
+            }
+
             return merged;
           });
         }
@@ -1293,7 +1365,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       try {
         const cloud = await fetchStateFromCloud(inviteCode);
         if (cloud) {
-          if (Array.isArray(cloud.transactions)) cloudTxs = cloud.transactions;
+          const currentPurgeTs = typeof window !== "undefined"
+            ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+            : 0;
+          if (Array.isArray(cloud.transactions)) {
+            cloudTxs = cloud.transactions.filter((ct: any) => {
+              if (!isRevolutTransaction(ct)) return true;
+              return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
+            });
+          }
           if (Array.isArray(cloud.accounts)) cloudAccs = cloud.accounts;
           if (cloud.settlements) cloudSettlements = cloud.settlements;
         }
@@ -1425,9 +1505,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               categoriesRef.current
             );
             if (pipe.status === "auto_assigned") {
-              finalStatus = "auto_assigned";
-              if (pipe.payer) finalPayer = pipe.payer;
-              if (pipe.split) finalSplit = pipe.split;
+              finalStatus = "pending";
               autoRuleId = pipe.matchedRuleId;
               autoReason = pipe.matchedRuleName ? `Regla: ${pipe.matchedRuleName}` : pipe.rationale;
             }
@@ -1626,16 +1704,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       const target = bankOrKeyword.toLowerCase().trim();
       if (!target) return 0;
 
+      const isRevolutTarget = target.includes("revolut");
+      const nowTs = Date.now();
+
+      if (isRevolutTarget && typeof window !== "undefined") {
+        try {
+          localStorage.setItem(PURGE_REVOLUT_KEY, "true");
+          localStorage.setItem(PURGE_REVOLUT_TS_KEY, nowTs.toString());
+        } catch {}
+      }
+
       persistTransactions((prev) => {
         const remaining: Transaction[] = [];
         prev.forEach((t) => {
-          const acc = (t.accountLabel || "").toLowerCase();
-          const id = (t.id || "").toLowerCase();
-          const bId = (t.bankMovementId || "").toLowerCase();
-          const isMatch =
-            acc.includes(target) ||
-            id.includes(target) ||
-            bId.includes(target);
+          const isMatch = isRevolutTarget
+            ? isRevolutTransaction(t)
+            : ((t.accountLabel || "").toLowerCase().includes(target) ||
+               (t.id || "").toLowerCase().includes(target) ||
+               (t.bankMovementId || "").toLowerCase().includes(target) ||
+               ((t as any).bankName || "").toLowerCase().includes(target));
           if (isMatch) {
             deletedCount++;
           } else {
@@ -2207,10 +2294,22 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     // 4. Supabase PostgreSQL database change listener (household_state)
     const unsubscribeDb = subscribeHouseholdDbChanges(inviteCode, (cloud) => {
       if (cloud.transactions && Array.isArray(cloud.transactions)) {
+        const currentPurgeTs = typeof window !== "undefined"
+          ? Number(localStorage.getItem(PURGE_REVOLUT_TS_KEY) || "0")
+          : 0;
+        const cleanCloudTransactions = cloud.transactions.filter((ct: any) => {
+          if (!isRevolutTransaction(ct)) return true;
+          return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
+        });
+
         setTransactions((prev) => {
-          const prevMap = new Map(prev.map((t) => [t.id, t]));
+          const cleanPrev = prev.filter((t: any) => {
+            if (!isRevolutTransaction(t)) return true;
+            return currentPurgeTs > 0 && (t.createdAt || 0) > currentPurgeTs;
+          });
+          const prevMap = new Map(cleanPrev.map((t) => [t.id, t]));
           const cloudMap = new Map<string, Transaction>();
-          for (const ct of cloud.transactions) {
+          for (const ct of cleanCloudTransactions) {
             const local = prevMap.get(ct.id);
             if (!local) {
               cloudMap.set(ct.id, ct);
@@ -2224,7 +2323,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               cloudMap.set(ct.id, ct);
             }
           }
-          const localOnly = prev.filter((t) => !cloudMap.has(t.id));
+          const localOnly = cleanPrev.filter((t) => !cloudMap.has(t.id));
           const merged = [...Array.from(cloudMap.values()), ...localOnly];
           try {
             localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
