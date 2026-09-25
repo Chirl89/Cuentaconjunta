@@ -1310,21 +1310,21 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Grid: Donut Chart Global & Análisis de Previsiones */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Donut Chart Global del Hogar */}
-            <section className="lg:col-span-7 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
-                  Distribución por Categorías
-                </h2>
-                <span className="text-xs font-bold text-indigo-600">
-                  {monthlyScopeBreakdown.length} categorías
-                </span>
-              </div>
+          {/* Donut Chart Global del Hogar: Distribución por Categorías */}
+          <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                Distribución por Categorías
+              </h2>
+              <span className="text-xs font-bold text-indigo-600">
+                {monthlyScopeBreakdown.length} categorías
+              </span>
+            </div>
 
-              <div className="relative h-64 w-full flex items-center justify-center my-3">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+              {/* Donut Chart */}
+              <div className="lg:col-span-5 relative h-64 w-full flex items-center justify-center">
                 {monthlyScopeBreakdown.length > 0 ? (
                   <>
                     <ResponsiveContainer width="100%" height="100%">
@@ -1378,7 +1378,7 @@ export default function HomePage() {
               </div>
 
               {/* Categorías con porcentaje y filtro interactivo */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100 max-h-60 overflow-y-auto pr-1">
+              <div className="lg:col-span-7 space-y-1.5 pt-2 lg:pt-0 lg:border-l lg:border-slate-100 lg:pl-6 max-h-72 overflow-y-auto pr-1">
                 {monthlyScopeBreakdown.map((cat) => {
                   const pct =
                     monthlyScopeTotal > 0 ? Math.round((cat.value / monthlyScopeTotal) * 100) : 0;
@@ -1431,127 +1431,8 @@ export default function HomePage() {
                   );
                 })}
               </div>
-            </section>
-
-            {/* Módulo de Previsiones & Diagnóstico Financiero */}
-            <section className="lg:col-span-5 bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-500" />
-                    Análisis & Previsiones
-                  </h2>
-                  <span className="text-[11px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-full">
-                    Forecast
-                  </span>
-                </div>
-
-                <div className="space-y-4 pt-3">
-                  {/* Semáforo de Ritmo */}
-                  <div
-                    className={`p-4 rounded-2xl border ${
-                      monthlyForecast.projectedSavings >= 0
-                        ? "bg-emerald-50/60 border-emerald-200/80 text-emerald-900"
-                        : "bg-rose-50/60 border-rose-200/80 text-rose-900"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {monthlyForecast.projectedSavings >= 0 ? (
-                        <CheckCircle2 className="w-4 h-4 text-[#00A37A] shrink-0" />
-                      ) : (
-                        <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                      )}
-                      <h4 className="text-xs font-black">
-                        {monthlyForecast.isCurrentMonth
-                          ? monthlyForecast.projectedSavings >= 0
-                            ? "Ritmo presupuestario saludable"
-                            : "Alerta de ritmo de gasto elevado"
-                          : "Mes cerrado con balance definitivo"}
-                      </h4>
-                    </div>
-                    <p className="text-[11px] text-slate-600 mt-1.5 leading-relaxed">
-                      {monthlyForecast.isCurrentMonth
-                        ? monthlyForecast.projectedSavings >= 0
-                          ? `Al ritmo diario de ${monthlyForecast.dailyBurnRate.toFixed(
-                              2
-                            )} €/día, la proyección de gasto a final de mes es de ${monthlyForecast.projectedExpenses.toFixed(
-                              0
-                            )} €, lo que te permitirá cerrar con un ahorro estimado de ~${monthlyForecast.projectedSavings.toFixed(
-                              0
-                            )} €.`
-                          : `Al ritmo actual de ${monthlyForecast.dailyBurnRate.toFixed(
-                              2
-                            )} €/día, el gasto proyectado al cierre de mes alcanzará los ${monthlyForecast.projectedExpenses.toFixed(
-                              0
-                            )} €, superando los ingresos actuales por ~${Math.abs(
-                              monthlyForecast.projectedSavings
-                            ).toFixed(0)} €.`
-                        : `El mes finalizó con un gasto consolidado de ${visibleHouseholdSpent.toFixed(
-                            2
-                          )} € frente a ${visibleHouseholdIncome.toFixed(2)} € de ingresos (${
-                            monthlyForecast.currentSavings >= 0 ? "superávit" : "déficit"
-                          } de ${Math.abs(monthlyForecast.currentSavings).toFixed(2)} €).`}
-                    </p>
-                  </div>
-
-                  {/* Resumen de Reparto y Deuda */}
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2.5">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 block">
-                      Reparto del Gasto en el Hogar
-                    </span>
-                    <div className="space-y-1.5 text-xs font-semibold">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-600">Comunes (50/50):</span>
-                        <span className="font-bold text-slate-900">
-                          {totalJointSpent.toFixed(2)} €
-                        </span>
-                      </div>
-                      {activeRole === "memberA" ? (
-                        <div className="flex justify-between items-center">
-                          <span className="text-red-600">Personales {memberAName}:</span>
-                          <span className="font-bold text-red-600">
-                            {totalMemberASpent.toFixed(2)} €
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex justify-between items-center">
-                          <span className="text-blue-600">Personales {memberBName}:</span>
-                          <span className="font-bold text-blue-600">
-                            {totalMemberBSpent.toFixed(2)} €
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
-                      <span className="text-slate-500 font-medium">Estado de balances:</span>
-                      <button
-                        onClick={() => setActiveTab("balances")}
-                        className="font-bold text-[#00A37A] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>
-                          {balanceData.debtor !== "none"
-                            ? `${balanceData.debtorName} debe ${balanceData.netDebt.toFixed(2)} €`
-                            : "Cuentas saldadas"}
-                        </span>
-                        <ArrowRight className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-slate-100">
-                <button
-                  onClick={() => setActiveTab("movimientos")}
-                  className="w-full py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span>Ver todos los movimientos del mes</span>
-                  <ArrowRight className="w-3 h-3 text-slate-400" />
-                </button>
-              </div>
-            </section>
-          </div>
+            </div>
+          </section>
 
           {/* Movimientos que Conforman el Resumen Mensual (Ingresos & Gastos) */}
           <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
