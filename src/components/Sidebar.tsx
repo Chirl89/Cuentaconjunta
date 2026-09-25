@@ -21,7 +21,6 @@ import {
   X,
   HeartHandshake,
   RefreshCw,
-  SlidersHorizontal,
   BarChart3,
   LayoutDashboard,
 } from "lucide-react";
@@ -37,29 +36,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
   const auth = useOptionalAuth();
   const profileSecurity = useProfileSecurity();
   const { activeTab, setActiveTab } = useNavigation();
-  const { allPendingTransactions, syncBankFeed } = useTransactions();
+  const { allPendingTransactions } = useTransactions();
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
-
-  const handleQuickSync = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsSyncing(true);
-    try {
-      const res = await syncBankFeed({ forceLiveApi: true });
-      if (res?.cardCount) {
-        setSyncStatus(`¡Al día! (${res.cardCount})`);
-      } else {
-        setSyncStatus("¡Al día!");
-      }
-      setTimeout(() => setSyncStatus(null), 3000);
-    } catch {
-      setSyncStatus("Error");
-      setTimeout(() => setSyncStatus(null), 3000);
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const pendingCount = allPendingTransactions.length;
 
@@ -227,31 +205,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ isMobileOpen, setIsMobileOpen,
           </div>
         )}
 
-        {/* Sync Button: 1-Tap quick sync + advanced modal trigger */}
-        <div className="px-3 mt-2.5 flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={handleQuickSync}
-            disabled={isSyncing}
-            className="flex-1 py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#008761] border border-emerald-200 text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-98 disabled:opacity-60"
-            title="Sincronizar todo (cuenta + tarjetas de la base de datos) en 1 clic"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-[#00A37A] ${isSyncing ? "animate-spin" : ""}`} />
-            {(!isCollapsed || isMobileOpen) && (
-              <span>{isSyncing ? "Sincronizando..." : syncStatus || "Sincronizar Todo"}</span>
-            )}
-          </button>
-          {onOpenSyncModal && (!isCollapsed || isMobileOpen) && (
+        {/* Sync Button: Direct trigger for Sync Extract Screen */}
+        {onOpenSyncModal && (
+          <div className="px-3 mt-2.5">
             <button
               type="button"
               onClick={onOpenSyncModal}
-              className="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 text-xs font-bold transition-all cursor-pointer shadow-xs active:scale-95"
-              title="Opciones avanzadas y subida de archivos Excel"
+              className="w-full py-2.5 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-[#008761] border border-emerald-200 text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-98"
+              title="Sincronizar extracto bancario"
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-slate-500" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#00A37A]" />
+              {(!isCollapsed || isMobileOpen) && <span>Sincronizar Extracto</span>}
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Navigation Sections */}
         <nav className="flex-1 px-3 py-3 space-y-4 overflow-y-auto">
