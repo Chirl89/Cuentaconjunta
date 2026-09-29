@@ -3770,7 +3770,9 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsSyncModalOpen(true);
+                            setBankModalInitialMode("statement");
+                            setBankModalInitialBank("Bankinter");
+                            setIsBankModalOpen(true);
                           }}
                           className="w-full py-2 px-3 rounded-xl bg-slate-100/90 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                           title="Cargar extracto de compras para Tarjeta Bankinter"
@@ -3889,7 +3891,9 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setIsSyncModalOpen(true);
+                            setBankModalInitialMode("statement");
+                            setBankModalInitialBank("Revolut");
+                            setIsBankModalOpen(true);
                           }}
                           className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
                           title="Cargar extracto de compras para Revolut"
