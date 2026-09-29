@@ -15,6 +15,7 @@ const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publi
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const TABLES = [
+  "household_state",
   "households",
   "users",
   "bank_connections",

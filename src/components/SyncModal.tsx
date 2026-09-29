@@ -88,7 +88,7 @@ interface SyncModalProps {
 }
 
 export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
-  const { importBankMovements, accounts, transactions, deleteMovementsByBank } = useTransactions();
+  const { importBankMovements, accounts, transactions, deleteMovementsByBank, addConnectedAccounts } = useTransactions();
   const { memberAName, memberBName } = useUserNames();
   const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
   const [cardOwnership, setCardOwnership] = useState<"USER_B" | "USER_A" | "JOINT">(() => {
@@ -167,6 +167,27 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
               );
 
               if (importRes.added > 0) {
+                // Ensure the card exists in accounts with the selected ownership
+                const cardName = result.cardName || `Tarjeta ${currentBank.name}`;
+                const cardExists = accounts.some(
+                  (a) =>
+                    a.accountName.toLowerCase().trim() === cardName.toLowerCase().trim() &&
+                    a.ownership === currentOwnership
+                );
+                if (!cardExists) {
+                  addConnectedAccounts([
+                    {
+                      id: `card_${currentBank.id}_${currentOwnership.toLowerCase()}`,
+                      bankName: currentBank.name,
+                      accountName: cardName,
+                      ibanMask: "•••• Extracto",
+                      ownership: currentOwnership,
+                      balance: 0,
+                      status: "active",
+                    },
+                  ]);
+                }
+
                 setSuccessMessage(
                   `¡${importRes.added} compras de ${currentBank.name} incorporadas con éxito!${
                     importRes.duplicates > 0
@@ -218,6 +239,27 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
               );
 
               if (importRes.added > 0) {
+                // Ensure the card exists in accounts with the selected ownership
+                const cardName = result.cardName || `Tarjeta ${currentBank.name}`;
+                const cardExists = accounts.some(
+                  (a) =>
+                    a.accountName.toLowerCase().trim() === cardName.toLowerCase().trim() &&
+                    a.ownership === currentOwnership
+                );
+                if (!cardExists) {
+                  addConnectedAccounts([
+                    {
+                      id: `card_${currentBank.id}_${currentOwnership.toLowerCase()}`,
+                      bankName: currentBank.name,
+                      accountName: cardName,
+                      ibanMask: "•••• Extracto",
+                      ownership: currentOwnership,
+                      balance: 0,
+                      status: "active",
+                    },
+                  ]);
+                }
+
                 setSuccessMessage(
                   `¡${importRes.added} compras de ${currentBank.name} incorporadas con éxito!${
                     importRes.duplicates > 0

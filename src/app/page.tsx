@@ -312,11 +312,12 @@ export default function HomePage() {
       if (!isCard || t.monthKey !== selectedMonth || t.split === "ignored") return false;
       const acc = accounts.find((a) => a.id === t.accountLabel || a.accountName === t.accountLabel);
       if (activeRole === "memberA") {
-        if (acc?.ownership === "USER_B" || (t.payer === "memberB" && t.split === "memberB")) return false;
+        if (acc?.ownership === "USER_B" || t.payer === "memberB") return false;
+        return acc?.ownership === "USER_A" || acc?.ownership === "JOINT" || t.payer === "memberA" || t.payer === "joint";
       } else {
-        if (acc?.ownership === "USER_A" || (t.payer === "memberA" && t.split === "memberA")) return false;
+        if (acc?.ownership === "USER_A" || t.payer === "memberA") return false;
+        return acc?.ownership === "USER_B" || acc?.ownership === "JOINT" || t.payer === "memberB" || t.payer === "joint";
       }
-      return true;
     });
   }, [transactions, selectedMonth, accounts, activeRole]);
 
@@ -336,18 +337,27 @@ export default function HomePage() {
     const isUserBAcc = acc?.ownership === "USER_B";
     const isClassified = tx.status === "classified" || tx.status === "auto_assigned";
 
+    if (isClassified) {
+      if (tx.split === "50/50") return true;
+      if (tx.split === "memberA") return activeRole === "memberA";
+      if (tx.split === "memberB") return activeRole === "memberB";
+      if (tx.split === "ignored") {
+        if (activeRole === "memberA") {
+          return !isUserBAcc && tx.payer !== "memberB";
+        } else {
+          return !isUserAAcc && tx.payer !== "memberA";
+        }
+      }
+      return false;
+    }
+
+    // Pending in triage
     if (activeRole === "memberA") {
-      if (isJointAcc || tx.payer === "joint") return true;
-      if (isClassified && tx.split === "50/50") return true;
-      if (tx.payer === "memberA" || isUserAAcc) return true;
-      if (isClassified && tx.split === "memberA") return true;
-      return false;
+      if (isUserBAcc || tx.payer === "memberB") return false;
+      return isJointAcc || isUserAAcc || tx.payer === "joint" || tx.payer === "memberA";
     } else {
-      if (isJointAcc || tx.payer === "joint") return true;
-      if (isClassified && tx.split === "50/50") return true;
-      if (tx.payer === "memberB" || isUserBAcc) return true;
-      if (isClassified && tx.split === "memberB") return true;
-      return false;
+      if (isUserAAcc || tx.payer === "memberA") return false;
+      return isJointAcc || isUserBAcc || tx.payer === "joint" || tx.payer === "memberB";
     }
   };
 
@@ -661,15 +671,15 @@ export default function HomePage() {
 
   // Tarjeta vinculada (de cuentas o compras)
   const cardAccount = useMemo(() => {
-    return accounts.find(
+    return visibleAccounts.find(
       (a) =>
         a.accountName.toLowerCase().includes("tarjeta") ||
         a.id.startsWith("card_") ||
         a.id === "acc_card_bankinter"
     );
-  }, [accounts]);
+  }, [visibleAccounts]);
 
-  const cardOwnership = cardAccount?.ownership || "USER_A";
+  const cardOwnership = cardAccount?.ownership || defaultOwner;
 
   const handleCardOwnershipChange = (newOwnership: "JOINT" | "USER_A" | "USER_B") => {
     if (cardAccount) {
@@ -1120,7 +1130,37 @@ export default function HomePage() {
       {/* ============================================================ */}
       {/* GRÁFICA 0: RESUMEN MENSUAL INTEGRAL (ANÁLISIS & PREVISIONES)  */}
       {/* ============================================================ */}
-      {activeTab === "resumen_mensual" && (
+      {activeTab === "resumen_mensual" && (() => {
+        const scopeIncome =
+          monthlyScope === "household"
+            ? visibleHouseholdIncome
+            : monthlyScope === "joint"
+            ? totalJointIncome
+            : monthlyScope === "memberA"
+            ? totalMemberAIncome
+            : totalMemberBIncome;
+
+        const scopeExpenses =
+          monthlyScope === "household"
+            ? visibleHouseholdSpent
+            : monthlyScope === "joint"
+            ? totalJointSpent
+            : monthlyScope === "memberA"
+            ? totalMemberASpent
+            : totalMemberBSpent;
+
+        const scopeSavings = Math.round((scopeIncome - scopeExpenses) * 100) / 100;
+        const scopePersonName = activeRole === "memberA" ? memberAName : memberBName;
+        const scopeLabel =
+          monthlyScope === "household"
+            ? `Hogar ${scopePersonName}`
+            : monthlyScope === "joint"
+            ? "Conjunto (100%)"
+            : monthlyScope === "memberA"
+            ? `Solo ${memberAName}`
+            : `Solo ${memberBName}`;
+
+        return (
         <div className="space-y-6">
           {/* Header Banner */}
           <section className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-6 shadow-xs">
@@ -1135,7 +1175,7 @@ export default function HomePage() {
                       Resumen Mensual
                     </h1>
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold whitespace-nowrap">
-                      Hogar Completo
+                      {scopeLabel}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 font-medium truncate mt-0.5">
@@ -1154,155 +1194,34 @@ export default function HomePage() {
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl px-4 py-2.5 sm:px-5 sm:py-2.5 flex items-center justify-between sm:justify-end gap-3 sm:gap-4 w-full sm:w-auto shrink-0">
                   <div className="text-left sm:text-right">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block whitespace-nowrap">
-                      Ahorro Neto
+                      Ahorro Neto ({scopeLabel})
                     </span>
                     <span
                       className={`text-[10px] sm:text-[11px] font-bold flex items-center gap-1 mt-0.5 whitespace-nowrap ${
-                        monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                        scopeSavings >= 0 ? "text-[#008761]" : "text-rose-600"
                       }`}
                     >
-                      {monthlyForecast.currentSavings >= 0 ? (
+                      {scopeSavings >= 0 ? (
                         <TrendingUp className="w-3.5 h-3.5" />
                       ) : (
                         <TrendingDown className="w-3.5 h-3.5" />
                       )}
-                      {monthlyForecast.currentSavings >= 0 ? "Superávit" : "Déficit"}
+                      {scopeSavings >= 0 ? "Superávit" : "Déficit"}
                     </span>
                   </div>
                   <div
                     className={`text-xl sm:text-2xl font-black tracking-tight whitespace-nowrap ${
-                      monthlyForecast.currentSavings >= 0 ? "text-[#008761]" : "text-rose-600"
+                      scopeSavings >= 0 ? "text-[#008761]" : "text-rose-600"
                     }`}
                   >
-                    {monthlyForecast.currentSavings >= 0 ? "+" : ""}
-                    {monthlyForecast.currentSavings.toFixed(2)}
+                    {scopeSavings >= 0 ? "+" : ""}
+                    {scopeSavings.toFixed(2)}
                     <span className="text-base ml-1 font-bold">€</span>
                   </div>
                 </div>
               </div>
             </div>
           </section>
-
-          {/* 4 KPI Highlight Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* KPI 1: Ingresos Totales */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-400 text-xs">
-                <span className="font-bold uppercase tracking-wider text-[10px]">Ingresos Totales</span>
-                <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
-                  ↓
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {totalHouseholdIncome.toFixed(2)} <span className="text-sm font-bold text-emerald-600">€</span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
-                  Nóminas y abonos
-                </span>
-              </div>
-            </div>
-
-            {/* KPI 2: Gastos Totales */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-400 text-xs">
-                <span className="font-bold uppercase tracking-wider text-[10px]">Gastos Totales</span>
-                <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
-                  ↑
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {totalHouseholdSpent.toFixed(2)} <span className="text-sm font-bold text-rose-500">€</span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
-                  Comunes + Personales
-                </span>
-              </div>
-            </div>
-
-            {/* KPI 3: Ritmo Diario */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-400 text-xs">
-                <span className="font-bold uppercase tracking-wider text-[10px]">Ritmo Diario</span>
-                <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-                  ⚡
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {monthlyForecast.dailyBurnRate.toFixed(2)} <span className="text-sm font-bold text-blue-600">€/día</span>
-                </div>
-                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
-                  Media en {monthlyForecast.elapsedDays} días
-                </span>
-              </div>
-            </div>
-
-            {/* KPI 4: Previsión Cierre */}
-            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
-              <div className="flex items-center justify-between text-slate-400 text-xs">
-                <span className="font-bold uppercase tracking-wider text-[10px]">Previsión Cierre</span>
-                <span className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
-                  🎯
-                </span>
-              </div>
-              <div className="mt-3">
-                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  {monthlyForecast.projectedExpenses.toFixed(2)} <span className="text-sm font-bold text-purple-600">€</span>
-                </div>
-                <span
-                  className={`text-[11px] font-bold mt-0.5 block ${
-                    monthlyForecast.projectedSavings >= 0 ? "text-[#008761]" : "text-rose-600"
-                  }`}
-                >
-                  {monthlyForecast.projectedSavings >= 0
-                    ? `Previsión: +${monthlyForecast.projectedSavings.toFixed(0)}€ ahorro`
-                    : `Previsión: ${monthlyForecast.projectedSavings.toFixed(0)}€ déficit`}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Comparativa Ingresos vs Gastos con Doble Barra Horizontal */}
-          <IncomeExpenseBars
-            totalIncome={
-              monthlyScope === "household"
-                ? visibleHouseholdIncome
-                : monthlyScope === "joint"
-                ? totalJointIncome
-                : monthlyScope === "memberA"
-                ? totalMemberAIncome
-                : totalMemberBIncome
-            }
-            totalExpenses={
-              monthlyScope === "household"
-                ? visibleHouseholdSpent
-                : monthlyScope === "joint"
-                ? totalJointSpent
-                : monthlyScope === "memberA"
-                ? totalMemberASpent
-                : totalMemberBSpent
-            }
-            title={`Diferencia de Ingresos vs Gastos (${
-              monthlyScope === "household"
-                ? `Hogar de ${activeRole === "memberA" ? memberAName : memberBName}`
-                : monthlyScope === "joint"
-                ? "Conjuntos (100%)"
-                : monthlyScope === "memberA"
-                ? `Individual ${memberAName}`
-                : `Individual ${memberBName}`
-            })`}
-            subtitle={
-              monthlyScope === "household"
-                ? `Gastos individuales más el 50% de los gastos comunes reconocidos a ${activeRole === "memberA" ? memberAName : memberBName}`
-                : monthlyScope === "joint"
-                ? "Total de gastos conjuntos al 100% del fondo común"
-                : `Solo gastos 100% propios de ${monthlyScope === "memberA" ? memberAName : memberBName}`
-            }
-            incomeLabel="Total Ingresos"
-            expenseLabel="Total Gastos"
-          />
 
           {/* Selector de Ámbito para el Análisis */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1">
@@ -1328,6 +1247,111 @@ export default function HomePage() {
               </button>
             ))}
           </div>
+
+          {/* 4 KPI Highlight Cards */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* KPI 1: Ingresos Totales */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Ingresos ({scopeLabel})</span>
+                <span className="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                  ↓
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {scopeIncome.toFixed(2)} <span className="text-sm font-bold text-emerald-600">€</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block truncate">
+                  {monthlyScope === "household" ? `Propios + 50% Común` : monthlyScope === "joint" ? "100% Fondo común" : `Solo ${monthlyScope === "memberA" ? memberAName : memberBName}`}
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 2: Gastos Totales */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Gastos ({scopeLabel})</span>
+                <span className="w-6 h-6 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+                  ↑
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {scopeExpenses.toFixed(2)} <span className="text-sm font-bold text-rose-500">€</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block truncate">
+                  {monthlyScope === "household" ? `Propios + 50% Común` : monthlyScope === "joint" ? "100% Fondo común" : `Solo ${monthlyScope === "memberA" ? memberAName : memberBName}`}
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 3: Ritmo Diario */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Ritmo Diario</span>
+                <span className="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                  ⚡
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {(scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)).toFixed(2)} <span className="text-sm font-bold text-blue-600">€/día</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium mt-0.5 block">
+                  Media en {monthlyForecast.elapsedDays} días
+                </span>
+              </div>
+            </div>
+
+            {/* KPI 4: Previsión Cierre */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-4 sm:p-5 shadow-xs flex flex-col justify-between">
+              <div className="flex items-center justify-between text-slate-400 text-xs">
+                <span className="font-bold uppercase tracking-wider text-[10px]">Previsión Cierre</span>
+                <span className="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                  🎯
+                </span>
+              </div>
+              <div className="mt-3">
+                <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                  {((scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)) * monthlyForecast.totalDaysInMonth).toFixed(2)} <span className="text-sm font-bold text-purple-600">€</span>
+                </div>
+                <span
+                  className={`text-[11px] font-bold mt-0.5 block ${
+                    scopeIncome - ((scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)) * monthlyForecast.totalDaysInMonth) >= 0 ? "text-[#008761]" : "text-rose-600"
+                  }`}
+                >
+                  {scopeIncome - ((scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)) * monthlyForecast.totalDaysInMonth) >= 0
+                    ? `Previsión: +${(scopeIncome - ((scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)) * monthlyForecast.totalDaysInMonth)).toFixed(0)}€ ahorro`
+                    : `Previsión: ${(scopeIncome - ((scopeExpenses / Math.max(1, monthlyForecast.elapsedDays)) * monthlyForecast.totalDaysInMonth)).toFixed(0)}€ déficit`}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Comparativa Ingresos vs Gastos con Doble Barra Horizontal */}
+          <IncomeExpenseBars
+            totalIncome={scopeIncome}
+            totalExpenses={scopeExpenses}
+            title={`Diferencia de Ingresos vs Gastos (${
+              monthlyScope === "household"
+                ? `Hogar de ${activeRole === "memberA" ? memberAName : memberBName}`
+                : monthlyScope === "joint"
+                ? "Conjuntos (100%)"
+                : monthlyScope === "memberA"
+                ? `Individual ${memberAName}`
+                : `Individual ${memberBName}`
+            })`}
+            subtitle={
+              monthlyScope === "household"
+                ? `Gastos individuales más el 50% de los gastos comunes reconocidos a ${activeRole === "memberA" ? memberAName : memberBName}`
+                : monthlyScope === "joint"
+                ? "Total de gastos conjuntos al 100% del fondo común"
+                : `Solo gastos 100% propios de ${monthlyScope === "memberA" ? memberAName : memberBName}`
+            }
+            incomeLabel="Total Ingresos"
+            expenseLabel="Total Gastos"
+          />
 
           {/* Donut Chart Global del Hogar: Distribución por Categorías */}
           <section className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
@@ -1606,7 +1630,8 @@ export default function HomePage() {
             )}
           </section>
         </div>
-      )}
+        );
+      })()}
 
       {/* ============================================================ */}
       {/* GRÁFICA 1: GASTOS CONJUNTOS (1/2)                            */}
@@ -3700,8 +3725,8 @@ export default function HomePage() {
                   );
                 })}
 
-                {/* Tarjeta Visa Clásica Bankinter (cuando aún no se ha agregado como cuenta explícita) */}
-                {!accounts.some((a) => a.accountName.toLowerCase().includes("tarjeta") || a.id === "acc_card_bankinter") && (
+                {/* Tarjeta Bankinter (para Carlos cuando aún no se ha agregado como cuenta explícita) */}
+                {activeRole === "memberA" && !visibleAccounts.some((a) => a.accountName.toLowerCase().includes("tarjeta") || a.id === "acc_card_bankinter") && (
                   <div className="p-5 rounded-3xl border border-emerald-200/90 bg-white hover:border-emerald-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between">
                     <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
@@ -3714,7 +3739,7 @@ export default function HomePage() {
                               Bankinter
                             </span>
                             <span className="text-[11px] font-semibold text-slate-600 block truncate">
-                              Tarjeta Visa Clásica
+                              Tarjeta Bankinter ({memberAName})
                             </span>
                           </div>
                         </div>
@@ -3745,13 +3770,10 @@ export default function HomePage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setBankModalInitialMode("card");
-                            setBankModalInitialBank("Bankinter");
-                            setBankModalInitialCardId(cardAccount?.id);
-                            setIsBankModalOpen(true);
+                            setIsSyncModalOpen(true);
                           }}
                           className="w-full py-2 px-3 rounded-xl bg-slate-100/90 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-slate-200/80 text-slate-700 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                          title="Cargar extracto de compras para Tarjeta Visa Clásica"
+                          title="Cargar extracto de compras para Tarjeta Bankinter"
                         >
                           <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                           <span>📥 Cargar Extracto / Movimientos</span>
@@ -3817,6 +3839,63 @@ export default function HomePage() {
                         >
                           <User className="w-3 h-3 shrink-0" />
                           <span className="truncate">{memberBName}</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Tarjeta Revolut (para Andrea cuando aún no se ha agregado como cuenta explícita) */}
+                {activeRole === "memberB" && !visibleAccounts.some((a) => a.accountName.toLowerCase().includes("tarjeta")) && (
+                  <div className="p-5 rounded-3xl border border-blue-200/90 bg-white hover:border-blue-300 shadow-2xs hover:shadow-xs transition-all space-y-4 flex flex-col justify-between">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-9 h-9 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0 text-blue-600">
+                            <CreditCard className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="text-xs font-black text-slate-900 block truncate">
+                              Revolut
+                            </span>
+                            <span className="text-[11px] font-semibold text-slate-600 block truncate">
+                              Tarjeta Revolut ({memberBName})
+                            </span>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                          Tarjeta
+                        </span>
+                      </div>
+
+                      <div className="pt-2 bg-blue-50/40 p-3 rounded-2xl border border-blue-100/80 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-bold text-blue-800 uppercase tracking-wider">
+                            Gasto del mes ({selectedMonthLabel})
+                          </span>
+                          <span className="text-[10px] font-bold text-slate-500">
+                            {cardPurchasesCount} {cardPurchasesCount === 1 ? "compra" : "compras"}
+                          </span>
+                        </div>
+                        <div className="text-xl font-black text-slate-900 tracking-tight">
+                          {cardSpentThisMonth.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                        </div>
+                        <p className="text-[10px] text-slate-500">
+                          Extractos sincronizados
+                        </p>
+                      </div>
+
+                      <div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsSyncModalOpen(true);
+                          }}
+                          className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                          title="Cargar extracto de compras para Revolut"
+                        >
+                          <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                          <span>📥 Sincronizar Extracto Revolut</span>
                         </button>
                       </div>
                     </div>

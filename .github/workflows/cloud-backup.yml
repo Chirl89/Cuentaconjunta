@@ -30,7 +30,7 @@ jobs:
           cache: "npm"
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit
 
       - name: Perform Cloud Database Snapshot
         run: node scripts/cloud-backup.js

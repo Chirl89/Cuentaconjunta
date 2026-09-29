@@ -1009,17 +1009,7 @@ export function isRevolutTransaction(t: {
 export function shouldPurgeMovement(t: any): boolean {
   if (!t) return false;
 
-  // 1. Any movement of Andrea in general (user: "elimina todos los movimientos de andrea, en general")
-  if (
-    t.payer === "memberB" ||
-    t.split === "memberB" ||
-    t.ownership === "USER_B" ||
-    (t.accountLabel || "").toLowerCase().includes("andrea")
-  ) {
-    return true;
-  }
-
-  // 2. Any movement of Visa Clásica (user: "siguen apareciendo, pero como visa clásica... la tarjeta se ha asignado como bankinter visa clásica, asignada a carlos")
+  // Only purge legacy erroneous Bankinter Visa Clásica ghost movements that were mistakenly created
   const acc = (t.accountLabel || "").toLowerCase();
   const id = (t.id || "").toLowerCase();
   const bId = (t.bankMovementId || "").toLowerCase();
@@ -1036,11 +1026,6 @@ export function shouldPurgeMovement(t: any): boolean {
     m.includes("visa clasica") ||
     raw.includes("visa clasica")
   ) {
-    return true;
-  }
-
-  // 3. Any Revolut movement
-  if (isRevolutTransaction(t)) {
     return true;
   }
 
