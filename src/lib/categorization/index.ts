@@ -11,7 +11,7 @@ export * from "./classifier";
 export * from "./learning";
 export * from "./rulesEngine";
 
-import { classifyConcept, isCardBillingStatement } from "./classifier";
+import { classifyConcept, isCardBillingStatement, isOmittedInternalMovement } from "./classifier";
 import { findLearnedCategory, CategoryLearningItem } from "./learning";
 import { evaluateRules, AssignmentRule } from "./rulesEngine";
 
@@ -69,6 +69,20 @@ export function runCategorizationPipeline(
       assignedBy: "rule",
       confidence: 1.0,
       rationale: "Recibo/cargo mensual de tarjeta en cuenta corriente. Ignorado por defecto (No contabilizado) para evitar duplicidad.",
+    };
+  }
+
+  // Built-in rule: Internal savings transfer or migration (e.g. "From Instant Access Savings", "SavingsAccount migration")
+  if (!ruleResult && isOmittedInternalMovement(tx.merchant)) {
+    return {
+      category: "Liquidación / Neteo",
+      categoryColor: resolveColor("Liquidación / Neteo"),
+      status: "auto_assigned",
+      payer: "joint",
+      split: "ignored",
+      assignedBy: "rule",
+      confidence: 1.0,
+      rationale: "Traspaso interno a/desde cuenta de ahorros o migración interna. Ignorado por defecto (No contabilizado).",
     };
   }
 

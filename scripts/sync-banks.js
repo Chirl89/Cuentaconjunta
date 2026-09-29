@@ -234,6 +234,14 @@ async function main() {
                         const amountRaw = parseFloat(rt.transaction_amount?.amount || '0');
                         const rawConcept = (rt.remittance_information && rt.remittance_information.length > 0 ? rt.remittance_information.join(' ') : null) || rt.creditor_name || rt.debtor_name || rt.additional_information || 'Movimiento Bancario';
                         const concept = cleanConcept(rawConcept);
+                        const lowerConcept = (concept || '').toLowerCase();
+                        if (
+                          lowerConcept.includes('savingsaccount migration') ||
+                          lowerConcept.includes('from instant access savings') ||
+                          lowerConcept.includes('to instant access savings')
+                        ) {
+                          continue;
+                        }
                         const isCredit = rt.credit_debit_indicator === 'CRDT' || (amountRaw > 0 && rt.credit_debit_indicator !== 'DBIT');
                         const cat = isCredit
                           ? { name: 'Ingreso / Nómina', color: '#10B981' }

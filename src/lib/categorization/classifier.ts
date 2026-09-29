@@ -391,6 +391,21 @@ export function isCardBillingStatement(concept: string): boolean {
 }
 
 /**
+ * Detects internal non-real movements that should be omitted directly upon import / loading
+ * (e.g. "SavingsAccount migration", "From Instant Access Savings", "To Instant Access Savings").
+ */
+export function isOmittedInternalMovement(concept: string): boolean {
+  if (!concept) return false;
+  const lower = concept.toLowerCase().trim();
+  return (
+    lower.includes("savingsaccount migration") ||
+    lower.includes("from instant access savings") ||
+    lower.includes("to instant access savings") ||
+    (lower.includes("instant access savings") && (lower.includes("from") || lower.includes("to") || lower.includes("migration")))
+  );
+}
+
+/**
  * Classifies a transaction concept / merchant string using lightweight AI heuristics.
  */
 export function classifyConcept(concept: string): ClassificationResult {

@@ -24,6 +24,7 @@ import {
   evaluateRules,
   findLearnedCategory,
   isCardBillingStatement,
+  isOmittedInternalMovement,
 } from "@/lib/categorization";
 
 export type { AssignmentRule, CategoryLearningItem };
@@ -1009,6 +1010,12 @@ export function isRevolutTransaction(t: {
 export function shouldPurgeMovement(t: any): boolean {
   if (!t) return false;
 
+  // Immediately purge internal non-real movements (SavingsAccount migration, From/To Instant Access Savings)
+  const concept = t.merchant || (t as any).concept || t.rawConcept || "";
+  if (isOmittedInternalMovement(concept)) {
+    return true;
+  }
+
   // Only purge legacy erroneous Bankinter Visa Clásica ghost movements that were mistakenly created
   const acc = (t.accountLabel || "").toLowerCase();
   const id = (t.id || "").toLowerCase();
@@ -1661,7 +1668,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     (newTxs: Transaction[] | ((prev: Transaction[]) => Transaction[]), broadcast = true) => {
       const prev = transactionsRef.current;
       const rawUpdated = typeof newTxs === "function" ? newTxs(prev) : newTxs;
-      const updated = rawUpdated.map((t) => {
+      const updated = rawUpdated
+        .filter((t) => !isOmittedInternalMovement(t.merchant || (t as any).concept || t.rawConcept || ""))
+        .map((t) => {
         if (isCardBillingStatement(t.merchant || t.rawConcept || "") && t.split !== "ignored") {
           return {
             ...t,

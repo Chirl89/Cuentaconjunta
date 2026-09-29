@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { isOmittedInternalMovement } from "@/lib/categorization/classifier";
 
 export interface ParsedBankMovement {
   id: string;
@@ -152,6 +153,7 @@ export function parseSpanishBankStatement(
     }
 
     if (amountVal !== null && concept) {
+      if (isOmittedInternalMovement(concept)) continue;
       const absAmount = Math.abs(amountVal).toFixed(2);
       const cleanConceptKey = concept.toLowerCase().trim();
       const occKey = `${isoDate}_${absAmount}_${cleanConceptKey}`;
@@ -258,6 +260,7 @@ export function parseUniversalBankExtract(
             const numAmount = parseFloat(amtStr);
 
             if (isNaN(numAmount) || !conceptStr) continue;
+            if (isOmittedInternalMovement(conceptStr)) continue;
 
             // Date parsing (YYYY-MM-DD or DD/MM/YYYY)
             let day = "", month = "", year = "";
@@ -473,6 +476,7 @@ export function parseUniversalBankExtract(
         const monthKey = `${year}-${month}`;
         const conceptStr = String(conceptCell).trim();
         if (!conceptStr) continue;
+        if (isOmittedInternalMovement(conceptStr)) continue;
 
         const isCredit = numAmount > 0 || conceptStr.toUpperCase().includes("ANUL");
         const absVal = Math.abs(numAmount);
