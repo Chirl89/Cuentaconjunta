@@ -62,10 +62,10 @@ describe("Sygis Brand & Visual Identity", () => {
     expect(screen.getAllByText("Sygis").length).toBeGreaterThan(0);
   });
 
-  it("renders VersionBadge with current version v0.12.9", () => {
+  it("renders VersionBadge with current version v0.12.10", () => {
     render(<VersionBadge />);
     expect(screen.getByText(`v${versionData.version}`)).toBeInTheDocument();
-    expect(versionData.version).toBe("0.12.9");
+    expect(versionData.version).toBe("0.12.10");
   });
 
   it("renders mobile Header with Sync button and without version badge or profile switcher", () => {
