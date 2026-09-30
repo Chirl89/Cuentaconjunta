@@ -26,8 +26,9 @@ import {
   isCardBillingStatement,
   isOmittedInternalMovement,
 } from "@/lib/categorization";
+import { createLocalBackup, type LocalBackupPayload } from "@/lib/backup/localBackup";
 
-export type { AssignmentRule, CategoryLearningItem };
+export type { AssignmentRule, CategoryLearningItem, LocalBackupPayload };
 
 const STORAGE_KEY_TRANSACTIONS = "cuentaconjunta_transactions_v2";
 const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
@@ -979,6 +980,17 @@ interface TransactionsContextType {
     jointCount: number;
   };
   autoAssignedTransactions: Transaction[];
+  exportLocalBackup: () => LocalBackupPayload;
+  importLocalBackup: (
+    payload: LocalBackupPayload,
+    mode?: "replace" | "merge"
+  ) => {
+    success: boolean;
+    importedTransactions: number;
+    importedAccounts: number;
+    importedRules: number;
+    message: string;
+  };
 }
 
 const TransactionsContext = createContext<TransactionsContextType | undefined>(undefined);
@@ -1153,7 +1165,7 @@ export function areLearningsEqual(a: CategoryLearningItem[], b: CategoryLearning
 }
 
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { memberAName, memberBName } = useUserNames();
+  const { memberAName, memberBName, setNames } = useUserNames();
   const auth = useOptionalAuth();
   const inviteCode = auth?.household?.inviteCode || "FITDUO";
   const isSyncingRef = React.useRef(false);
@@ -3562,6 +3574,189 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     };
   }, [debtContributingMovements, memberAName, memberBName]);
 
+  const exportLocalBackup = useCallback((): LocalBackupPayload => {
+    return createLocalBackup({
+      transactions,
+      accounts,
+      rules,
+      learnings,
+      categories,
+      settlements: settlementCutoffs,
+      userNames: {
+        memberA: memberAName,
+        memberB: memberBName,
+      },
+    });
+  }, [transactions, accounts, rules, learnings, categories, settlementCutoffs, memberAName, memberBName]);
+
+  const importLocalBackup = useCallback((
+    payload: LocalBackupPayload,
+    mode: "replace" | "merge" = "replace"
+  ): { success: boolean; importedTransactions: number; importedAccounts: number; importedRules: number; message: string } => {
+    if (!payload || !payload.data) {
+      return {
+        success: false,
+        importedTransactions: 0,
+        importedAccounts: 0,
+        importedRules: 0,
+        message: "Copia de seguridad inválida o datos vacíos.",
+      };
+    }
+
+    const { data } = payload;
+    let nextTransactions: Transaction[] = [];
+    let nextAccounts: BankAccount[] = [];
+    let nextRules: AssignmentRule[] = [];
+    let nextLearnings: CategoryLearningItem[] = [];
+    let nextCategories: CategoryInfo[] = [];
+    let nextSettlements: Record<string, any> = {};
+
+    if (mode === "replace") {
+      nextTransactions = data.transactions || [];
+      nextAccounts = data.accounts || [];
+      nextRules = data.rules || [];
+      nextLearnings = data.learnings || [];
+      nextCategories = data.categories && data.categories.length > 0 ? data.categories : CATEGORIES_LIST;
+      nextSettlements = data.settlements || {};
+    } else {
+      // Merge mode
+      const existingTxMap = new Map<string, Transaction>();
+      transactions.forEach((t) => {
+        existingTxMap.set(t.id, t);
+        if (t.bankMovementId) existingTxMap.set(t.bankMovementId, t);
+      });
+      const mergedTx = [...transactions];
+      (data.transactions || []).forEach((t) => {
+        if (!existingTxMap.has(t.id) && (!t.bankMovementId || !existingTxMap.has(t.bankMovementId))) {
+          mergedTx.push(t);
+          existingTxMap.set(t.id, t);
+          if (t.bankMovementId) existingTxMap.set(t.bankMovementId, t);
+        }
+      });
+      nextTransactions = mergedTx;
+
+      const existingAccMap = new Map<string, BankAccount>();
+      accounts.forEach((a) => {
+        existingAccMap.set(a.id, a);
+        const altId = (a as any).officialId || a.ibanMask;
+        if (altId) existingAccMap.set(altId, a);
+      });
+      const mergedAcc = [...accounts];
+      (data.accounts || []).forEach((a) => {
+        const altId = (a as any).officialId || a.ibanMask;
+        if (!existingAccMap.has(a.id) && (!altId || !existingAccMap.has(altId))) {
+          mergedAcc.push(a);
+          existingAccMap.set(a.id, a);
+        }
+      });
+      nextAccounts = mergedAcc;
+
+      const existingRuleMap = new Map<string, AssignmentRule>();
+      rules.forEach((r) => existingRuleMap.set(r.pattern.toLowerCase(), r));
+      const mergedRules = [...rules];
+      (data.rules || []).forEach((r) => {
+        if (!existingRuleMap.has(r.pattern.toLowerCase())) {
+          mergedRules.push(r);
+          existingRuleMap.set(r.pattern.toLowerCase(), r);
+        }
+      });
+      nextRules = mergedRules;
+
+      const existingLearningMap = new Map<string, CategoryLearningItem>();
+      learnings.forEach((l) => existingLearningMap.set(l.merchantPattern.toLowerCase(), l));
+      const mergedLearnings = [...learnings];
+      (data.learnings || []).forEach((l) => {
+        if (!existingLearningMap.has(l.merchantPattern.toLowerCase())) {
+          mergedLearnings.push(l);
+          existingLearningMap.set(l.merchantPattern.toLowerCase(), l);
+        }
+      });
+      nextLearnings = mergedLearnings;
+
+      const existingCatMap = new Map<string, CategoryInfo>();
+      categories.forEach((c) => existingCatMap.set(c.name.toLowerCase(), c));
+      const mergedCats = [...categories];
+      (data.categories || []).forEach((c) => {
+        if (!existingCatMap.has(c.name.toLowerCase())) {
+          mergedCats.push(c);
+          existingCatMap.set(c.name.toLowerCase(), c);
+        }
+      });
+      nextCategories = mergedCats;
+      nextSettlements = { ...settlementCutoffs, ...(data.settlements || {}) };
+    }
+
+    setTransactions(nextTransactions);
+    setAccounts(nextAccounts);
+    setRules(nextRules);
+    setLearnings(nextLearnings);
+    setCategories(nextCategories);
+    setSettlementCutoffs(nextSettlements);
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(nextTransactions));
+        localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(nextAccounts));
+        localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(nextRules));
+        localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(nextLearnings));
+        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(nextCategories));
+        localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(nextSettlements));
+      } catch (err) {
+        console.error("Error guardando datos tras restauración local:", err);
+      }
+    }
+
+    if (data.userNames && (data.userNames.memberA || data.userNames.memberB)) {
+      setNames({
+        memberA: data.userNames.memberA,
+        memberB: data.userNames.memberB,
+      });
+    }
+
+    pushStateToCloud(inviteCode, {
+      transactions: nextTransactions,
+      accounts: nextAccounts,
+      rules: nextRules,
+      category_learnings: nextLearnings,
+      categories: nextCategories,
+      settlements: nextSettlements,
+    });
+
+    broadcastHouseholdSync({
+      type: "TRANSACTIONS_SYNC",
+      inviteCode,
+      transactions: nextTransactions,
+    });
+    broadcastHouseholdSync({
+      type: "ACCOUNTS_SYNC",
+      inviteCode,
+      accounts: nextAccounts,
+    });
+    broadcastHouseholdSync({
+      type: "RULES_SYNC",
+      inviteCode,
+      rules: nextRules,
+    });
+    broadcastHouseholdSync({
+      type: "LEARNINGS_SYNC",
+      inviteCode,
+      learnings: nextLearnings,
+    });
+    broadcastHouseholdSync({
+      type: "SETTLEMENTS_SYNC",
+      inviteCode,
+      settlements: nextSettlements,
+    });
+
+    return {
+      success: true,
+      importedTransactions: data.transactions?.length || 0,
+      importedAccounts: data.accounts?.length || 0,
+      importedRules: data.rules?.length || 0,
+      message: `Copia de seguridad restaurada (${mode === "replace" ? "limpia" : "fusionada"}): ${nextTransactions.length} movimientos y ${nextRules.length} reglas activas.`,
+    };
+  }, [transactions, accounts, rules, learnings, categories, settlementCutoffs, inviteCode, setNames]);
+
   return (
     <TransactionsContext.Provider
       value={{
@@ -3644,6 +3839,8 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         confirmAllAutoAssigned,
         assignAllPendingToCardHolder,
         autoAssignedTransactions,
+        exportLocalBackup,
+        importLocalBackup,
       }}
     >
       {children}

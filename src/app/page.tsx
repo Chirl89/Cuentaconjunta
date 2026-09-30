@@ -31,6 +31,8 @@ import { isMerchantMatch } from "@/lib/categorization";
 import { sortTransactionsList, SortCriterion, SortDirection } from "@/lib/sorting";
 import { SortControls } from "@/components/SortControls";
 import { CategorySelect } from "@/components/CategorySelect";
+import { BackupRestoreCard } from "@/components/BackupRestoreCard";
+import { BankConnectionStatusCard } from "@/components/BankConnectionStatusCard";
 import { useTransactionSort } from "@/hooks/useTransactionSort";
 import versionData from "../../version.json";
 import {
@@ -4683,6 +4685,17 @@ export default function HomePage() {
               </span>
             </div>
           </div>
+
+          {/* SECCIÓN 5: COPIA DE SEGURIDAD Y RESTAURACIÓN LOCAL (JSON) */}
+          <BackupRestoreCard onNotify={showToast} />
+
+          {/* SECCIÓN 6: ESTADO DE CONEXIÓN BANCARIA & CREDENCIALES PSD2 */}
+          <BankConnectionStatusCard
+            onOpenConnectModal={() => {
+              setActiveTab("cuentas");
+              setIsBankModalOpen(true);
+            }}
+          />
         </div>
       )}
 

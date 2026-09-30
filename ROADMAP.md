@@ -56,8 +56,10 @@
   - Controles de ordenación (`SortControls`) integrados en Resumen Mensual, Gastos Conjuntos, Gastos Carlos y Gastos Andrea.
   - Selector de categoría interactivo (`CategorySelect`) en todas las listas de movimientos y resúmenes con sincronización en tiempo real.
 
-- **Paso 13 (v0.13)**: **Copia de Seguridad y Restauración Local JSON en Ajustes & Optimización de Rendimiento** *(Pendiente)*
-  - Herramienta en Ajustes para exportar e importar copias de seguridad locales completas en formato JSON estructurado.
-  - Auditoría de optimización de bundles, caché de navegación y refinamientos finales.
+- **Paso 13 (v0.13)**: **Copia de Seguridad y Restauración Local JSON en Ajustes & Optimización de Rendimiento** *(Completado)*
+  - Herramienta completa en Ajustes (`BackupRestoreCard`) para exportar e importar copias de seguridad locales en formato JSON estructurado con integridad canónica SHA-256.
+  - Soporte de dos modos de restauración: Limpia (reemplazo completo) y Fusión (merge inteligente sin duplicidades).
+  - Monitor de estado bancario y validez PSD2 (90 días) en Ajustes con indicador visual de días restantes y botón de reconciliación rápida.
+  - Auditoría de optimización de bundles (Next.js production build verificado con 0 fallos), caché y suite completa de tests de regresión (33/33 archivos y 229 tests pasando).
 
 

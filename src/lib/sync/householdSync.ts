@@ -53,6 +53,7 @@ export function subscribeHouseholdRoom(
   }
 
   const supabase = getSupabaseBrowserClient();
+  if (!supabase) return () => {};
 
   if (activeChannel) {
     try {
