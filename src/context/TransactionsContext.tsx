@@ -1039,10 +1039,117 @@ export function shouldPurgeMovement(t: any): boolean {
   return false;
 }
 
+export function sanitizeTransactions(txs: any[], purgeTs = 0): Transaction[] {
+  if (!Array.isArray(txs)) return [];
+  const filtered = isTestEnv ? txs : txs.filter((t: any) => !isFictionalTransaction(t));
+  return filtered
+    .filter((t: any) => {
+      if (shouldPurgeMovement(t)) {
+        if (purgeTs > 0 && (t.createdAt || 0) > purgeTs) {
+          return true;
+        }
+        return false;
+      }
+      return true;
+    })
+    .map((t: any) => {
+      const m = (t.merchant || "").toLowerCase();
+      const raw = (t.rawConcept || "").toLowerCase();
+      if (isCardBillingStatement(m) || isCardBillingStatement(raw)) {
+        return {
+          ...t,
+          status: "classified" as const,
+          split: "ignored" as const,
+          category: "Liquidación / Neteo",
+          categoryColor: "#8B5CF6",
+        };
+      }
+      const isCredit = t.isCredit ?? (m.includes("nfoque") || m.includes("bizum de") || m.includes("transferencia inm"));
+      if (isCredit) {
+        const targetOwner = t.payer === "memberB" ? "memberB" : "memberA";
+        return {
+          ...t,
+          isCredit: true,
+          status: "classified" as const,
+          payer: targetOwner,
+          split: targetOwner,
+          category: t.category === "Otros Gastos Comunes" ? "Ingreso / Nómina" : t.category,
+          categoryColor: t.category === "Otros Gastos Comunes" ? "#10B981" : t.categoryColor,
+        };
+      }
+      if (t.status === "auto_assigned") {
+        return {
+          ...t,
+          status: "pending" as const,
+        };
+      }
+      return t;
+    });
+}
+
+export function areTransactionsEqual(a: Transaction[], b: Transaction[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const tA = a[i];
+    const tB = b[i];
+    if (
+      tA.id !== tB.id ||
+      tA.status !== tB.status ||
+      tA.split !== tB.split ||
+      tA.payer !== tB.payer ||
+      tA.amount !== tB.amount ||
+      tA.category !== tB.category ||
+      tA.isCredit !== tB.isCredit ||
+      tA.date !== tB.date ||
+      tA.merchant !== tB.merchant ||
+      (tA.updatedAt || 0) !== (tB.updatedAt || 0)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areAccountsEqual(a: BankAccount[], b: BankAccount[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (
+      a[i].id !== b[i].id ||
+      a[i].balance !== b[i].balance ||
+      a[i].bankName !== b[i].bankName ||
+      a[i].accountName !== b[i].accountName ||
+      a[i].ownership !== b[i].ownership ||
+      a[i].ibanMask !== b[i].ibanMask
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function areRulesEqual(a: AssignmentRule[], b: AssignmentRule[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+export function areLearningsEqual(a: CategoryLearningItem[], b: CategoryLearningItem[]): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
 export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { memberAName, memberBName } = useUserNames();
   const auth = useOptionalAuth();
   const inviteCode = auth?.household?.inviteCode || "FITDUO";
+  const isSyncingRef = React.useRef(false);
 
   const [transactions, setTransactions] = useState<Transaction[]>(() => {
     if (typeof window !== "undefined") {
@@ -1052,16 +1159,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed)) {
-            let filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-            const isPurged = localStorage.getItem(PURGE_ANDREA_VISACLASICA_KEY) === "true";
-            if (!isTestEnv && !isPurged) {
-              const nowTs = Date.now();
-              localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
-              localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
-              filtered = filtered.filter((t: any) => !shouldPurgeMovement(t));
-              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(filtered));
-            }
-            return filtered;
+            const purgeTs = Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0");
+            const sanitized = sanitizeTransactions(parsed, purgeTs);
+            return sanitized;
           }
         }
       } catch {}
@@ -1193,190 +1293,57 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     if (typeof window === "undefined") return;
     try {
       localStorage.removeItem("cuentaconjunta_transactions_v1");
+      const isPurged = localStorage.getItem(PURGE_ANDREA_VISACLASICA_KEY) === "true";
+      if (!isTestEnv && !isPurged) {
+        const nowTs = Date.now();
+        try {
+          localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
+          localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
+        } catch {}
+      }
+
       const savedRules = localStorage.getItem(STORAGE_KEY_RULES);
       if (savedRules) {
         try {
           const parsed = JSON.parse(savedRules);
-          if (Array.isArray(parsed) && parsed.length > 0) setRules(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setRules((prev) => (areRulesEqual(prev, parsed) ? prev : parsed));
+          }
         } catch {}
       }
       const savedLearnings = localStorage.getItem(STORAGE_KEY_LEARNINGS);
       if (savedLearnings) {
         try {
           const parsed = JSON.parse(savedLearnings);
-          if (Array.isArray(parsed)) setLearnings(parsed);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setLearnings((prev) => (areLearningsEqual(prev, parsed) ? prev : parsed));
+          }
         } catch {}
-      }
-      const savedTxs = localStorage.getItem(STORAGE_KEY_TRANSACTIONS);
-      if (savedTxs) {
-        const parsed = JSON.parse(savedTxs);
-        if (Array.isArray(parsed)) {
-          const filtered = isTestEnv ? parsed : parsed.filter((t: any) => !isFictionalTransaction(t));
-          let toSanitize = filtered;
-          const purgeTs = typeof window !== "undefined"
-            ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
-            : 0;
-          const isPurged = typeof window !== "undefined" && localStorage.getItem(PURGE_ANDREA_VISACLASICA_KEY) === "true";
-
-          if (!isTestEnv && typeof window !== "undefined") {
-            if (!isPurged || purgeTs === 0) {
-              const nowTs = Date.now();
-              try {
-                localStorage.setItem(PURGE_ANDREA_VISACLASICA_KEY, "true");
-                localStorage.setItem(PURGE_ANDREA_VISACLASICA_TS_KEY, nowTs.toString());
-              } catch {}
-              toSanitize = filtered.filter((t: any) => !shouldPurgeMovement(t));
-            } else {
-              // Only keep transactions if they were created after the purge timestamp
-              toSanitize = filtered.filter((t: any) => {
-                if (!shouldPurgeMovement(t)) return true;
-                return (t.createdAt || 0) > purgeTs;
-              });
-            }
-          }
-          const sanitized = toSanitize.map((t: any) => {
-            const m = (t.merchant || "").toLowerCase();
-            const raw = (t.rawConcept || "").toLowerCase();
-            if (isCardBillingStatement(m) || isCardBillingStatement(raw)) {
-              return {
-                ...t,
-                status: "classified",
-                split: "ignored",
-                category: "Liquidación / Neteo",
-                categoryColor: "#8B5CF6",
-              };
-            }
-            const isCredit = t.isCredit ?? (m.includes("nfoque") || m.includes("bizum de") || m.includes("transferencia inm"));
-            if (isCredit) {
-              const targetOwner = t.payer === "memberB" ? "memberB" : "memberA";
-              return {
-                ...t,
-                isCredit: true,
-                status: "classified",
-                payer: targetOwner,
-                split: targetOwner,
-                category: t.category === "Otros Gastos Comunes" ? "Ingreso / Nómina" : t.category,
-                categoryColor: t.category === "Otros Gastos Comunes" ? "#10B981" : t.categoryColor,
-              };
-            }
-            if (t.status === "auto_assigned") {
-              return {
-                ...t,
-                status: "pending",
-              };
-            }
-            return t;
-          });
-          setTransactions(sanitized);
-          localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(sanitized));
-
-          // If old transactions were purged, propagate immediately to Supabase
-          if (!isTestEnv && toSanitize.length !== filtered.length) {
-            pushStateToCloud(inviteCode, { transactions: sanitized }).catch(() => {});
-          }
-        }
       }
       const savedAccs = localStorage.getItem(STORAGE_KEY_ACCOUNTS);
       if (savedAccs) {
-        const parsed = JSON.parse(savedAccs);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = parsed.filter(
-            (a: any) =>
-              !a.bankName.toLowerCase().includes("santander") &&
-              !a.id?.startsWith("eb_acc_") &&
-              !a.id?.startsWith("mock_")
-          );
-          setAccounts(cleaned);
-          localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(cleaned));
-        }
+        try {
+          const parsed = JSON.parse(savedAccs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const cleaned = parsed.filter(
+              (a: any) =>
+                !a.bankName.toLowerCase().includes("santander") &&
+                !a.id?.startsWith("eb_acc_") &&
+                !a.id?.startsWith("mock_")
+            );
+            setAccounts((prev) => (areAccountsEqual(prev, cleaned) ? prev : cleaned));
+          }
+        } catch {}
       }
       const savedSettlements = localStorage.getItem(STORAGE_KEY_SETTLEMENTS);
       if (savedSettlements) {
-        setSettlementCutoffs(JSON.parse(savedSettlements));
+        try {
+          const parsed = JSON.parse(savedSettlements);
+          setSettlementCutoffs((prev) =>
+            JSON.stringify(prev) === JSON.stringify(parsed) ? prev : parsed
+          );
+        } catch {}
       }
-
-      // Cloud Database Sync: fetch persistent state from Supabase household_state
-      fetchStateFromCloud(inviteCode).then((cloud) => {
-        if (!cloud) return;
-        if (Array.isArray(cloud.transactions) && cloud.transactions.length > 0) {
-          const currentPurgeTs = typeof window !== "undefined"
-            ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
-            : 0;
-
-          // Strip any purged transactions from cloud created before currentPurgeTs
-          const cleanCloudTransactions = cloud.transactions.filter((ct: any) => {
-            if (!shouldPurgeMovement(ct)) return true;
-            return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
-          });
-
-          const hadPurgedInCloud = cleanCloudTransactions.length !== cloud.transactions.length;
-
-          setTransactions((prev) => {
-            const cleanPrev = prev.filter((t: any) => {
-              if (!shouldPurgeMovement(t)) return true;
-              return currentPurgeTs > 0 && (t.createdAt || 0) > currentPurgeTs;
-            });
-
-            const prevMap = new Map(cleanPrev.map((t) => [t.id, t]));
-            const cloudMap = new Map<string, Transaction>();
-            for (const ct of cleanCloudTransactions) {
-              const local = prevMap.get(ct.id);
-              if (!local) {
-                cloudMap.set(ct.id, ct);
-              } else if (local.split === "ignored") {
-                cloudMap.set(ct.id, local);
-              } else if (local.status === "classified" && ct.status === "pending") {
-                cloudMap.set(ct.id, local);
-              } else if ((local.updatedAt || 0) >= (ct.updatedAt || 0)) {
-                cloudMap.set(ct.id, local);
-              } else {
-                cloudMap.set(ct.id, ct);
-              }
-            }
-            const localOnly = cleanPrev.filter((t) => !cloudMap.has(t.id));
-            const merged = [...Array.from(cloudMap.values()), ...localOnly];
-            try {
-              localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
-            } catch {}
-
-            if (hadPurgedInCloud) {
-              pushStateToCloud(inviteCode, { transactions: merged }).catch(console.warn);
-            }
-
-            return merged;
-          });
-        }
-        if (Array.isArray(cloud.accounts) && cloud.accounts.length > 0) {
-          setAccounts((prev) => {
-            const map = new Map<string, BankAccount>();
-            for (const a of prev) map.set(a.id, a);
-            for (const ca of cloud.accounts) map.set(ca.id, ca);
-            const merged = Array.from(map.values());
-            try {
-              localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(merged));
-            } catch {}
-            return merged;
-          });
-        }
-        if (cloud.settlements && Object.keys(cloud.settlements).length > 0) {
-          setSettlementCutoffs(cloud.settlements);
-          try {
-            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloud.settlements));
-          } catch {}
-        }
-        if (Array.isArray(cloud.rules) && cloud.rules.length > 0) {
-          setRules(cloud.rules);
-          try {
-            localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(cloud.rules));
-          } catch {}
-        }
-        if (Array.isArray(cloud.category_learnings) && cloud.category_learnings.length > 0) {
-          setLearnings(cloud.category_learnings);
-          try {
-            localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(cloud.category_learnings));
-          } catch {}
-        }
-      });
     } catch (e) {
       console.warn("Hydration failed:", e);
     }
@@ -1385,6 +1352,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // Automated background bank feed & cloud database synchronization (Unified PSD2 + Supabase household_state)
   const syncBankFeed = useCallback(async (options?: { forceLiveApi?: boolean }): Promise<{ success: boolean; total: number; cardCount: number; error?: string }> => {
     if (typeof window === "undefined") return { success: false, total: 0, cardCount: 0 };
+    if (isSyncingRef.current) {
+      return { success: true, total: transactionsRef.current.length, cardCount: 0 };
+    }
+    isSyncingRef.current = true;
+
     try {
       if (typeof process !== "undefined" && (process.env.NODE_ENV === "test" || Boolean(process.env.VITEST))) {
         return { success: true, total: 0, cardCount: 0 };
@@ -1404,13 +1376,32 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
             ? Number(localStorage.getItem(PURGE_ANDREA_VISACLASICA_TS_KEY) || "0")
             : 0;
           if (Array.isArray(cloud.transactions)) {
-            cloudTxs = cloud.transactions.filter((ct: any) => {
-              if (!shouldPurgeMovement(ct)) return true;
-              return currentPurgeTs > 0 && (ct.createdAt || 0) > currentPurgeTs;
-            });
+            cloudTxs = sanitizeTransactions(cloud.transactions, currentPurgeTs);
           }
           if (Array.isArray(cloud.accounts)) cloudAccs = cloud.accounts;
           if (cloud.settlements) cloudSettlements = cloud.settlements;
+
+          // Sync cloud rules and learnings if available
+          if (Array.isArray(cloud.rules) && cloud.rules.length > 0) {
+            const nextRules = cloud.rules as AssignmentRule[];
+            setRules((prev) => {
+              if (areRulesEqual(prev, nextRules)) return prev;
+              try {
+                localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(nextRules));
+              } catch {}
+              return nextRules;
+            });
+          }
+          if (Array.isArray(cloud.category_learnings) && cloud.category_learnings.length > 0) {
+            const nextLearnings = cloud.category_learnings as CategoryLearningItem[];
+            setLearnings((prev) => {
+              if (areLearningsEqual(prev, nextLearnings)) return prev;
+              try {
+                localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(nextLearnings));
+              } catch {}
+              return nextLearnings;
+            });
+          }
         }
       } catch (cloudErr) {
         console.warn("Could not fetch cloud state in syncBankFeed:", cloudErr);
@@ -1464,40 +1455,56 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       let totalMergedCount = 0;
       let cardCount = 0;
 
-      // 3. Unified transaction merge: Cloud State + Local State + Bank Feed
+      // 3. Unified transaction merge: Cloud State (Authoritative) + Local State + Bank Feed
       setTransactions((prev) => {
-        const cleanPrev = isTestEnv ? prev : prev.filter((t: any) => !isFictionalTransaction(t));
+        const cleanPrev = isTestEnv ? prev : sanitizeTransactions(prev);
         const txMap = new Map<string, Transaction>();
 
-        // (a) Start with existing clean local transactions
-        for (const t of cleanPrev) {
-          txMap.set(t.id, t);
-        }
-
-        // (b) Smart merge with Cloud transactions (cross-device source of truth)
-        for (const ct of cloudTxs) {
-          const local = txMap.get(ct.id) || Array.from(txMap.values()).find((l) => isSameMovement(l, ct));
-          const targetKey = local ? local.id : ct.id;
-          if (!local) {
-            txMap.set(ct.id, ct);
-          } else if (local.split === "ignored") {
-            // Never lose ignored state
-            txMap.set(targetKey, local);
-          } else if (local.status === "classified" && ct.status === "pending") {
-            // Local has already been classified; preserve local classification!
-            txMap.set(targetKey, local);
-          } else if ((local.updatedAt || 0) > (ct.updatedAt || 0)) {
-            // Local has a newer update than cloud; preserve local!
-            txMap.set(targetKey, local);
-          } else if ((ct.updatedAt || 0) > (local.updatedAt || 0)) {
-            // Cloud has a newer update; take cloud!
-            txMap.set(targetKey, { ...ct, id: targetKey });
-          } else {
-            // Equal or missing timestamps: if local is classified, preserve local!
-            if (local.status === "classified") {
+        // (a) If Cloud has transactions, it is the authoritative remote base
+        if (cloudTxs.length > 0) {
+          for (const ct of cloudTxs) {
+            if (shouldPurgeMovement(ct)) continue;
+            const local = cleanPrev.find((l) => l.id === ct.id || isSameMovement(l, ct));
+            const targetKey = local ? local.id : ct.id;
+            if (!local) {
+              txMap.set(ct.id, ct);
+            } else if (local.split === "ignored") {
               txMap.set(targetKey, local);
-            } else {
+            } else if (local.status === "classified" && ct.status === "pending") {
+              txMap.set(targetKey, local);
+            } else if ((local.updatedAt || 0) > (ct.updatedAt || 0)) {
+              txMap.set(targetKey, local);
+            } else if ((ct.updatedAt || 0) > (local.updatedAt || 0)) {
               txMap.set(targetKey, { ...ct, id: targetKey });
+            } else {
+              if (local.status === "classified") {
+                txMap.set(targetKey, local);
+              } else {
+                txMap.set(targetKey, { ...ct, id: targetKey });
+              }
+            }
+          }
+
+          // (b) Retain ONLY genuine uncommitted local manual movements
+          const nowTs = Date.now();
+          for (const lt of cleanPrev) {
+            if (shouldPurgeMovement(lt)) continue;
+            if (txMap.has(lt.id) || Array.from(txMap.values()).some((c) => isSameMovement(c, lt))) {
+              continue;
+            }
+            const isManualPending =
+              (lt as any).origin === "manual" ||
+              lt.id.startsWith("manual_") ||
+              Boolean(lt.createdAt && nowTs - lt.createdAt < 5 * 60 * 1000 && !lt.bankMovementId);
+            if (isManualPending) {
+              txMap.set(lt.id, lt);
+            }
+          }
+        } else {
+          // Offline fallback
+          for (const t of cleanPrev) {
+            if (!shouldPurgeMovement(t)) {
+              txMap.set(t.id, t);
             }
           }
         }
@@ -1511,6 +1518,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         for (const ft of feedTxs) {
           if (!isTestEnv && isFictionalTransaction(ft)) continue;
+          if (shouldPurgeMovement(ft)) continue;
           if (txMap.has(ft.id) || (ft.bankMovementId && existingBankIds.has(ft.bankMovementId))) {
             continue;
           }
@@ -1569,12 +1577,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         totalMergedCount = merged.length;
         cardCount = merged.filter((t) => t.id.startsWith("card_")).length;
 
+        // Bail out if state hasn't changed to eliminate layout flash / re-render
+        if (areTransactionsEqual(cleanPrev, merged)) {
+          return prev;
+        }
+
         try {
           localStorage.setItem(STORAGE_KEY_TRANSACTIONS, JSON.stringify(merged));
         } catch {}
 
-        // Persist merged state back to cloud DB so both devices stay synchronized
-        pushStateToCloud(inviteCode, { transactions: merged });
+        // Persist merged state back to cloud DB only if there are new feed items or local changes
+        if (cloudTxs.length === 0 || merged.length !== cloudTxs.length) {
+          pushStateToCloud(inviteCode, { transactions: merged }).catch(() => {});
+        }
 
         return merged;
       });
@@ -1595,6 +1610,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           }
         }
         const updated = Array.from(map.values());
+        if (areAccountsEqual(prev, updated)) {
+          return prev;
+        }
         try {
           localStorage.setItem(STORAGE_KEY_ACCOUNTS, JSON.stringify(updated));
         } catch {}
@@ -1603,22 +1621,31 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
       // 5. Unified settlements merge
       if (cloudSettlements && Object.keys(cloudSettlements).length > 0) {
-        setSettlementCutoffs(cloudSettlements);
-        try {
-          localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloudSettlements));
-        } catch {}
+        setSettlementCutoffs((prev) => {
+          if (JSON.stringify(prev) === JSON.stringify(cloudSettlements)) {
+            return prev;
+          }
+          try {
+            localStorage.setItem(STORAGE_KEY_SETTLEMENTS, JSON.stringify(cloudSettlements));
+          } catch {}
+          return cloudSettlements;
+        });
       }
 
       return { success: true, total: totalMergedCount, cardCount };
     } catch (err: any) {
       console.warn("Could not sync bank feed:", err);
       return { success: false, total: 0, cardCount: 0, error: err?.message };
+    } finally {
+      isSyncingRef.current = false;
     }
   }, [inviteCode]);
 
-  // Poll feed and cloud state on mount, on month change, on app focus/visibility and background heartbeat
+  // Poll feed and cloud state on mount, on app focus/visibility and background heartbeat
   useEffect(() => {
+    let isMounted = true;
     const refreshAll = async () => {
+      if (!isMounted) return;
       await syncBankFeed();
     };
 
@@ -1633,19 +1660,20 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     window.addEventListener("visibilitychange", handleVisibilityChange);
     window.addEventListener("focus", refreshAll);
 
-    // Heartbeat auto-sync every 30s while app is open and visible
+    // Heartbeat auto-sync every 60s while app is open and visible
     const timer = setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
         refreshAll();
       }
-    }, 30000);
+    }, 60000);
 
     return () => {
+      isMounted = false;
       window.removeEventListener("visibilitychange", handleVisibilityChange);
       window.removeEventListener("focus", refreshAll);
       clearInterval(timer);
     };
-  }, [syncBankFeed, inviteCode, selectedMonth]);
+  }, [syncBankFeed, inviteCode]);
 
   const clearAllTransactions = useCallback(() => {
     setTransactions([]);
