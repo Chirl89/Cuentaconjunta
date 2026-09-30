@@ -30,6 +30,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
 import { sortTransactionsList, SortCriterion, SortDirection } from "@/lib/sorting";
 import { SortControls } from "@/components/SortControls";
+import { CategorySelect } from "@/components/CategorySelect";
 import { useTransactionSort } from "@/hooks/useTransactionSort";
 import versionData from "../../version.json";
 import {
@@ -1618,10 +1619,30 @@ export default function HomePage() {
                             {item.badge}
                           </span>
                         </div>
-                        <span className="text-[10px] text-slate-400 block mt-1">
-                          {item.isCredit ? "💰 Ingreso • " : ""}{item.category} • {item.date}
-                          {item.subtext && ` • ${item.subtext}`}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                          {item.isCredit && (
+                            <span className="text-[10px] text-emerald-600 font-bold shrink-0">💰 Ingreso •</span>
+                          )}
+                          <CategorySelect
+                            value={item.category}
+                            onChange={(newCat) =>
+                              handleCategoryChange(
+                                item.rawTx?.id || item.id.replace(/-half-(inc|exp)$/, "").replace(/-half$/, ""),
+                                newCat
+                              )
+                            }
+                            categories={categories || CATEGORIES_LIST}
+                            theme="indigo"
+                          />
+                          <span className="text-[10px] text-slate-400 shrink-0">
+                            • {item.date}
+                          </span>
+                          {item.subtext && (
+                            <span className="text-[10px] text-slate-400">
+                              • {item.subtext}
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="text-right shrink-0 mt-0.5">
                         <span
@@ -1867,8 +1888,17 @@ export default function HomePage() {
                               </span>
                             )}
                             <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className="text-[10px] text-slate-400">
-                                {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
+                              {tx.isCredit && (
+                                <span className="text-[10px] text-emerald-600 font-bold shrink-0">💰 Ingreso •</span>
+                              )}
+                              <CategorySelect
+                                value={tx.category}
+                                onChange={(newCat) => handleCategoryChange(tx.id, newCat)}
+                                categories={categories || CATEGORIES_LIST}
+                                theme="emerald"
+                              />
+                              <span className="text-[10px] text-slate-400 shrink-0">
+                                • {tx.date}
                               </span>
                               <span
                                 className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
@@ -2141,9 +2171,20 @@ export default function HomePage() {
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-400 block mt-1">
-                            {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            {tx.isCredit && (
+                              <span className="text-[10px] text-emerald-600 font-bold shrink-0">💰 Ingreso •</span>
+                            )}
+                            <CategorySelect
+                              value={tx.category}
+                              onChange={(newCat) => handleCategoryChange(tx.id, newCat)}
+                              categories={categories || CATEGORIES_LIST}
+                              theme="red"
+                            />
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              • {tx.date}
+                            </span>
+                          </div>
                         </div>
                         <div className="text-right shrink-0 mt-0.5">
                           <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
@@ -2390,9 +2431,20 @@ export default function HomePage() {
                               </span>
                             )}
                           </div>
-                          <span className="text-[10px] text-slate-400 block mt-1">
-                            {tx.isCredit ? "💰 Ingreso • " : ""}{tx.category} • {tx.date}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap mt-1">
+                            {tx.isCredit && (
+                              <span className="text-[10px] text-emerald-600 font-bold shrink-0">💰 Ingreso •</span>
+                            )}
+                            <CategorySelect
+                              value={tx.category}
+                              onChange={(newCat) => handleCategoryChange(tx.id, newCat)}
+                              categories={categories || CATEGORIES_LIST}
+                              theme="blue"
+                            />
+                            <span className="text-[10px] text-slate-400 shrink-0">
+                              • {tx.date}
+                            </span>
+                          </div>
                         </div>
                         <div className="text-right shrink-0 mt-0.5">
                           <span className={`text-sm font-black whitespace-nowrap block ${tx.isCredit ? "text-emerald-600" : "text-slate-900"}`}>
@@ -2882,22 +2934,12 @@ export default function HomePage() {
                       )}
 
                       {/* Línea 2: Categoría */}
-                      <div className="relative inline-block w-fit max-w-[170px] sm:max-w-none">
-                        <select
-                          value={tx.category}
-                          onChange={(e) => handleCategoryChange(tx.id, e.target.value)}
-                          className="appearance-none cursor-pointer text-[10px] font-bold py-0.5 pl-2 pr-4 rounded-md border border-slate-200 bg-white text-slate-700 hover:border-[#00D09C] focus:outline-none leading-none w-full block truncate"
-                        >
-                          {(categories || CATEGORIES_LIST).map((c) => (
-                            <option key={c.name} value={c.name}>
-                              {c.name}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-[8px] text-slate-400">
-                          ▼
-                        </span>
-                      </div>
+                      <CategorySelect
+                        value={tx.category}
+                        onChange={(newCat) => handleCategoryChange(tx.id, newCat)}
+                        categories={categories || CATEGORIES_LIST}
+                        theme="emerald"
+                      />
 
                       {/* Línea 3: Fecha, cuenta y badge */}
                       <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
