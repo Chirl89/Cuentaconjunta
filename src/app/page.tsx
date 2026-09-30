@@ -29,6 +29,8 @@ import { useProfileSecurity } from "@/context/ProfileSecurityContext";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { isMerchantMatch } from "@/lib/categorization";
 import { sortTransactionsList, SortCriterion, SortDirection } from "@/lib/sorting";
+import { SortControls } from "@/components/SortControls";
+import { useTransactionSort } from "@/hooks/useTransactionSort";
 import versionData from "../../version.json";
 import {
   LayoutDashboard,
@@ -246,22 +248,12 @@ export default function HomePage() {
   const [dashboardSearchTerm, setDashboardSearchTerm] = useState("");
   const [movimientosSearchTerm, setMovimientosSearchTerm] = useState("");
 
-  // Criterios de ordenación de movimientos: fecha, importe, categoría
-  const [movimientosSortCriterion, setMovimientosSortCriterion] = useState<SortCriterion>("fecha");
-  const [movimientosSortDirection, setMovimientosSortDirection] = useState<SortDirection>("desc");
-  const [prevMovimientosSortCriterion, setPrevMovimientosSortCriterion] = useState<SortCriterion | null>(null);
-  const [prevMovimientosSortDirection, setPrevMovimientosSortDirection] = useState<SortDirection | null>(null);
-
-  const handleMovimientosSortClick = (criterion: SortCriterion) => {
-    if (movimientosSortCriterion === criterion) {
-      setMovimientosSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
-    } else {
-      setPrevMovimientosSortCriterion(movimientosSortCriterion);
-      setPrevMovimientosSortDirection(movimientosSortDirection);
-      setMovimientosSortCriterion(criterion);
-      setMovimientosSortDirection(criterion === "categoria" ? "asc" : "desc");
-    }
-  };
+  // Criterios de ordenación de movimientos para cada vista
+  const movimientosSort = useTransactionSort("fecha", "desc");
+  const monthlySort = useTransactionSort("fecha", "desc");
+  const jointSort = useTransactionSort("fecha", "desc");
+  const carlosSort = useTransactionSort("fecha", "desc");
+  const andreaSort = useTransactionSort("fecha", "desc");
 
   // Tab & scope redirection for privacy isolation
   useEffect(() => {
@@ -1494,88 +1486,104 @@ export default function HomePage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {monthlyCategoryFilter && (
+              <div className="flex flex-wrap items-center gap-2">
+                <SortControls
+                  criterion={monthlySort.criterion}
+                  direction={monthlySort.direction}
+                  onSortClick={monthlySort.handleSortClick}
+                  theme="indigo"
+                  size="sm"
+                />
+
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {monthlyCategoryFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setMonthlyCategoryFilter(null)}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
+                      title="Pulsar para quitar filtro de categoría"
+                    >
+                      <span>🏷️ {monthlyCategoryFilter}</span>
+                      <span className="text-[10px] bg-white/25 px-1 rounded-full">✕</span>
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => setMonthlyCategoryFilter(null)}
-                    className="px-2.5 py-1 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs flex items-center gap-1.5 cursor-pointer transition-all"
-                    title="Pulsar para quitar filtro de categoría"
+                    onClick={() => {
+                      setMonthlyMovementsFilter("all");
+                      setMonthlyCategoryFilter(null);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      monthlyMovementsFilter === "all" && !monthlyCategoryFilter
+                        ? "bg-slate-900 text-white shadow-xs"
+                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
                   >
-                    <span>🏷️ {monthlyCategoryFilter}</span>
-                    <span className="text-[10px] bg-white/25 px-1 rounded-full">✕</span>
+                    Todos ({monthlyScopeMovements.length})
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMonthlyMovementsFilter("all");
-                    setMonthlyCategoryFilter(null);
-                  }}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "all" && !monthlyCategoryFilter
-                      ? "bg-slate-900 text-white shadow-xs"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                  }`}
-                >
-                  Todos ({monthlyScopeMovements.length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMonthlyMovementsFilter("expenses");
-                    setMonthlyCategoryFilter(null);
-                  }}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "expenses" && !monthlyCategoryFilter
-                      ? "bg-rose-600 text-white shadow-xs"
-                      : "bg-rose-50 text-rose-600 hover:bg-rose-100"
-                  }`}
-                >
-                  Gastos ({monthlyScopeMovements.filter((m) => !m.isCredit).length})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMonthlyMovementsFilter("incomes");
-                    setMonthlyCategoryFilter(null);
-                  }}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    monthlyMovementsFilter === "incomes" && !monthlyCategoryFilter
-                      ? "bg-emerald-600 text-white shadow-xs"
-                      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                  }`}
-                >
-                  Ingresos ({monthlyScopeMovements.filter((m) => m.isCredit).length})
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthlyMovementsFilter("expenses");
+                      setMonthlyCategoryFilter(null);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      monthlyMovementsFilter === "expenses" && !monthlyCategoryFilter
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-rose-50 text-rose-600 hover:bg-rose-100"
+                    }`}
+                  >
+                    Gastos ({monthlyScopeMovements.filter((m) => !m.isCredit).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMonthlyMovementsFilter("incomes");
+                      setMonthlyCategoryFilter(null);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      monthlyMovementsFilter === "incomes" && !monthlyCategoryFilter
+                        ? "bg-emerald-600 text-white shadow-xs"
+                        : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                    }`}
+                  >
+                    Ingresos ({monthlyScopeMovements.filter((m) => m.isCredit).length})
+                  </button>
+                </div>
               </div>
             </div>
 
-            {monthlyScopeMovements.filter((m) => {
-              if (monthlyCategoryFilter) {
-                return m.category.toLowerCase().trim() === monthlyCategoryFilter.toLowerCase().trim();
+            {(() => {
+              const filteredMovements = monthlyScopeMovements.filter((m) => {
+                if (monthlyCategoryFilter) {
+                  return m.category.toLowerCase().trim() === monthlyCategoryFilter.toLowerCase().trim();
+                }
+                if (monthlyMovementsFilter === "expenses") return !m.isCredit;
+                if (monthlyMovementsFilter === "incomes") return m.isCredit;
+                return true;
+              });
+
+              const sortedMovements = sortTransactionsList(
+                filteredMovements,
+                monthlySort.criterion,
+                monthlySort.direction,
+                monthlySort.prevCriterion,
+                monthlySort.prevDirection
+              );
+
+              if (sortedMovements.length === 0) {
+                return (
+                  <div className="text-center text-slate-400 text-xs py-8">
+                    {monthlyCategoryFilter
+                      ? `No hay movimientos registrados para la categoría "${monthlyCategoryFilter}".`
+                      : "No hay movimientos registrados para este filtro en el ámbito seleccionado."}
+                  </div>
+                );
               }
-              if (monthlyMovementsFilter === "expenses") return !m.isCredit;
-              if (monthlyMovementsFilter === "incomes") return m.isCredit;
-              return true;
-            }).length === 0 ? (
-              <div className="text-center text-slate-400 text-xs py-8">
-                {monthlyCategoryFilter
-                  ? `No hay movimientos registrados para la categoría "${monthlyCategoryFilter}".`
-                  : "No hay movimientos registrados para este filtro en el ámbito seleccionado."}
-              </div>
-            ) : (
-              <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto pr-1">
-                {monthlyScopeMovements
-                  .filter((m) => {
-                    if (monthlyCategoryFilter) {
-                      return m.category.toLowerCase().trim() === monthlyCategoryFilter.toLowerCase().trim();
-                    }
-                    if (monthlyMovementsFilter === "expenses") return !m.isCredit;
-                    if (monthlyMovementsFilter === "incomes") return m.isCredit;
-                    return true;
-                  })
-                  .map((item) => (
+
+              return (
+                <div className="divide-y divide-slate-100 max-h-[420px] overflow-y-auto pr-1">
+                  {sortedMovements.map((item) => (
                     <div key={item.id} className="py-3 flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1626,8 +1634,9 @@ export default function HomePage() {
                       </div>
                     </div>
                   ))}
-              </div>
-            )}
+                </div>
+              );
+            })()}
           </section>
         </div>
         );
@@ -1787,7 +1796,14 @@ export default function HomePage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-[#00D09C]" />
                     Movimientos Conjuntos ({jointClassifiedTransactions.length})
                   </h2>
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <SortControls
+                      criterion={jointSort.criterion}
+                      direction={jointSort.direction}
+                      onSortClick={jointSort.handleSortClick}
+                      theme="emerald"
+                      size="sm"
+                    />
                     {jointCategoryFilter && (
                       <button
                         type="button"
@@ -1810,7 +1826,15 @@ export default function HomePage() {
                     return true;
                   });
 
-                  if (filtered.length === 0) {
+                  const sorted = sortTransactionsList(
+                    filtered,
+                    jointSort.criterion,
+                    jointSort.direction,
+                    jointSort.prevCriterion,
+                    jointSort.prevDirection
+                  );
+
+                  if (sorted.length === 0) {
                     return (
                       <div className="text-center text-slate-400 text-xs py-8">
                         {jointCategoryFilter
@@ -1822,7 +1846,7 @@ export default function HomePage() {
 
                   return (
                     <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                      {filtered.map((tx) => (
+                      {sorted.map((tx) => (
                         <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                           <div className="flex-1 min-w-0">
                             {tx.isManual ? (
@@ -2037,7 +2061,14 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
                   Movimientos Propios de {memberAName} ({memberAClassifiedTransactions.length})
                 </h2>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <SortControls
+                    criterion={carlosSort.criterion}
+                    direction={carlosSort.direction}
+                    onSortClick={carlosSort.handleSortClick}
+                    theme="red"
+                    size="sm"
+                  />
                   {carlosCategoryFilter && (
                     <button
                       type="button"
@@ -2059,7 +2090,15 @@ export default function HomePage() {
                   return true;
                 });
 
-                if (filtered.length === 0) {
+                const sorted = sortTransactionsList(
+                  filtered,
+                  carlosSort.criterion,
+                  carlosSort.direction,
+                  carlosSort.prevCriterion,
+                  carlosSort.prevDirection
+                );
+
+                if (sorted.length === 0) {
                   return (
                     <div className="text-center text-slate-400 text-xs py-8">
                       {carlosCategoryFilter
@@ -2071,7 +2110,7 @@ export default function HomePage() {
 
                 return (
                   <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                    {filtered.map((tx) => (
+                    {sorted.map((tx) => (
                       <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -2271,7 +2310,14 @@ export default function HomePage() {
                   <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
                   Movimientos Propios de {memberBName} ({memberBClassifiedTransactions.length})
                 </h2>
-                <div className="flex items-center gap-1 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <SortControls
+                    criterion={andreaSort.criterion}
+                    direction={andreaSort.direction}
+                    onSortClick={andreaSort.handleSortClick}
+                    theme="blue"
+                    size="sm"
+                  />
                   {andreaCategoryFilter && (
                     <button
                       type="button"
@@ -2293,7 +2339,15 @@ export default function HomePage() {
                   return true;
                 });
 
-                if (filtered.length === 0) {
+                const sorted = sortTransactionsList(
+                  filtered,
+                  andreaSort.criterion,
+                  andreaSort.direction,
+                  andreaSort.prevCriterion,
+                  andreaSort.prevDirection
+                );
+
+                if (sorted.length === 0) {
                   return (
                     <div className="text-center text-slate-400 text-xs py-8">
                       {andreaCategoryFilter
@@ -2305,7 +2359,7 @@ export default function HomePage() {
 
                 return (
                   <div className="divide-y divide-slate-100 max-h-[360px] overflow-y-auto pr-1">
-                    {filtered.map((tx) => (
+                    {sorted.map((tx) => (
                       <div key={tx.id} className="py-3 flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -2727,89 +2781,12 @@ export default function HomePage() {
               </div>
 
               {/* Botones de ordenación interactivos: Fecha, Importe, Categoría */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] font-bold text-slate-400 mr-0.5 hidden sm:inline">
-                  Ordenar:
-                </span>
-
-                {/* 1. Fecha */}
-                <button
-                  type="button"
-                  onClick={() => handleMovimientosSortClick("fecha")}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
-                    movimientosSortCriterion === "fecha"
-                      ? "bg-[#00D09C]/10 text-[#008761] border-[#00D09C] shadow-xs ring-1 ring-[#00D09C]/20"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-                  }`}
-                  title={
-                    movimientosSortCriterion === "fecha"
-                      ? movimientosSortDirection === "desc"
-                        ? "Orden: Más nuevo a más viejo (Pulsar para más viejo primero)"
-                        : "Orden: Más viejo a más nuevo (Pulsar para más nuevo primero)"
-                      : "Ordenar por fecha"
-                  }
-                >
-                  <Calendar className="w-3.5 h-3.5 text-[#00A37A]" />
-                  <span>Fecha</span>
-                  {movimientosSortCriterion === "fecha" && (
-                    <span className="text-[11px] font-black text-[#008761] ml-0.5">
-                      {movimientosSortDirection === "desc" ? "↓" : "↑"}
-                    </span>
-                  )}
-                </button>
-
-                {/* 2. Importe */}
-                <button
-                  type="button"
-                  onClick={() => handleMovimientosSortClick("importe")}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
-                    movimientosSortCriterion === "importe"
-                      ? "bg-[#00D09C]/10 text-[#008761] border-[#00D09C] shadow-xs ring-1 ring-[#00D09C]/20"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-                  }`}
-                  title={
-                    movimientosSortCriterion === "importe"
-                      ? movimientosSortDirection === "desc"
-                        ? "Orden: Mayor a menor importe (Pulsar para menor a mayor)"
-                        : "Orden: Menor a mayor importe (Pulsar para mayor a menor)"
-                      : "Ordenar por importe"
-                  }
-                >
-                  <ArrowUpDown className="w-3.5 h-3.5 text-[#00A37A]" />
-                  <span>Importe</span>
-                  {movimientosSortCriterion === "importe" && (
-                    <span className="text-[11px] font-black text-[#008761] ml-0.5">
-                      {movimientosSortDirection === "desc" ? "↓" : "↑"}
-                    </span>
-                  )}
-                </button>
-
-                {/* 3. Categoría */}
-                <button
-                  type="button"
-                  onClick={() => handleMovimientosSortClick("categoria")}
-                  className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer active:scale-95 border ${
-                    movimientosSortCriterion === "categoria"
-                      ? "bg-[#00D09C]/10 text-[#008761] border-[#00D09C] shadow-xs ring-1 ring-[#00D09C]/20"
-                      : "bg-slate-50 hover:bg-slate-100 text-slate-600 border-slate-200"
-                  }`}
-                  title={
-                    movimientosSortCriterion === "categoria"
-                      ? movimientosSortDirection === "asc"
-                        ? "Orden: Categoría de la A a la Z (Pulsar para Z a A)"
-                        : "Orden: Categoría de la Z a la A (Pulsar para A a Z)"
-                      : "Ordenar por categoría"
-                  }
-                >
-                  <Tag className="w-3.5 h-3.5 text-[#00A37A]" />
-                  <span>Categoría</span>
-                  {movimientosSortCriterion === "categoria" && (
-                    <span className="text-[10px] font-black text-[#008761] ml-0.5">
-                      {movimientosSortDirection === "asc" ? "A→Z" : "Z→A"}
-                    </span>
-                  )}
-                </button>
-              </div>
+              <SortControls
+                criterion={movimientosSort.criterion}
+                direction={movimientosSort.direction}
+                onSortClick={movimientosSort.handleSortClick}
+                theme="emerald"
+              />
             </div>
 
             {(() => {
@@ -2825,10 +2802,10 @@ export default function HomePage() {
 
               const sortedMovements = sortTransactionsList(
                 searchedMovements,
-                movimientosSortCriterion,
-                movimientosSortDirection,
-                prevMovimientosSortCriterion,
-                prevMovimientosSortDirection
+                movimientosSort.criterion,
+                movimientosSort.direction,
+                movimientosSort.prevCriterion,
+                movimientosSort.prevDirection
               );
 
               if (sortedMovements.length === 0) {

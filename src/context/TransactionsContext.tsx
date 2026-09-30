@@ -424,22 +424,29 @@ export function getTransactionSortTimestamp(t: {
   let minute = 0;
 
   if (t.date) {
-    const slashMatch = t.date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (slashMatch) {
-      day = parseInt(slashMatch[1], 10);
-      month = parseInt(slashMatch[2], 10);
-      year = parseInt(slashMatch[3], 10);
+    const isoDateMatch = t.date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoDateMatch) {
+      year = parseInt(isoDateMatch[1], 10);
+      month = parseInt(isoDateMatch[2], 10);
+      day = parseInt(isoDateMatch[3], 10);
     } else {
-      const dayMonthMatch = t.date.match(/(\d{1,2})\s+([A-Za-z]{3})/i);
-      if (dayMonthMatch) {
-        day = parseInt(dayMonthMatch[1], 10);
-        const MONTHS_MAP: Record<string, number> = {
-          ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6,
-          jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
-        };
-        const key = dayMonthMatch[2].toLowerCase().substring(0, 3);
-        if (MONTHS_MAP[key]) {
-          month = MONTHS_MAP[key];
+      const slashMatch = t.date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (slashMatch) {
+        day = parseInt(slashMatch[1], 10);
+        month = parseInt(slashMatch[2], 10);
+        year = parseInt(slashMatch[3], 10);
+      } else {
+        const dayMonthMatch = t.date.match(/(\d{1,2})\s+([A-Za-z]{3})/i);
+        if (dayMonthMatch) {
+          day = parseInt(dayMonthMatch[1], 10);
+          const MONTHS_MAP: Record<string, number> = {
+            ene: 1, feb: 2, mar: 3, abr: 4, may: 5, jun: 6,
+            jul: 7, ago: 8, sep: 9, oct: 10, nov: 11, dic: 12,
+          };
+          const key = dayMonthMatch[2].toLowerCase().substring(0, 3);
+          if (MONTHS_MAP[key]) {
+            month = MONTHS_MAP[key];
+          }
         }
       }
       const timeMatch = t.date.match(/(\d{1,2}):(\d{2})/);

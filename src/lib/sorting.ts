@@ -15,8 +15,10 @@ export function compareTransactions<
   }
 >(a: T, b: T, criterion: SortCriterion, direction: SortDirection): number {
   if (criterion === "fecha") {
-    const timeA = getTransactionSortTimestamp(a);
-    const timeB = getTransactionSortTimestamp(b);
+    const rawA = (a as any).rawTx || a;
+    const rawB = (b as any).rawTx || b;
+    const timeA = getTransactionSortTimestamp(rawA);
+    const timeB = getTransactionSortTimestamp(rawB);
     return direction === "desc" ? timeB - timeA : timeA - timeB;
   }
 
@@ -65,8 +67,10 @@ export function sortTransactionsList<
     }
 
     // 3. Desempate determinista estable por fecha descendente y luego ID
-    const timeA = getTransactionSortTimestamp(a);
-    const timeB = getTransactionSortTimestamp(b);
+    const rawA = (a as any).rawTx || a;
+    const rawB = (b as any).rawTx || b;
+    const timeA = getTransactionSortTimestamp(rawA);
+    const timeB = getTransactionSortTimestamp(rawB);
     if (timeB !== timeA) return timeB - timeA;
 
     return (a.id || "").localeCompare(b.id || "");
