@@ -48,8 +48,16 @@
   - **Respaldo Continuo Cloud:** Configuración de Point-in-Time Recovery (PITR) en base de datos y snapshots cifrados automatizados en almacenamiento en la nube con SHA-256 para máxima seguridad y cero pérdida de datos.
   - Verificación visual en iOS (Safari PWA) y PC (Chrome/Edge), manual de usuario (WALKTHROUGH.md) y entrega final.
 
-- **Paso 12 (v0.12)**: **Simplificación del Flujo de Sincronización Bancaria (Selector Bankinter, BBVA, Revolut, Descarga Oficial con Guías y Carga Directa)** *(En curso)*
+- **Paso 12 (v0.12)**: **Simplificación del Flujo de Sincronización Bancaria, Depuración de Extractos & Usabilidad Integral (Ordenación y Categorización en Todas las Pantallas)** *(Completado)*
   - Rediseño y simplificación radical del modal de sincronización: selector limpio de banco entre tarjetas (Bankinter, BBVA, Revolut).
-  - Dos botones directos por entidad: "Descargar extracto" (redirige al portal oficial de descarga) y "Cargar extracto en app" (subida e importación inmediata sin fricción).
-  - Miniguía paso a paso contextual para cada banco debajo de los botones para resolver la descarga si falla la redirección directa.
+  - Dos botones directos por entidad: "Descargar extracto" (redirige al portal oficial de descarga) y "Cargar extracto en app" (subida e importación inmediata sin fricción) con miniguía paso a paso contextual.
+  - Omisión estricta de movimientos técnicos internos ("SavingsAccount migration", "From Instant Access Savings").
+  - Reconciliación silenciosa y fluida sin parpadeos (Flicker-Free Reconciliation).
+  - Controles de ordenación (`SortControls`) integrados en Resumen Mensual, Gastos Conjuntos, Gastos Carlos y Gastos Andrea.
+  - Selector de categoría interactivo (`CategorySelect`) en todas las listas de movimientos y resúmenes con sincronización en tiempo real.
+
+- **Paso 13 (v0.13)**: **Copia de Seguridad y Restauración Local JSON en Ajustes & Optimización de Rendimiento** *(Pendiente)*
+  - Herramienta en Ajustes para exportar e importar copias de seguridad locales completas en formato JSON estructurado.
+  - Auditoría de optimización de bundles, caché de navegación y refinamientos finales.
+
 
