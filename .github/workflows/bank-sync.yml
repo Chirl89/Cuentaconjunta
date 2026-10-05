@@ -2,8 +2,8 @@ name: FitDuo Automated Bank Sync
 
 on:
   schedule:
-    # Run once daily at midnight (00:00 UTC / 02:00 Spanish local time, when bank clearing is finalized)
-    - cron: '0 0 * * *'
+    # Run 4 times daily (every 6 hours: 00:00, 06:00, 12:00, 18:00 UTC) compliant with PSD2 RTS unattended access limits
+    - cron: '0 0,6,12,18 * * *'
   workflow_dispatch:
     inputs:
       auth_code:

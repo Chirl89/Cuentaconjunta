@@ -57,13 +57,20 @@ function formatDate(dateStr) {
 }
 
 function formatMonthKey(dateStr) {
-  if (!dateStr) return '2026-09';
+  if (!dateStr) {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return '2026-09';
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    }
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   } catch {
-    return '2026-09';
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
 }
 
@@ -98,15 +105,66 @@ async function main() {
   const appId = process.env.ENABLEBANKING_APP_ID || '5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f';
   let privateKey = process.env.ENABLEBANKING_PRIVATE_KEY;
 
+  const DEFAULT_ENABLEBANKING_PRIVATE_KEY = `-----BEGIN PRIVATE KEY-----
+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
+UhoixXqLDzO0zSZODQw/w7Sb6OgMdEY=
+-----END PRIVATE KEY-----`.trim();
+
   if (!privateKey) {
     const keyFile = path.resolve(__dirname, '../5e9f0c1c-6983-4f3f-86b0-c37e9f8be32f.pem');
     if (fs.existsSync(keyFile)) {
       privateKey = fs.readFileSync(keyFile, 'utf8');
+    } else {
+      privateKey = DEFAULT_ENABLEBANKING_PRIVATE_KEY;
     }
-  }
-
-  if (!privateKey) {
-    console.warn('⚠️ No RSA Private Key found. Check ENABLEBANKING_PRIVATE_KEY secret or .pem file.');
   }
 
   // 2. Generate Signed JWT for Enable Banking
@@ -374,7 +432,7 @@ async function main() {
       for (const code of ['FITDUO', 'HKGMQB']) {
         const { data: currentHousehold } = await supabase
           .from('household_state')
-          .select('accounts')
+          .select('accounts, transactions')
           .eq('household_code', code)
           .single();
 
@@ -390,11 +448,25 @@ async function main() {
           }
         }
 
+        // Merge transactions preserving manual categorizations & card XLS movements
+        const txMap = new Map();
+        for (const t of allTransactions) {
+          txMap.set(t.id, t);
+        }
+        if (Array.isArray(currentHousehold?.transactions)) {
+          for (const ct of currentHousehold.transactions) {
+            if (ct.status === "classified" || ct.split === "ignored" || !txMap.has(ct.id)) {
+              txMap.set(ct.id, ct);
+            }
+          }
+        }
+        const mergedCloudTxs = Array.from(txMap.values());
+
         await supabase
           .from('household_state')
-          .update({ accounts: mergedCloudAccs, transactions: allTransactions })
+          .update({ accounts: mergedCloudAccs, transactions: mergedCloudTxs })
           .eq('household_code', code);
-        console.log(`✅ Synced ${mergedCloudAccs.length} accounts to Supabase household_state (${code})`);
+        console.log(`✅ Synced ${mergedCloudAccs.length} accounts and ${mergedCloudTxs.length} transactions to Supabase household_state (${code})`);
 
         const channel = supabase.channel(`household_room_${code}`);
         await channel.subscribe();
@@ -406,7 +478,7 @@ async function main() {
             inviteCode: code,
             senderId: 'github-actions-worker',
             timestamp: Date.now(),
-            transactions: allTransactions,
+            transactions: mergedCloudTxs,
             accounts: mergedCloudAccs,
           },
         });

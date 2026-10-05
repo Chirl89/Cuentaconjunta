@@ -103,13 +103,20 @@ function formatDate(dateStr: string): string {
 }
 
 function formatMonthKey(dateStr: string): string {
-  if (!dateStr) return "2026-09";
+  if (!dateStr) {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
   try {
     const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return "2026-09";
+    if (isNaN(d.getTime())) {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    }
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   } catch {
-    return "2026-09";
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   }
 }
 

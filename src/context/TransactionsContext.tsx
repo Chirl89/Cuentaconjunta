@@ -1605,12 +1605,17 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           ? "/Cuentaconjunta"
           : "";
 
-        // Only call live bank sync API when explicitly triggered on-demand (e.g. by pressing Sync button)
-        if (isManualTrigger) {
+        const lastLiveSyncStr = typeof window !== "undefined" ? localStorage.getItem("fitduo_last_live_bank_sync_ts") : null;
+        const lastLiveSyncTs = lastLiveSyncStr ? Number(lastLiveSyncStr) : 0;
+        const shouldAttemptLiveApi = isManualTrigger || (Date.now() - lastLiveSyncTs > 15 * 60 * 1000);
+
+        // Call live bank sync API if requested on-demand or if 15 minutes have passed since last check
+        if (shouldAttemptLiveApi) {
           try {
             const apiUrl = origin ? `${origin}${basePath}/api/bank/sync` : `${basePath}/api/bank/sync`;
             const apiRes = await fetch(apiUrl, {
               method: "POST",
+              headers: { "Cache-Control": "no-cache" },
               signal: AbortSignal.timeout(10000),
             });
             if (apiRes.ok) {
@@ -1621,16 +1626,25 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
               if (Array.isArray(apiData?.accounts) && apiData.accounts.length > 0) {
                 feedAccs = apiData.accounts;
               }
+              if (typeof window !== "undefined") {
+                localStorage.setItem("fitduo_last_live_bank_sync_ts", String(Date.now()));
+              }
             }
           } catch {
             // If on static hosting without server API, continue to bank-feed.json
           }
         }
 
-        // Fallback or read from bank-feed.json (cached feed)
+        // Fallback or read from bank-feed.json (cached feed with strict cache busting)
         if (feedTxs.length === 0) {
           const url = origin ? `${origin}${basePath}/data/bank-feed.json?t=${Date.now()}` : `${basePath}/data/bank-feed.json?t=${Date.now()}`;
-          const res = await fetch(url);
+          const res = await fetch(url, {
+            cache: "no-store",
+            headers: {
+              "Cache-Control": "no-cache, no-store, must-revalidate",
+              Pragma: "no-cache",
+            },
+          });
           if (res.ok) {
             const feed = await res.json();
             if (Array.isArray(feed?.transactions)) feedTxs = feed.transactions;

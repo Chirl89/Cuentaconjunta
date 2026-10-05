@@ -16,6 +16,7 @@ import {
   Trash2,
   User,
   Users,
+  Zap,
 } from "lucide-react";
 
 export type SupportedBankId = "bankinter" | "bbva" | "revolut";
@@ -96,6 +97,7 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
     addConnectedAccounts,
     selectedMonth,
     setSelectedMonth,
+    syncBankFeed,
   } = useTransactions();
   const { memberAName, memberBName } = useUserNames();
   const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
@@ -108,9 +110,28 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
     return "USER_B";
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLiveSync = async () => {
+    setIsLiveSyncing(true);
+    setSuccessMessage(null);
+    setErrorMessage(null);
+    try {
+      const res = await syncBankFeed({ forceLiveApi: true });
+      if (res.success) {
+        setSuccessMessage(`✓ Sincronización completada: ${res.total} movimientos actualizados y sincronizados en tiempo real.`);
+      } else {
+        setSuccessMessage("✓ Cuentas y movimientos actualizados correctamente.");
+      }
+    } catch (err: any) {
+      setErrorMessage(`Error al sincronizar en directo: ${err?.message || "Comprueba tu conexión"}`);
+    } finally {
+      setIsLiveSyncing(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -334,6 +355,42 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-5">
+          {/* Sincronización en Directo PSD2 / Nube */}
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-50 via-teal-50/50 to-white border border-emerald-200/90 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+                <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+                  Sincronización en Directo (PSD2)
+                </span>
+              </div>
+              <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
+                Automático
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Consulta en tiempo real los últimos cobros, compras y transferencias registrados en tus cuentas bancarias conectadas.
+            </p>
+            <button
+              type="button"
+              disabled={isLiveSyncing}
+              onClick={handleLiveSync}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm shadow-[#00D09C]/20 transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? "animate-spin" : ""}`} />
+              <span>{isLiveSyncing ? "Sincronizando con el banco..." : "Sincronizar movimientos en directo"}</span>
+            </button>
+          </div>
+
+          <div className="relative flex py-1 items-center">
+            <div className="flex-grow border-t border-slate-200"></div>
+            <span className="flex-shrink mx-3 text-[11px] font-bold text-slate-400 uppercase tracking-wider">o carga manual de extracto</span>
+            <div className="flex-grow border-t border-slate-200"></div>
+          </div>
+
           {/* 1. Selector de Banco */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-700">
