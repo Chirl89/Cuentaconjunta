@@ -8,7 +8,8 @@ export interface SyncMessage {
     | "SETTLEMENTS_SYNC"
     | "REQUEST_SYNC"
     | "RULES_SYNC"
-    | "LEARNINGS_SYNC";
+    | "LEARNINGS_SYNC"
+    | "CATEGORIES_SYNC";
   inviteCode: string;
   senderId: string;
   timestamp: number;
@@ -17,6 +18,7 @@ export interface SyncMessage {
   settlements?: Record<string, any>;
   rules?: any[];
   learnings?: any[];
+  categories?: any[];
 }
 
 // Unique client session ID for this browser tab/device to avoid echo loops

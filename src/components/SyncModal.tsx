@@ -88,7 +88,15 @@ interface SyncModalProps {
 }
 
 export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
-  const { importBankMovements, accounts, transactions, deleteMovementsByBank, addConnectedAccounts } = useTransactions();
+  const {
+    importBankMovements,
+    accounts,
+    transactions,
+    deleteMovementsByBank,
+    addConnectedAccounts,
+    selectedMonth,
+    setSelectedMonth,
+  } = useTransactions();
   const { memberAName, memberBName } = useUserNames();
   const [selectedBankId, setSelectedBankId] = useState<SupportedBankId>("bankinter");
   const [cardOwnership, setCardOwnership] = useState<"USER_B" | "USER_A" | "JOINT">(() => {
@@ -188,6 +196,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
                   ]);
                 }
 
+                const targetMonth = result.movements[0]?.monthKey;
+                if (targetMonth && targetMonth !== selectedMonth) {
+                  setSelectedMonth(targetMonth);
+                }
+
                 setSuccessMessage(
                   `¡${importRes.added} compras de ${currentBank.name} incorporadas con éxito!${
                     importRes.duplicates > 0
@@ -258,6 +271,11 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
                       status: "active",
                     },
                   ]);
+                }
+
+                const targetMonth = result.movements[0]?.monthKey;
+                if (targetMonth && targetMonth !== selectedMonth) {
+                  setSelectedMonth(targetMonth);
                 }
 
                 setSuccessMessage(

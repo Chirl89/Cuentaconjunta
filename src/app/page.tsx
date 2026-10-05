@@ -11,6 +11,7 @@ import {
   getCategoryFrequencyGroup,
   Transaction,
   AVAILABLE_MONTHS,
+  formatMonthLabel,
   BankAccount,
   getTransactionSortTimestamp,
 } from "@/context/TransactionsContext";
@@ -217,6 +218,7 @@ export default function HomePage() {
     getCategoryMonthlyBreakdown,
     allPendingTransactions,
     selectedMonth,
+    availableMonths,
     addConnectedAccounts,
     updateAccountOwnership,
     updateAccountBalance,
@@ -368,8 +370,9 @@ export default function HomePage() {
     return classifiedTransactions.filter(isMovementVisible);
   }, [classifiedTransactions, activeRole, accounts]);
 
-  const selectedMonthObj = AVAILABLE_MONTHS.find((m) => m.key === selectedMonth);
-  const selectedMonthLabel = selectedMonthObj?.label || selectedMonth;
+  const monthsList = availableMonths && availableMonths.length > 0 ? availableMonths : AVAILABLE_MONTHS;
+  const selectedMonthObj = monthsList.find((m) => m.key === selectedMonth);
+  const selectedMonthLabel = selectedMonthObj?.label || formatMonthLabel(selectedMonth);
 
   // Totales visibles del hogar para este usuario (su parte personal + 50% de gastos comunes)
   const visibleHouseholdSpent = useMemo(() => {
@@ -2715,7 +2718,7 @@ export default function HomePage() {
                           )}
                           {tx.monthKey !== selectedMonth && (
                             <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-200/90 text-amber-950 border border-amber-300">
-                              📅 Original de {tx.monthKey === "2026-08" ? "Agosto 2026" : tx.monthKey}
+                              📅 Original de {formatMonthLabel(tx.monthKey)}
                             </span>
                           )}
                           {tx.payer === "memberA" && tx.split === "memberB" && (

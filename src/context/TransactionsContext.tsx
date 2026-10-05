@@ -35,6 +35,8 @@ const STORAGE_KEY_ACCOUNTS = "cuentaconjunta_accounts_v1";
 const STORAGE_KEY_SETTLEMENTS = "cuentaconjunta_settlements_v1";
 const STORAGE_KEY_RULES = "cuentaconjunta_rules_v1";
 const STORAGE_KEY_LEARNINGS = "cuentaconjunta_category_learnings_v1";
+export const STORAGE_KEY_CATEGORIES = "cuentaconjunta_categories";
+export const STORAGE_KEY_SELECTED_MONTH = "cuentaconjunta_selected_month";
 
 export const DEFAULT_RULES: AssignmentRule[] = [
   {
@@ -172,11 +174,59 @@ export const CATEGORIES_LIST: CategoryInfo[] = [
   { name: "Hogar & Luz", color: "#0EA5E9", isSystem: true },
   { name: "Restaurantes & Ocio", color: "#F59E0B", isSystem: true },
   { name: "Transporte & Gasolina", color: "#6366F1", isSystem: true },
+  { name: "Lotería", color: "#D97706", isSystem: false },
   { name: "Otros Gastos Comunes", color: "#EC4899", isSystem: true },
   { name: "Ingreso / Nómina", color: "#10B981", isSystem: true },
   { name: "Aportación Conjunta", color: "#059669", isSystem: true },
   { name: "Liquidación / Neteo", color: "#8B5CF6", isSystem: true },
 ];
+
+export function areCategoriesEqual(a: CategoryInfo[], b: CategoryInfo[]): boolean {
+  if (a === b) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].name !== b[i].name || a[i].color !== b[i].color) return false;
+  }
+  return true;
+}
+
+export function reconcileCategoriesWithTransactions(
+  currentCats: CategoryInfo[],
+  txList: Transaction[] = []
+): CategoryInfo[] {
+  const map = new Map<string, CategoryInfo>();
+  // 1. Base default categories
+  for (const c of CATEGORIES_LIST) {
+    map.set(c.name.toLowerCase().trim(), c);
+  }
+  // 2. Existing configured categories
+  if (Array.isArray(currentCats)) {
+    for (const c of currentCats) {
+      if (c && c.name) {
+        map.set(c.name.toLowerCase().trim(), c);
+      }
+    }
+  }
+  // 3. Auto-discover any categories used in transactions to ensure they are never lost
+  if (Array.isArray(txList)) {
+    for (const t of txList) {
+      const rawCat = t.category?.trim();
+      if (!rawCat) continue;
+      const key = rawCat.toLowerCase();
+      if (!map.has(key)) {
+        const color =
+          t.categoryColor ||
+          CATEGORY_COLOR_PALETTE[map.size % CATEGORY_COLOR_PALETTE.length];
+        map.set(key, {
+          name: rawCat,
+          color,
+          isSystem: false,
+        });
+      }
+    }
+  }
+  return Array.from(map.values());
+}
 
 export interface CategoryUsageStatus {
   isUnused: boolean;
@@ -846,18 +896,86 @@ export const INITIAL_ACCOUNTS: BankAccount[] = isTestEnv
       },
     ];
 
-export const AVAILABLE_MONTHS = [
-  { key: "2026-09", label: "Septiembre 2026" },
-  { key: "2026-08", label: "Agosto 2026" },
-  { key: "2026-07", label: "Julio 2026" },
-  { key: "2026-06", label: "Junio 2026" },
+export interface MonthOption {
+  key: string;
+  label: string;
+}
+
+const SPANISH_MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
 ];
+
+export function formatMonthLabel(monthKey: string): string {
+  if (!monthKey || !monthKey.includes("-")) return monthKey || "";
+  const [yStr, mStr] = monthKey.split("-");
+  const year = parseInt(yStr, 10);
+  const month = parseInt(mStr, 10);
+  if (month >= 1 && month <= 12) {
+    return `${SPANISH_MONTH_NAMES[month - 1]} ${year}`;
+  }
+  return monthKey;
+}
+
+export function getPreviousMonthKey(monthKey: string): string {
+  if (!monthKey || !monthKey.includes("-")) return "";
+  const [yStr, mStr] = monthKey.split("-");
+  let y = parseInt(yStr, 10);
+  let m = parseInt(mStr, 10);
+  m -= 1;
+  if (m < 1) {
+    m = 12;
+    y -= 1;
+  }
+  return `${y}-${String(m).padStart(2, "0")}`;
+}
+
+export function computeAvailableMonths(transactions: Transaction[] = []): MonthOption[] {
+  const now = new Date();
+  const currentKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const keysSet = new Set<string>();
+  keysSet.add(currentKey);
+
+  if (Array.isArray(transactions)) {
+    for (const t of transactions) {
+      if (t.monthKey && /^\d{4}-\d{2}$/.test(t.monthKey)) {
+        keysSet.add(t.monthKey);
+      } else if (t.date) {
+        const canonical = normalizeDateToCanonical(t.date, t.monthKey);
+        if (canonical && /^\d{4}-\d{2}/.test(canonical)) {
+          keysSet.add(canonical.substring(0, 7));
+        }
+      }
+    }
+  }
+
+  // Ensure rolling 6 months back from the latest month found
+  const sortedDesc = Array.from(keysSet).sort().reverse();
+  const latestKey = sortedDesc[0] || currentKey;
+  const [latY, latM] = latestKey.split("-").map(Number);
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(latY, latM - 1 - i, 1);
+    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    keysSet.add(k);
+  }
+
+  return Array.from(keysSet)
+    .sort()
+    .reverse()
+    .map((key) => ({
+      key,
+      label: formatMonthLabel(key),
+    }));
+}
+
+export const AVAILABLE_MONTHS: MonthOption[] = computeAvailableMonths();
 
 interface TransactionsContextType {
   transactions: Transaction[];
   accounts: BankAccount[];
   selectedMonth: string;
   setSelectedMonth: (month: string) => void;
+  availableMonths: MonthOption[];
   addTransaction: (tx: {
     merchant: string;
     amount: number;
@@ -1229,15 +1347,39 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     return {};
   });
 
-  const [selectedMonth, setSelectedMonth] = useState<string>("2026-09");
+  const [selectedMonth, setSelectedMonthState] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY_SELECTED_MONTH);
+        if (saved && /^\d{4}-\d{2}$/.test(saved)) {
+          return saved;
+        }
+      } catch {}
+    }
+    if (isTestEnv) {
+      return "2026-09";
+    }
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
+
+  const setSelectedMonth = useCallback((month: string) => {
+    setSelectedMonthState(month);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY_SELECTED_MONTH, month);
+      } catch {}
+    }
+  }, []);
+
   const [categories, setCategories] = useState<CategoryInfo[]>(() => {
     if (typeof window !== "undefined") {
       try {
-        const saved = localStorage.getItem("cuentaconjunta_categories");
+        const saved = localStorage.getItem(STORAGE_KEY_CATEGORIES);
         if (saved) {
           const parsed = JSON.parse(saved);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed;
+            return reconcileCategoriesWithTransactions(parsed);
           }
         }
       } catch {
@@ -1246,6 +1388,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     }
     return CATEGORIES_LIST;
   });
+
+  const availableMonths = useMemo(() => {
+    return computeAvailableMonths(transactions);
+  }, [transactions]);
 
   const [rules, setRules] = useState<AssignmentRule[]>(() => {
     if (typeof window !== "undefined") {
@@ -1363,6 +1509,19 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           );
         } catch {}
       }
+      const savedCats = localStorage.getItem(STORAGE_KEY_CATEGORIES);
+      if (savedCats) {
+        try {
+          const parsed = JSON.parse(savedCats);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const reconciled = reconcileCategoriesWithTransactions(parsed, transactionsRef.current);
+            setCategories((prev) => (areCategoriesEqual(prev, reconciled) ? prev : reconciled));
+          }
+        } catch {}
+      } else {
+        const reconciled = reconcileCategoriesWithTransactions(CATEGORIES_LIST, transactionsRef.current);
+        setCategories((prev) => (areCategoriesEqual(prev, reconciled) ? prev : reconciled));
+      }
     } catch (e) {
       console.warn("Hydration failed:", e);
     }
@@ -1419,6 +1578,17 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(nextLearnings));
               } catch {}
               return nextLearnings;
+            });
+          }
+          if (Array.isArray(cloud.categories) && cloud.categories.length > 0) {
+            const nextCats = cloud.categories as CategoryInfo[];
+            setCategories((prev) => {
+              const merged = reconcileCategoriesWithTransactions([...prev, ...nextCats], cloudTxs);
+              if (areCategoriesEqual(prev, merged)) return prev;
+              try {
+                localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(merged));
+              } catch {}
+              return merged;
             });
           }
         }
@@ -1609,6 +1779,16 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         if (cloudTxs.length === 0 || merged.length !== cloudTxs.length) {
           pushStateToCloud(inviteCode, { transactions: merged }).catch(() => {});
         }
+
+        // Ensure any categories appearing in merged transactions are known
+        setCategories((currentCats) => {
+          const reconciled = reconcileCategoriesWithTransactions(currentCats, merged);
+          if (areCategoriesEqual(currentCats, reconciled)) return currentCats;
+          try {
+            localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(reconciled));
+          } catch {}
+          return reconciled;
+        });
 
         return merged;
       });
@@ -1912,6 +2092,34 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
         pushStateToCloud(inviteCode, { category_learnings: updated }).catch((e) => {
           console.warn("Could not push category_learnings to cloud:", e);
+        });
+      }
+    },
+    [inviteCode]
+  );
+
+  const persistCategories = useCallback(
+    (newCats: CategoryInfo[] | ((prev: CategoryInfo[]) => CategoryInfo[]), broadcast = true) => {
+      const prev = categoriesRef.current;
+      const updated = typeof newCats === "function" ? newCats(prev) : newCats;
+      categoriesRef.current = updated;
+      setCategories(updated);
+
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(updated));
+        } catch {}
+      }
+
+      if (broadcast) {
+        broadcastHouseholdSync({
+          type: "CATEGORIES_SYNC",
+          inviteCode,
+          categories: updated,
+        });
+
+        pushStateToCloud(inviteCode, { categories: updated }).catch((e) => {
+          console.warn("Could not push categories to cloud:", e);
         });
       }
     },
@@ -2267,16 +2475,27 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         return [...toAdd, ...prev];
       });
 
+      if (addedCount > 0) {
+        setCategories((currentCats) => {
+          const reconciled = reconcileCategoriesWithTransactions(currentCats, transactionsRef.current);
+          if (areCategoriesEqual(currentCats, reconciled)) return currentCats;
+          try {
+            localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(reconciled));
+          } catch {}
+          return reconciled;
+        });
+      }
+
       return { added: addedCount, duplicates: duplicatesCount, total: movements.length };
     },
     [persistTransactions]
   );
 
   // Keep a ref to latest state for responsive sync handshakes
-  const latestStateRef = React.useRef({ transactions, accounts, settlementCutoffs, rules, learnings });
+  const latestStateRef = React.useRef({ transactions, accounts, settlementCutoffs, rules, learnings, categories });
   useEffect(() => {
-    latestStateRef.current = { transactions, accounts, settlementCutoffs, rules, learnings };
-  }, [transactions, accounts, settlementCutoffs, rules, learnings]);
+    latestStateRef.current = { transactions, accounts, settlementCutoffs, rules, learnings, categories };
+  }, [transactions, accounts, settlementCutoffs, rules, learnings, categories]);
 
   // Zero-login background sync listener (Supabase Realtime + BroadcastChannel + Storage)
   useEffect(() => {
@@ -2315,6 +2534,14 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
           localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(msg.learnings));
         } catch {}
+      } else if (msg.type === "CATEGORIES_SYNC" && Array.isArray(msg.categories)) {
+        setCategories((prev) => {
+          const merged = reconcileCategoriesWithTransactions(msg.categories, transactionsRef.current);
+          try {
+            localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
       } else if (msg.type === "REQUEST_SYNC") {
         broadcastHouseholdSync({
           type: "TRANSACTIONS_SYNC",
@@ -2340,6 +2567,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           type: "LEARNINGS_SYNC",
           inviteCode,
           learnings: latestStateRef.current.learnings,
+        });
+        broadcastHouseholdSync({
+          type: "CATEGORIES_SYNC",
+          inviteCode,
+          categories: latestStateRef.current.categories,
         });
       }
     };
@@ -2378,6 +2610,12 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
           setLearnings(JSON.parse(e.newValue));
         } catch {}
+      } else if (e.key === STORAGE_KEY_CATEGORIES && e.newValue) {
+        try {
+          setCategories(JSON.parse(e.newValue));
+        } catch {}
+      } else if (e.key === STORAGE_KEY_SELECTED_MONTH && e.newValue) {
+        setSelectedMonthState(e.newValue);
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -2452,6 +2690,15 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
           localStorage.setItem(STORAGE_KEY_LEARNINGS, JSON.stringify(cloud.category_learnings));
         } catch {}
       }
+      if (cloud.categories && Array.isArray(cloud.categories)) {
+        setCategories((prev) => {
+          const merged = reconcileCategoriesWithTransactions([...prev, ...cloud.categories!], transactionsRef.current);
+          try {
+            localStorage.setItem(STORAGE_KEY_CATEGORIES, JSON.stringify(merged));
+          } catch {}
+          return merged;
+        });
+      }
     });
 
     return () => {
@@ -2484,12 +2731,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const newCat: CategoryInfo = { name: trimmed, color: chosenColor, isSystem: false };
     const updated = [...categories, newCat];
-    setCategories(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
-      } catch {}
-    }
+    persistCategories(updated);
     return { success: true };
   };
 
@@ -2508,15 +2750,10 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     const updated = categories.map((c) =>
       c.name === name ? { ...c, color: newColor } : c
     );
-    setCategories(updated);
+    persistCategories(updated);
     persistTransactions((prev) =>
       prev.map((t) => (t.category === name ? { ...t, categoryColor: newColor } : t))
     );
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
-      } catch {}
-    }
     return { success: true };
   };
 
@@ -2545,12 +2782,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     );
 
     const updated = categories.filter((c) => c.name !== name);
-    setCategories(updated);
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem("cuentaconjunta_categories", JSON.stringify(updated));
-      } catch {}
-    }
+    persistCategories(updated);
     return { success: true };
   };
 
@@ -2710,6 +2942,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         learnCategory(targetMerchant, newCategoryName);
       }
 
+      // If the assigned category was not in categories, ensure it is permanently registered
+      if (!categories.some((c) => c.name.toLowerCase().trim() === newCategoryName.toLowerCase().trim())) {
+        persistCategories((prev) => [...prev, { name: newCategoryName, color, isSystem: false }]);
+      }
+
       persistTransactions((prev) =>
         prev.map((t) => {
           if (t.id === id || (targetMerchant && isMerchantMatch(t.merchant, targetMerchant))) {
@@ -2724,7 +2961,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         })
       );
     },
-    [categories, learnCategory, persistTransactions]
+    [categories, learnCategory, persistTransactions, persistCategories]
   );
 
   const confirmAutoAssigned = useCallback(
@@ -3287,20 +3524,9 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
     });
   };
 
-  // 1. Calculate previous month carry-over debt
-  const prevMonthKey =
-    selectedMonth === "2026-09"
-      ? "2026-08"
-      : selectedMonth === "2026-08"
-      ? "2026-07"
-      : "";
-
-  const prevMonthLabel =
-    selectedMonth === "2026-09"
-      ? "Agosto 2026"
-      : selectedMonth === "2026-08"
-      ? "Julio 2026"
-      : "";
+  // 1. Calculate previous month carry-over debt dynamically for any month
+  const prevMonthKey = getPreviousMonthKey(selectedMonth);
+  const prevMonthLabel = formatMonthLabel(prevMonthKey);
 
   const previousMonthCarryOverItem = useMemo((): DebtMovementItem | null => {
     if (!prevMonthKey || activeSettlement) return null;
@@ -3747,6 +3973,11 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
       inviteCode,
       settlements: nextSettlements,
     });
+    broadcastHouseholdSync({
+      type: "CATEGORIES_SYNC",
+      inviteCode,
+      categories: nextCategories,
+    });
 
     return {
       success: true,
@@ -3764,6 +3995,7 @@ export const TransactionsProvider: React.FC<{ children: React.ReactNode }> = ({ 
         accounts,
         selectedMonth,
         setSelectedMonth,
+        availableMonths,
         addTransaction,
         updateTransaction,
         deleteTransaction,

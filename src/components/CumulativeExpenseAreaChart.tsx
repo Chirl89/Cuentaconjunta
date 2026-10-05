@@ -11,7 +11,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import { TrendingUp, Calendar } from "lucide-react";
-import { Transaction } from "@/context/TransactionsContext";
+import { Transaction, normalizeDateToCanonical } from "@/context/TransactionsContext";
 
 interface CumulativeExpenseAreaChartProps {
   transactions: Transaction[];
@@ -86,10 +86,10 @@ export const CumulativeExpenseAreaChart: React.FC<CumulativeExpenseAreaChartProp
 
     for (const tx of transactions) {
       if (tx.split === "ignored" || tx.isCredit) continue;
-      // tx.date suele ser "YYYY-MM-DD"
-      if (!tx.date || !tx.date.startsWith(selectedMonth)) continue;
+      const canonDate = normalizeDateToCanonical(tx.date, tx.monthKey);
+      if (!canonDate || !canonDate.startsWith(selectedMonth)) continue;
 
-      const dayNum = parseInt(tx.date.split("-")[2], 10);
+      const dayNum = parseInt(canonDate.split("-")[2], 10);
       if (isNaN(dayNum) || dayNum < 1 || dayNum > daysInMonth) continue;
 
       const currentDaySum = dailyExpenses.get(dayNum) || 0;

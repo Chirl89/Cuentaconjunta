@@ -1,24 +1,25 @@
 "use client";
 
 import React from "react";
-import { useTransactions, AVAILABLE_MONTHS } from "@/context/TransactionsContext";
+import { useTransactions, AVAILABLE_MONTHS, formatMonthLabel } from "@/context/TransactionsContext";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const MonthSelector: React.FC<{ className?: string }> = ({ className = "" }) => {
-  const { selectedMonth, setSelectedMonth } = useTransactions();
+  const { selectedMonth, setSelectedMonth, availableMonths } = useTransactions();
+  const months = availableMonths && availableMonths.length > 0 ? availableMonths : AVAILABLE_MONTHS;
 
-  const currentIndex = AVAILABLE_MONTHS.findIndex((m) => m.key === selectedMonth);
-  const currentLabel = AVAILABLE_MONTHS[currentIndex]?.label || selectedMonth;
+  const currentIndex = months.findIndex((m) => m.key === selectedMonth);
+  const currentLabel = months[currentIndex]?.label || formatMonthLabel(selectedMonth);
 
   const handlePrev = () => {
-    if (currentIndex < AVAILABLE_MONTHS.length - 1) {
-      setSelectedMonth(AVAILABLE_MONTHS[currentIndex + 1].key);
+    if (currentIndex < months.length - 1) {
+      setSelectedMonth(months[currentIndex + 1].key);
     }
   };
 
   const handleNext = () => {
     if (currentIndex > 0) {
-      setSelectedMonth(AVAILABLE_MONTHS[currentIndex - 1].key);
+      setSelectedMonth(months[currentIndex - 1].key);
     }
   };
 
@@ -29,7 +30,7 @@ export const MonthSelector: React.FC<{ className?: string }> = ({ className = ""
       <button
         type="button"
         onClick={handlePrev}
-        disabled={currentIndex >= AVAILABLE_MONTHS.length - 1}
+        disabled={currentIndex >= months.length - 1}
         className="p-1.5 sm:p-1 rounded-xl sm:rounded-lg hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-transparent text-slate-600 transition-colors shrink-0 cursor-pointer"
         title="Mes anterior"
       >
@@ -45,7 +46,7 @@ export const MonthSelector: React.FC<{ className?: string }> = ({ className = ""
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
           title="Seleccionar mes"
         >
-          {AVAILABLE_MONTHS.map((m) => (
+          {months.map((m) => (
             <option key={m.key} value={m.key}>
               {m.label}
             </option>
