@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-10-06T12:28:19.932Z",
+  "lastSyncAt": "2026-10-06T22:03:07.044Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -8,7 +8,7 @@
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
       "balance": 13163.59,
-      "lastUpdated": "2026-10-06T12:28:19.932Z"
+      "lastUpdated": "2026-10-06T22:03:07.044Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-10-06T12:28:19.932Z"
+      "lastUpdated": "2026-10-06T22:03:07.044Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,44 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-10-06T12:28:19.932Z"
+      "lastUpdated": "2026-10-06T22:03:07.044Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_0566ea72-e1fe-e34b-0240-1b0937c4b6e3",
+      "merchant": "Canva",
+      "amount": 0,
+      "date": "6 Oct",
+      "monthKey": "2026-10",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Revolut (ES2215830001129041111567)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "0566ea72-e1fe-e34b-0240-1b0937c4b6e3",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_0566ea72-60e9-e3ec-0240-1b14963e288c",
+      "merchant": "Canva Ireland Limited",
+      "amount": 0,
+      "date": "6 Oct",
+      "monthKey": "2026-10",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Revolut (ES2215830001129041111567)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "0566ea72-60e9-e3ec-0240-1b14963e288c",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_2026-09-25.1",
       "merchant": "Transferencia O /ISRAEL GALAN JIMENEZ",
