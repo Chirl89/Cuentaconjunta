@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-10-08T12:31:15.284Z",
+  "lastSyncAt": "2026-10-08T22:40:55.724Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 13163.59,
-      "lastUpdated": "2026-10-08T12:31:15.284Z"
+      "balance": 13283.59,
+      "lastUpdated": "2026-10-08T22:40:55.724Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-10-08T12:31:15.284Z"
+      "lastUpdated": "2026-10-08T22:40:55.724Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,27 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-10-08T12:31:15.284Z"
+      "lastUpdated": "2026-10-08T22:40:55.724Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-10-08.0",
+      "merchant": "Transferencia NFOQUE ADVISORY SERVICE",
+      "amount": 120,
+      "date": "8 Oct",
+      "monthKey": "2026-10",
+      "category": "Ingreso / Nómina",
+      "categoryColor": "#10B981",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "classified",
+      "payer": "memberA",
+      "split": "memberA",
+      "isManual": false,
+      "bankMovementId": "2026-10-08.0",
+      "currency": "EUR",
+      "isCredit": true
+    },
     {
       "id": "eb_0566ea72-e1fe-e34b-0240-1b0937c4b6e3",
       "merchant": "Canva",
