@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-10-08T22:40:55.724Z",
+  "lastSyncAt": "2026-10-09T03:47:15.091Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 13283.59,
-      "lastUpdated": "2026-10-08T22:40:55.724Z"
+      "balance": 12984.59,
+      "lastUpdated": "2026-10-09T03:47:15.091Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-10-08T22:40:55.724Z"
+      "lastUpdated": "2026-10-09T03:47:15.091Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,27 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-10-08T22:40:55.724Z"
+      "lastUpdated": "2026-10-09T03:47:15.091Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-10-09.0",
+      "merchant": "Recibo AXA SEGUROS GENERALES",
+      "amount": 299,
+      "date": "9 Oct",
+      "monthKey": "2026-10",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-10-09.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_2026-10-08.0",
       "merchant": "Transferencia NFOQUE ADVISORY SERVICE",
