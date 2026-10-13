@@ -364,25 +364,37 @@ export const SyncModal: React.FC<SyncModalProps> = ({ isOpen, onClose }) => {
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
                 </span>
                 <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">
-                  Sincronización en Directo (PSD2)
+                  Sincronización Bancaria (PSD2)
                 </span>
               </div>
               <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-200">
-                Automático
+                4 veces al día
               </span>
             </div>
             <p className="text-xs text-slate-600 leading-relaxed">
-              Consulta en tiempo real los últimos cobros, compras y transferencias registrados en tus cuentas bancarias conectadas.
+              Consulta en tiempo real los últimos cobros, compras y transferencias registrados en tus cuentas bancarias conectadas (Bankinter y Revolut).
             </p>
-            <button
-              type="button"
-              disabled={isLiveSyncing}
-              onClick={handleLiveSync}
-              className="w-full py-2.5 px-4 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm shadow-[#00D09C]/20 transition-all cursor-pointer active:scale-98 disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? "animate-spin" : ""}`} />
-              <span>{isLiveSyncing ? "Sincronizando con el banco..." : "Sincronizar movimientos en directo"}</span>
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                disabled={isLiveSyncing}
+                onClick={handleLiveSync}
+                className="w-full py-2.5 px-4 rounded-xl bg-[#00D09C] hover:bg-[#00B386] text-white font-extrabold text-xs flex items-center justify-center gap-2 shadow-sm shadow-[#00D09C]/20 transition-all cursor-pointer active:scale-98 disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLiveSyncing ? "animate-spin" : ""}`} />
+                <span>{isLiveSyncing ? "Comprobando últimos movimientos..." : "Refrescar movimientos en vivo"}</span>
+              </button>
+              <a
+                href="https://github.com/Chirl89/Cuentaconjunta/actions/workflows/bank-sync.yml"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full py-2 px-3 rounded-xl bg-white border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-800 font-bold text-[11px] flex items-center justify-center gap-1.5 transition-colors text-center"
+              >
+                <Zap className="w-3 h-3 text-amber-500" />
+                <span>Disparar consulta bancaria inmediata en GitHub</span>
+                <ExternalLink className="w-3 h-3 text-slate-400" />
+              </a>
+            </div>
           </div>
 
           <div className="relative flex py-1 items-center">

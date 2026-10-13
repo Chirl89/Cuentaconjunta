@@ -491,9 +491,23 @@ UhoixXqLDzO0zSZODQw/w7Sb6OgMdEY=
   }
 
   console.log('--- FitDuo Bank Sync Worker Completed ---');
+  setTimeout(() => {
+    process.exit(0);
+  }, 500);
 }
 
-main().catch((err) => {
-  console.error('Fatal error in bank sync worker:', err);
-  process.exit(1);
-});
+// Global safety timeout to ensure process never hangs unattended
+setTimeout(() => {
+  console.warn('⚠️ Bank sync worker safety timeout reached (120s). Exiting.');
+  process.exit(0);
+}, 120000).unref();
+
+main()
+  .then(() => {
+    setTimeout(() => process.exit(0), 1000);
+  })
+  .catch((err) => {
+    console.error('Fatal error in bank sync worker:', err);
+    process.exit(1);
+  });
+
