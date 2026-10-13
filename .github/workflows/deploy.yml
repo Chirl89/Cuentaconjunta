@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  schedule:
+    # Run 30 minutes after bank-sync (00:30, 06:30, 12:30, 18:30 UTC) to deploy fresh bank feed to GitHub Pages
+    - cron: '30 0,6,12,18 * * *'
   workflow_dispatch:
 
 permissions:
