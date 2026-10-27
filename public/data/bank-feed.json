@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-10-26T18:01:20.728Z",
+  "lastSyncAt": "2026-10-27T03:01:06.147Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 13096.74,
-      "lastUpdated": "2026-10-26T18:01:20.728Z"
+      "balance": 16168.12,
+      "lastUpdated": "2026-10-27T03:01:06.147Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-10-26T18:01:20.728Z"
+      "lastUpdated": "2026-10-27T03:01:06.147Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,7 +26,7 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-10-26T18:01:20.728Z"
+      "lastUpdated": "2026-10-27T03:01:06.147Z"
     }
   ],
   "transactions": [
