@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-11-01T21:30:45.666Z",
+  "lastSyncAt": "2026-11-02T03:34:32.037Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 15343.65,
-      "lastUpdated": "2026-11-01T21:30:45.666Z"
+      "balance": 13784.34,
+      "lastUpdated": "2026-11-02T03:34:32.037Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-11-01T21:30:45.666Z"
+      "lastUpdated": "2026-11-02T03:34:32.037Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,27 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-11-01T21:30:45.666Z"
+      "lastUpdated": "2026-11-02T03:34:32.037Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-11-02.0",
+      "merchant": "Recibo TESTA RESIDENCIAL SOCIM",
+      "amount": 1559.31,
+      "date": "2 Nov",
+      "monthKey": "2026-11",
+      "category": "Hogar & Luz",
+      "categoryColor": "#0EA5E9",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-11-02.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_2026-10-31.0",
       "merchant": "Recibo VISA CLASICA",
