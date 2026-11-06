@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-11-06T04:21:33.832Z",
+  "lastSyncAt": "2026-11-06T13:29:16.363Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 13760.63,
-      "lastUpdated": "2026-11-06T04:21:33.832Z"
+      "balance": 13260.63,
+      "lastUpdated": "2026-11-06T13:29:16.363Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-11-06T04:21:33.832Z"
+      "lastUpdated": "2026-11-06T13:29:16.363Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,27 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-11-06T04:21:33.832Z"
+      "lastUpdated": "2026-11-06T13:29:16.363Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-11-06.0",
+      "merchant": "#INGRESO EN TARJ.CREDITO",
+      "amount": 500,
+      "date": "6 Nov",
+      "monthKey": "2026-11",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-11-06.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
     {
       "id": "eb_2026-11-05.0",
       "merchant": "Recibo BANCO CETELEM, S.A.",
