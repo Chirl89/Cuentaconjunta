@@ -1,5 +1,5 @@
 {
-  "lastSyncAt": "2026-11-27T01:19:31.356Z",
+  "lastSyncAt": "2026-11-27T15:52:17.990Z",
   "accounts": [
     {
       "id": "acc_bankinter",
@@ -7,8 +7,8 @@
       "accountName": "Cuenta Bankinter",
       "ibanMask": "ES9301280082940100030803",
       "ownership": "USER_A",
-      "balance": 21078.17,
-      "lastUpdated": "2026-11-27T01:19:31.356Z"
+      "balance": 24023.58,
+      "lastUpdated": "2026-11-27T15:52:17.990Z"
     },
     {
       "id": "acc_revolut_personal",
@@ -17,7 +17,7 @@
       "ibanMask": "ES2215830001129041111567",
       "ownership": "USER_A",
       "balance": 34.42,
-      "lastUpdated": "2026-11-27T01:19:31.356Z"
+      "lastUpdated": "2026-11-27T15:52:17.990Z"
     },
     {
       "id": "acc_revolut_conjunta",
@@ -26,10 +26,44 @@
       "ibanMask": "ES0715830001109142458796",
       "ownership": "JOINT",
       "balance": 1.21,
-      "lastUpdated": "2026-11-27T01:19:31.356Z"
+      "lastUpdated": "2026-11-27T15:52:17.990Z"
     }
   ],
   "transactions": [
+    {
+      "id": "eb_2026-11-27.0",
+      "merchant": "Recibo CANAL DE ISABEL II, SOC",
+      "amount": 25.97,
+      "date": "27 Nov",
+      "monthKey": "2026-11",
+      "category": "Otros Gastos Comunes",
+      "categoryColor": "#EC4899",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "pending",
+      "payer": "memberA",
+      "split": "50/50",
+      "isManual": false,
+      "bankMovementId": "2026-11-27.0",
+      "currency": "EUR",
+      "isCredit": false
+    },
+    {
+      "id": "eb_2026-11-27.1",
+      "merchant": "Transferencia NFOQUE ADVISORY S",
+      "amount": 2971.38,
+      "date": "27 Nov",
+      "monthKey": "2026-11",
+      "category": "Ingreso / Nómina",
+      "categoryColor": "#10B981",
+      "accountLabel": "Bankinter (ES9301280082940100030803)",
+      "status": "classified",
+      "payer": "memberA",
+      "split": "memberA",
+      "isManual": false,
+      "bankMovementId": "2026-11-27.1",
+      "currency": "EUR",
+      "isCredit": true
+    },
     {
       "id": "eb_2026-11-26.1",
       "merchant": "Transferencia NFOQUE ADVISORY SERVICE",
